@@ -3,8 +3,8 @@
 
 // const BASE_URL = 'http://192.168.51.84:8000'
 // const BASE_WS = "192.168.51.84:8000"
-const BASE_URL = "http://localhost:8000";
-const BASE_WS = "localhost:8000";
+const BASE_URL = "http://10.10.10.5:8000";
+const BASE_WS = "10.10.10.5:8000";
 
 // ─── Хранение токенов ────────────────────────────────────────────────────────
 

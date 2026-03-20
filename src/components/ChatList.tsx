@@ -141,7 +141,7 @@ const ChatList = ({ chats }: ChatListProps) => {
                               // Синий если прочитано (eighth), серый если нет (fiveth)
                               color: lastMsg.is_read
                                 ? colors.eighth
-                                : colors.fiveth,
+                                : colors.text,
                             }}
                           />
                         ) : (
@@ -153,7 +153,7 @@ const ChatList = ({ chats }: ChatListProps) => {
                                 height: 12,
                                 // Красный если не в диалоге (seventh), серый если в нем (fourth)
                                 bgcolor: isSelected
-                                  ? colors.fourth
+                                  ? colors.third
                                   : colors.seventh,
                                 borderRadius: "50%",
                                 transition: "background-color 0.3s ease",

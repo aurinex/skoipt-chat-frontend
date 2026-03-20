@@ -54,17 +54,17 @@ export const ThemeProvider = ({ children }: any) => {
             // fourth: actualMode === "dark" ? "#878787" : "#878787",
 
             first: actualMode === "dark" ? "#272727" : "#272727",
-            second: actualMode === "dark" ? "#2C2C2C" : "#2C2C2C",
-            third: actualMode === "dark" ? "#333333" : "#333333",
-            fourth: actualMode === "dark" ? "#3D3D3D" : "#3D3D3D",
-            fiveth: actualMode === "dark" ? "#878787" : "#878787",
-            sixth: actualMode === "dark" ? "#FFFFFF" : "#FFFFFF",
+            second: actualMode === "dark" ? "#2C2C2C" : "#FFFFFF",
+            third: actualMode === "dark" ? "#333333" : "#D0D0D0",
+            fourth: actualMode === "dark" ? "#3D3D3D" : "#E0E0E0",
+            fiveth: actualMode === "dark" ? "#878787" : "#484848",
+            sixth: actualMode === "dark" ? "#FFFFFF" : "#000000",
             seventh: actualMode === "dark" ? "#FA3B3B" : "#FA3B3B",
             eighth: actualMode === "dark" ? "#0050E4" : "#0050E4",
 
             text: actualMode === "dark" ? "#000000" : "#FFFFFF",
 
-            default: actualMode === "dark" ? "#2C2C2C" : "#2C2C2C",
+            default: actualMode === "dark" ? "#2C2C2C" : "#FFFFFF",
           },
         },
         typography: {
