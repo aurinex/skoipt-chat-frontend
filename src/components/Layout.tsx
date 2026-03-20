@@ -1,94 +1,124 @@
-import { AppBar, Toolbar, Typography, Box, Drawer, List, ListItem, ListItemButton, ListItemText, Divider, Container, CssBaseline, Button } from '@mui/material';
-import { Link, Outlet, useNavigate } from 'react-router-dom';
-import api, { socket } from '../services/api';
-import { useEffect, useState } from 'react';
-
-const drawerWidth = 300;
+import { Box } from "@mui/material";
+import { Outlet } from "react-router-dom";
+import { useEffect, useState } from "react";
+import api, { socket } from "../services/api";
+import Navbar from "./Navbar";
+import ChatList from "./ChatList";
+import { useTheme } from "@mui/material";
 
 const Layout = () => {
   const [chats, setChats] = useState<any[]>([]);
-  const navigate = useNavigate();
+  const theme = useTheme();
+  const colors = theme.palette.background;
+
+  const handleUpdateChat = (msg: any) => {
+    setChats((prevChats) => {
+      const chatIndex = prevChats.findIndex(
+        (c) => String(c.id) === String(msg.chat_id),
+      );
+      if (chatIndex === -1) return prevChats;
+
+      const updatedChats = [...prevChats];
+      const targetChat = {
+        ...updatedChats[chatIndex],
+        last_message: {
+          ...msg,
+          is_mine: msg.is_mine ?? true, // Убеждаемся, что флаг "мое" проставлен
+        },
+      };
+
+      updatedChats.splice(chatIndex, 1);
+      return [targetChat, ...updatedChats];
+    });
+  };
 
   useEffect(() => {
-    api.chats.list().then(setChats);
-    
-    // Обработчик для сокета
-    const unsub = socket.on('new_message', ({ message }: any) => {
-        updateLastMessage(message);
+    api.chats
+      .list()
+      .then(setChats)
+      .catch(() => {});
+
+    // Подписка на сокеты для обновления списка чатов слева
+    const unsubMsg = socket.on("new_message", ({ message }: any) => {
+      /* логика обновления списка chats как раньше */
     });
 
-    // Обработчик для своих же отправленных сообщений
-    const handleLocalSent = (e: any) => {
-        updateLastMessage(e.detail);
+    return () => unsubMsg();
+  }, []);
+
+  useEffect(() => {
+    const handleNewMessage = (data: any) => {
+      const msg = data.message || data;
+
+      setChats((prevChats) => {
+        const updated = prevChats.map((chat) => {
+          if (String(chat.id) === String(msg.chat_id)) {
+            return {
+              ...chat,
+              last_message: msg, // Обновляем последнее сообщение
+            };
+          }
+          return chat;
+        });
+
+        // Сортируем: чат с новым сообщением в самый верх
+        return updated.sort((a, b) => {
+          const timeA = new Date(a.last_message?.created_at || 0).getTime();
+          const timeB = new Date(b.last_message?.created_at || 0).getTime();
+          return timeB - timeA;
+        });
+      });
     };
 
-    const updateLastMessage = (message: any) => {
-        setChats(prev => prev.map(chat => 
-        String(chat.id) === String(message.chat_id) 
-            ? { ...chat, last_message: message } 
-            : chat
-        ).sort((a, b) => {
-        const timeA = new Date(a.last_message?.created_at || 0).getTime();
-        const timeB = new Date(b.last_message?.created_at || 0).getTime();
-        return timeB - timeA;
-        }));
-    };
-
-    window.addEventListener('local_message_sent', handleLocalSent);
-    
+    const unsubscribe = socket.on("new_message", handleNewMessage);
     return () => {
-        unsub();
-        window.removeEventListener('local_message_sent', handleLocalSent);
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
     };
-    }, []);
+  }, []);
 
-  const handleLogout = async () => {
-    await api.auth.logout();
-    navigate('/login');
+  const updateChatLastMessage = (message: any) => {
+    setChats((prevChats) => {
+      // 1. Находим чат, в который пришло сообщение
+      const chatIndex = prevChats.findIndex(
+        (c) => String(c.id) === String(message.chat_id),
+      );
+      if (chatIndex === -1) return prevChats;
+
+      const updatedChats = [...prevChats];
+      const targetChat = { ...updatedChats[chatIndex] };
+
+      // 2. Обновляем данные последнего сообщения
+      targetChat.last_message = {
+        text: message.text,
+        is_mine: message.is_mine,
+        is_read: message.is_read,
+        created_at: message.created_at,
+      };
+
+      // 3. Удаляем чат из текущей позиции и вставляем в начало массива
+      updatedChats.splice(chatIndex, 1);
+      return [targetChat, ...updatedChats];
+    });
   };
 
   return (
-    <Box sx={{ display: 'flex' }}>
-      <CssBaseline />
-      <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-        <Toolbar>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            Messenger
-          </Typography>
-          <Button color="inherit" onClick={handleLogout}>Выйти</Button>
-        </Toolbar>
-      </AppBar>
-      
-      <Drawer
-        variant="permanent"
+    <Box sx={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+      <Box sx={{ padding: "54px 0 54px 25px" }}>
+        <Navbar orientation="vertical" />
+      </Box>
+
+      <Box sx={{ margin: "0px 36px 0px 36px" }}>
+        <ChatList chats={chats} />
+      </Box>
+
+      <Box
         sx={{
-          width: drawerWidth,
-          [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' },
+          flexGrow: 1,
         }}
       >
-        <Toolbar />
-        <Box sx={{ overflow: 'auto' }}>
-          <List>
-            {chats.map((chat) => (
-              <ListItem key={chat.id} disablePadding>
-                <ListItemButton component={Link} to={`/chat/${chat.id}`}>
-                  <ListItemText 
-                    primary={chat.name || 'Диалог'} 
-                    secondary={chat.last_message?.text}
-                    secondaryTypographyProps={{ noWrap: true }}
-                  />
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </List>
-        </Box>
-      </Drawer>
-
-      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-        <Toolbar />
-        <Container maxWidth="lg">
-          <Outlet />
-        </Container>
+        <Outlet context={{ handleUpdateChat }} />
       </Box>
     </Box>
   );

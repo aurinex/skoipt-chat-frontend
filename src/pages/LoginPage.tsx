@@ -1,42 +1,173 @@
-import { useState } from 'react';
-import { TextField, Button, Paper, Typography, Box, Alert } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
+import { useState } from "react";
+import {
+  TextField,
+  Button,
+  FormControl,
+  Typography,
+  Box,
+  OutlinedInput,
+} from "@mui/material";
+import { useNavigate } from "react-router-dom";
+import api from "../services/api";
+import { useTheme } from "@mui/material";
 
 const LoginPage = () => {
-  const [form, setForm] = useState({ username: '', password: '' });
-  const [error, setError] = useState('');
+  const theme = useTheme();
+
+  const [form, setForm] = useState({ username: "", password: "" });
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       await api.auth.login(form);
-      navigate('/');
+      navigate("/");
     } catch (err: any) {
       setError(err.message);
     }
   };
 
+  const input = {
+    ".MuiOutlinedInput-root": {
+      color: theme.palette.background.fiveth,
+      borderRadius: "20px",
+      fontSize: "20px",
+      height: "49px",
+    },
+    ".MuiOutlinedInput-input": {
+      padding: "19px 22px",
+    },
+    ".MuiOutlinedInput-notchedOutline": {
+      border: "none",
+    },
+    bgcolor: theme.palette.background.fourth,
+    border: "none",
+    borderRadius: "20px",
+  };
+
   return (
-    <Box sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <Paper sx={{ p: 4, width: 400 }}>
-        <Typography variant="h5" gutterBottom>Вход</Typography>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+    <Box
+      sx={{
+        height: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Box
+        sx={{
+          width: "590px",
+          // height: "287px",
+          borderRadius: "55px",
+          bgcolor: theme.palette.background.third,
+        }}
+      >
+        <Box
+          sx={{
+            padding: "54px 62px",
+          }}
+        >
+          <form onSubmit={handleSubmit}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <Box>
+                <Typography
+                  sx={{
+                    color: theme.palette.background.text,
+                    fontSize: "20px",
+                    marginLeft: "12px",
+                  }}
+                >
+                  Логин<span style={{ color: "#FA3B3B" }}>*</span>
+                </Typography>
+                <TextField
+                  placeholder="aurinex"
+                  fullWidth
+                  onChange={(e) =>
+                    setForm({ ...form, username: e.target.value })
+                  }
+                  sx={{
+                    ...input,
+                  }}
+                />
+              </Box>
+
+              <Box>
+                <Typography
+                  sx={{
+                    color: theme.palette.background.text,
+                    fontSize: "20px",
+                    marginLeft: "12px",
+                  }}
+                >
+                  Пароль<span style={{ color: "#FA3B3B" }}>*</span>
+                </Typography>
+                <TextField
+                  type="password"
+                  placeholder="******"
+                  fullWidth
+                  onChange={(e) =>
+                    setForm({ ...form, password: e.target.value })
+                  }
+                  sx={{
+                    ...input,
+                    ".MuiOutlinedInput-root": {
+                      color: theme.palette.background.fiveth,
+                      borderRadius: "20px",
+                      fontSize: "16px",
+                      height: "49px",
+                    },
+                  }}
+                />
+              </Box>
+              <Box>
+                <Button
+                  type="submit"
+                  sx={{
+                    width: "50%",
+                    height: "49px",
+                    bgcolor: theme.palette.background.fourth,
+                    borderRadius: "20px",
+                    color: theme.palette.background.text,
+                    textTransform: "none",
+                    fontSize: "20px",
+                    mt: "30px",
+                    ml: "50%",
+                  }}
+                >
+                  Войти
+                </Button>
+              </Box>
+            </Box>
+          </form>
+        </Box>
+      </Box>
+      {/* <Paper sx={{ p: 4, width: 400 }}>
+        <Typography>Вход 1231231тест</Typography>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
         <form onSubmit={handleSubmit}>
-          <TextField 
-            fullWidth label="Логин" margin="normal" 
-            onChange={e => setForm({...form, username: e.target.value})} 
+          <TextField
+            fullWidth
+            label="Логин"
+            margin="normal"
+            onChange={(e) => setForm({ ...form, username: e.target.value })}
           />
-          <TextField 
-            fullWidth label="Пароль" type="password" margin="normal" 
-            onChange={e => setForm({...form, password: e.target.value})} 
+          <TextField
+            fullWidth
+            label="Пароль"
+            type="password"
+            margin="normal"
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
           />
           <Button fullWidth variant="contained" type="submit" sx={{ mt: 2 }}>
             Войти
           </Button>
         </form>
-      </Paper>
+      </Paper> */}
     </Box>
   );
 };
