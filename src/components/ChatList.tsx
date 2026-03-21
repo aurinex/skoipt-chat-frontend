@@ -10,7 +10,7 @@ import {
 import { Link, useLocation } from "react-router-dom";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import { Skeleton } from "@mui/material";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { socket } from "../services/api";
 
 interface ChatListProps {
@@ -24,7 +24,8 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
   const location = useLocation();
   const colors = theme.palette.background;
 
-  const myId = localStorage.getItem("user_id");
+  // Ref чтобы сокет-колбэки всегда читали актуальный myId
+  const myIdRef = useRef(localStorage.getItem("user_id"));
 
   const renderSkeletons = () => (
     <>
@@ -72,7 +73,6 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
   }, [chats]);
 
   useEffect(() => {
-    // 1. Слушаем статус "Печатает" для списка
     const unsubTyping = socket.on("typing", (data: any) => {
       setLocalChats((prev) =>
         prev.map((chat) =>
@@ -83,7 +83,6 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
       );
     });
 
-    // 2. Слушаем новые сообщения, чтобы обновить текст и поднять чат вверх
     const unsubMsg = socket.on("new_message", (data: any) => {
       const msg = data.message || data;
       setLocalChats((prev) => {
@@ -94,19 +93,15 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
 
         const updatedChats = [...prev];
         const targetChat = { ...updatedChats[chatIndex], last_message: msg };
-
-        // Удаляем чат со старой позиции и ставим в начало списка
         updatedChats.splice(chatIndex, 1);
         return [targetChat, ...updatedChats];
       });
     });
 
-    // 3. Слушаем события прочтения (для обновления галочек в списке)
     const unsubRead = socket.on("read", (data: any) => {
       setLocalChats((prev) =>
         prev.map((chat) => {
           if (String(chat.id) === String(data.chat_id) && chat.last_message) {
-            // Проверяем, входит ли последнее сообщение в список только что прочитанных
             if (data.message_ids.includes(chat.last_message.id)) {
               return {
                 ...chat,
@@ -127,6 +122,8 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
 
     const unsubUnread = socket.on("unread_count", (data: any) => {
       if (data.unread_count === 0) {
+        // Читаем актуальный myId из ref — не из замыкания
+        const currentMyId = myIdRef.current;
         setLocalChats((prev) =>
           prev.map((chat) =>
             String(chat.id) === String(data.chat_id)
@@ -135,10 +132,9 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
                   last_message: chat.last_message
                     ? {
                         ...chat.last_message,
-                        // Добавляем себя в read_by чтобы кружок побелел
                         read_by: [
                           ...(chat.last_message.read_by || []),
-                          { user_id: myId },
+                          { user_id: currentMyId },
                         ],
                       }
                     : chat.last_message,
@@ -160,7 +156,6 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
   const getLastMessagePreview = (msg: any, isMine: boolean) => {
     if (!msg) return "Нет сообщений";
     if (msg.is_system) return msg.text;
-
     if (msg.text) return msg.text;
 
     if (msg.file_url) {
@@ -200,11 +195,12 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
       <Box sx={{ flexGrow: 1, overflowY: "auto" }}>
         <List sx={{ p: 0 }}>
           {isLoading
-            ? renderSkeletons() // Показываем скелетоны при загрузке
+            ? renderSkeletons()
             : localChats.map((chat) => {
                 const isSelected = location.pathname.includes(chat.id);
                 const lastMsg = chat.last_message;
                 const isMine = lastMsg?.is_mine;
+                const myId = myIdRef.current;
 
                 return (
                   <ListItem key={chat.id} disablePadding sx={{ mb: 0.5, p: 0 }}>
@@ -248,7 +244,6 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
                           }}
                           noWrap
                         >
-                          {/* 1. Если сообщение наше, добавляем приписку "Вы:" */}
                           {isMine && !lastMsg?.is_system && (
                             <Box
                               component="span"
@@ -263,11 +258,9 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
                               Печатает...
                             </Box>
                           ) : (
-                            // Отображаем текст последнего сообщения
                             <Box
                               component="span"
                               sx={{
-                                noWrap: true,
                                 overflow: "hidden",
                                 textOverflow: "ellipsis",
                               }}
@@ -291,11 +284,9 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
                         {lastMsg && (
                           <>
                             {isMine ? (
-                              /* --- ВАШЕ ПОСЛЕДНЕЕ СООБЩЕНИЕ (Галочки) --- */
                               <DoneAllIcon
                                 sx={{
                                   fontSize: 18,
-
                                   color:
                                     lastMsg.read_by &&
                                     lastMsg.read_by.length > 0
@@ -305,13 +296,11 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
                                 }}
                               />
                             ) : (
-                              /* --- СООБЩЕНИЕ СОБЕСЕДНИКА (Кружок) --- */
                               <Box
                                 sx={{
                                   width: 10,
                                   height: 10,
                                   borderRadius: "50%",
-                                  // Если вашего ID НЕТ в списке прочитавших — значит сообщение новое для вас
                                   bgcolor: lastMsg.read_by?.some(
                                     (r: any) =>
                                       String(r.user_id) === String(myId),

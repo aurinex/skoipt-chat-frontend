@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { useParams, useOutletContext } from "react-router-dom";
 import { Box, Typography, useTheme } from "@mui/material";
 import api from "../services/api";
@@ -43,33 +44,62 @@ const ActiveChat = (props: ActiveChatProps) => {
     );
   }
 
-  const handleSend = async (text: string) => {
-    if (!text.trim() || !chatId) return;
-    try {
-      const msg = await api.messages.send(chatId, { text });
-      setMessages((prev) => [...prev, msg]);
-      handleUpdateChat(msg);
-    } catch (err) {
-      console.error("Ошибка отправки:", err);
-    }
-  };
+  const handleSend = useCallback(
+    async (text: string) => {
+      if (!text.trim() || !chatId) return;
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !chatId) return;
+      // Оптимистичное сообщение — появляется мгновенно до ответа сервера
+      const tempId = `temp_${Date.now()}`;
+      const optimisticMsg = {
+        id: tempId,
+        chat_id: chatId,
+        text,
+        is_mine: true,
+        sender_id: myId,
+        created_at: new Date().toISOString(),
+        read_by: [],
+        _pending: true,
+      };
 
-    try {
-      const res = await api.files.uploadChatFile(chatId, file);
-      const fileUrl = res.is_public ? res.url : res.object_name;
-      const msg = await api.messages.send(chatId, { file_url: fileUrl });
-      setMessages((prev) => [...prev, msg]);
-      handleUpdateChat(msg);
-    } catch (err) {
-      console.error("Ошибка загрузки файла:", err);
-    }
+      setMessages((prev) => [...prev, optimisticMsg]);
 
-    e.target.value = "";
-  };
+      try {
+        const msg = await api.messages.send(chatId, { text });
+        // Заменяем временное сообщение на реальное от сервера
+        setMessages((prev) => prev.map((m) => (m.id === tempId ? msg : m)));
+        handleUpdateChat(msg);
+      } catch (err) {
+        console.error("Ошибка отправки:", err);
+        // Помечаем как failed — пользователь видит индикатор ошибки
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempId ? { ...m, _pending: false, _failed: true } : m,
+          ),
+        );
+      }
+    },
+    [chatId, myId, handleUpdateChat],
+  );
+
+  const handleFileUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !chatId) return;
+
+      try {
+        const res = await api.files.uploadChatFile(chatId, file);
+        const fileUrl = res.is_public ? res.url : res.object_name;
+        const msg = await api.messages.send(chatId, { file_url: fileUrl });
+        setMessages((prev) => [...prev, msg]);
+        handleUpdateChat(msg);
+      } catch (err) {
+        console.error("Ошибка загрузки файла:", err);
+      }
+
+      e.target.value = "";
+    },
+    [chatId, handleUpdateChat],
+  );
 
   return (
     <Box

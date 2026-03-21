@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import api, { socket } from "../services/api";
 
 export const useChat = (chatId: string | undefined, myId: string | null) => {
@@ -10,25 +10,38 @@ export const useChat = (chatId: string | undefined, myId: string | null) => {
   const typingTimersRef = useRef<{ [key: number]: NodeJS.Timeout }>({});
   const readTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const sendReadEvent = (messageId: number | string) => {
+  // Храним актуальные chatId и myId в ref — чтобы замыкания в колбэках
+  // всегда читали свежее значение, а не то что было при создании эффекта
+  const chatIdRef = useRef(chatId);
+  const myIdRef = useRef(myId);
+  useEffect(() => {
+    chatIdRef.current = chatId;
+  }, [chatId]);
+  useEffect(() => {
+    myIdRef.current = myId;
+  }, [myId]);
+
+  const sendReadEvent = useCallback((messageId: number | string) => {
     if (readTimerRef.current) clearTimeout(readTimerRef.current);
     readTimerRef.current = setTimeout(() => {
-      console.log("[READ] Отправляю read:", chatId, messageId);
-      socket.sendRead(chatId, messageId);
+      const currentChatId = chatIdRef.current;
+      if (!currentChatId) return;
+      console.log("[READ] Отправляю read:", currentChatId, messageId);
+      socket.sendRead(currentChatId, messageId);
     }, 500);
-  };
+  }, []); // нет зависимостей — функция стабильна, читает из ref
 
   // Авто-прочтение при открытии чата или новых сообщениях
   useEffect(() => {
     if (messages.length > 0) {
       const lastIncoming = [...messages]
         .reverse()
-        .find((m) => String(m.sender_id) !== String(myId));
+        .find((m) => String(m.sender_id) !== String(myIdRef.current));
       if (lastIncoming) {
         sendReadEvent(lastIncoming.id);
       }
     }
-  }, [messages.length, chatId]);
+  }, [messages.length, chatId, sendReadEvent]);
 
   // Загрузка данных чата и сообщений
   useEffect(() => {
@@ -58,19 +71,19 @@ export const useChat = (chatId: string | undefined, myId: string | null) => {
 
     const unsubMsg = socket.on("new_message", (data: any) => {
       const msg = data.message || data;
-      if (String(msg.chat_id) === String(chatId)) {
+      if (String(msg.chat_id) === String(chatIdRef.current)) {
         setMessages((prev) => {
           if (prev.find((m) => m.id === msg.id)) return prev;
           return [...prev, msg];
         });
-        if (String(msg.sender_id) !== myId) {
+        if (String(msg.sender_id) !== myIdRef.current) {
           sendReadEvent(msg.id);
         }
       }
     });
 
     const unsubRead = socket.on("read", (data: any) => {
-      if (String(data.chat_id) === String(chatId)) {
+      if (String(data.chat_id) === String(chatIdRef.current)) {
         setMessages((prev) =>
           prev.map((msg) => {
             if (data.message_ids.includes(msg.id)) {
@@ -93,7 +106,7 @@ export const useChat = (chatId: string | undefined, myId: string | null) => {
     });
 
     const unsubTyping = socket.on("typing", (data: any) => {
-      if (String(data.chat_id) === String(chatId)) {
+      if (String(data.chat_id) === String(chatIdRef.current)) {
         const userId = data.user_id;
 
         if (data.is_typing) {
@@ -120,7 +133,7 @@ export const useChat = (chatId: string | undefined, myId: string | null) => {
     });
 
     const unsubEdited = socket.on("message_edited", (data: any) => {
-      if (String(data.chat_id) === String(chatId)) {
+      if (String(data.chat_id) === String(chatIdRef.current)) {
         setMessages((prev) =>
           prev.map((m) =>
             m.id === data.message_id
@@ -137,13 +150,13 @@ export const useChat = (chatId: string | undefined, myId: string | null) => {
     });
 
     const unsubDeleted = socket.on("message_deleted", (data: any) => {
-      if (String(data.chat_id) === String(chatId)) {
+      if (String(data.chat_id) === String(chatIdRef.current)) {
         setMessages((prev) => prev.filter((m) => m.id !== data.message_id));
       }
     });
 
     const unsubChatUpdated = socket.on("chat_updated", (data: any) => {
-      if (String(data.chat_id) === String(chatId)) {
+      if (String(data.chat_id) === String(chatIdRef.current)) {
         setChatData((prev: any) => ({
           ...prev,
           member_count: data.member_count,
@@ -162,7 +175,7 @@ export const useChat = (chatId: string | undefined, myId: string | null) => {
       unsubChatUpdated();
       Object.values(typingTimersRef.current).forEach(clearTimeout);
     };
-  }, [chatId]);
+  }, [chatId, sendReadEvent]);
 
   return {
     messages,
