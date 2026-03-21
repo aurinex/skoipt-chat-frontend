@@ -16,39 +16,23 @@ interface MessageInputProps {
 
 const MessageInput = ({
   chatId,
+  inputText,
+  onInputChange,
   onSend,
   onFileUpload,
   colors,
 }: MessageInputProps) => {
-  const [inputText, setInputText] = useState(""); // ← стейт живёт здесь
   const fileInputRef = useRef<HTMLInputElement>(null);
   const myTypingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setInputText(value);
-    if (!chatId) return;
-
-    if (!myTypingTimerRef.current) {
-      socket.sendTyping(chatId, true);
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      onSend();
+      if (myTypingTimerRef.current) {
+        clearTimeout(myTypingTimerRef.current);
+        myTypingTimerRef.current = null;
+      }
     }
-    if (myTypingTimerRef.current) clearTimeout(myTypingTimerRef.current);
-
-    myTypingTimerRef.current = setTimeout(() => {
-      socket.sendTyping(chatId, false);
-      myTypingTimerRef.current = null;
-    }, 2000);
-  };
-
-  const handleSend = () => {
-    if (!inputText.trim()) return;
-    onSend(inputText); // ← передаём текст наружу только при отправке
-    setInputText("");
-    if (myTypingTimerRef.current) {
-      clearTimeout(myTypingTimerRef.current);
-      myTypingTimerRef.current = null;
-    }
-    socket.sendTyping(chatId, false);
   };
 
   return (
