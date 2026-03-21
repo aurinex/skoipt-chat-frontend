@@ -9,6 +9,8 @@ import { useTheme } from "@mui/material";
 const Layout = () => {
   const [chats, setChats] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const notificationSound = new Audio("/sounds/message.mp3");
+  notificationSound.volume = 0.5;
 
   const theme = useTheme();
   const colors = theme.palette.background;
@@ -76,6 +78,12 @@ const Layout = () => {
     const handleSocketMessage = (data: any) => {
       const msg = data.message || data;
       handleUpdateChat(msg);
+      // Звук для входящих — всегда, независимо от открытого чата
+      const myId = localStorage.getItem("user_id");
+      if (String(msg.sender_id) !== String(myId)) {
+        notificationSound.currentTime = 0;
+        notificationSound.play().catch(() => {});
+      }
     };
 
     const unsubscribe = socket.on("new_message", handleSocketMessage);
