@@ -17,6 +17,8 @@ interface ContextType {
   handleUpdateChat: (msg: any) => void;
 }
 
+const ALLOWED_IMAGE_EXTS = /\.(jpg|jpeg|png|gif|webp)$/i;
+
 const ActiveChat = (props: ActiveChatProps) => {
   const { handleUpdateChat } = useOutletContext<ContextType>();
   const { chatId } = useParams<{ chatId: string }>();
@@ -107,28 +109,95 @@ const ActiveChat = (props: ActiveChatProps) => {
   );
 
   const handleModalSend = useCallback(
-    async (files: File[], caption: string) => {
+    async (files: File[], caption: string): Promise<void> => {
       if (!chatId) return;
+
+      // Создаём blob URL для изображений — для мгновенного превью
+      const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+      const nonImageFiles = files.filter((f) => !f.type.startsWith("image/"));
+      const blobUrls = imageFiles.map((f) => URL.createObjectURL(f));
+
+      const tempId = `temp_files_${Date.now()}`;
+
+      // Оптимистичный плейсхолдер — виден сразу пока идёт загрузка
+      const optimisticMsg = {
+        id: tempId,
+        chat_id: chatId,
+        text: caption || null,
+        is_mine: true,
+        sender_id: myId,
+        created_at: new Date().toISOString(),
+        read_by: [],
+        file_urls: blobUrls, // blob URL для превью изображений
+        _uploading: true, // флаг — идёт загрузка
+        _nonImageCount: nonImageFiles.length, // сколько не-изображений показать плейсхолдером
+      };
+
+      setMessages((prev) => [...prev, optimisticMsg]);
       closeModal();
 
       try {
-        const uploaded = await Promise.all(
+        const results = await Promise.allSettled(
           files.map((file) => api.files.uploadChatFile(chatId, file)),
         );
-        const fileUrls = uploaded.map((res) =>
-          res.is_public ? res.url : res.object_name,
-        );
+
+        const fileUrls: string[] = [];
+        const failedFiles: string[] = [];
+
+        results.forEach((result, i) => {
+          if (result.status === "fulfilled") {
+            const res = result.value;
+            fileUrls.push(res.is_public ? res.url : res.object_name);
+          } else {
+            failedFiles.push(files[i].name);
+            console.error(
+              `Не удалось загрузить ${files[i].name}:`,
+              result.reason,
+            );
+          }
+        });
+
+        if (fileUrls.length === 0) {
+          // Все файлы упали — помечаем как failed
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === tempId
+                ? { ...m, _uploading: false, _failed: true, file_urls: [] }
+                : m,
+            ),
+          );
+          // Освобождаем blob URL
+          blobUrls.forEach(URL.revokeObjectURL);
+          return;
+        }
+
         const msg = await api.messages.send(chatId, {
           file_urls: fileUrls,
           text: caption || null,
         });
-        setMessages((prev) => [...prev, msg]);
+
+        // Заменяем плейсхолдер реальным сообщением
+        setMessages((prev) => prev.map((m) => (m.id === tempId ? msg : m)));
         handleUpdateChat(msg);
+
+        if (failedFiles.length > 0) {
+          console.warn(`Не удалось загрузить: ${failedFiles.join(", ")}`);
+        }
       } catch (err) {
         console.error("Ошибка отправки файлов:", err);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempId
+              ? { ...m, _uploading: false, _failed: true, file_urls: [] }
+              : m,
+          ),
+        );
+      } finally {
+        // Освобождаем blob URL в любом случае
+        blobUrls.forEach(URL.revokeObjectURL);
       }
     },
-    [chatId, handleUpdateChat, closeModal],
+    [chatId, myId, handleUpdateChat, closeModal],
   );
 
   const handleFileInputChange = useCallback(

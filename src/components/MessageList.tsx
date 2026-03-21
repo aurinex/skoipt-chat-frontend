@@ -1,7 +1,16 @@
 import { useRef, useEffect, memo } from "react";
-import { Box, Typography, Avatar, Skeleton, Tooltip } from "@mui/material";
+import {
+  Box,
+  Typography,
+  Avatar,
+  Skeleton,
+  Tooltip,
+  CircularProgress,
+  LinearProgress,
+} from "@mui/material";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
+import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import FilePreview from "./FilePreview";
 import { formatLocalTime, formatDateLabel } from "../utils/chatFormatters";
 
@@ -105,6 +114,122 @@ const MessageSkeleton = memo(({ colors }: { colors: any }) => (
   </Box>
 ));
 
+// Сетка изображений — как в Telegram
+const ImageGrid = ({
+  urls,
+  chatId,
+  isUploading,
+}: {
+  urls: string[];
+  chatId: string | undefined;
+  isUploading?: boolean;
+}) => {
+  const count = urls.length;
+
+  if (count === 1) {
+    return isUploading ? (
+      <UploadingImageThumb src={urls[0]} />
+    ) : (
+      <FilePreview fileUrl={urls[0]} chatId={chatId!} />
+    );
+  }
+
+  // 2 колонки для 2+ изображений
+  return (
+    <Box
+      sx={{
+        display: "grid",
+        gridTemplateColumns:
+          count === 2 ? "1fr 1fr" : count === 3 ? "1fr 1fr" : "1fr 1fr",
+        gap: "2px",
+        borderRadius: "inherit",
+        overflow: "hidden",
+        maxWidth: 300,
+      }}
+    >
+      {urls.map((url, i) => {
+        // Для 3 фото: первое занимает всю первую колонку
+        const isWide = count === 3 && i === 0;
+
+        return (
+          <Box
+            key={i}
+            sx={{
+              gridColumn: isWide ? "1 / -1" : undefined,
+              aspectRatio: isWide ? "2 / 1" : "1 / 1",
+              overflow: "hidden",
+              position: "relative",
+            }}
+          >
+            {isUploading ? (
+              <UploadingImageThumb src={url} fill />
+            ) : (
+              <FilePreview fileUrl={url} chatId={chatId!} grid />
+            )}
+          </Box>
+        );
+      })}
+    </Box>
+  );
+};
+
+// Превью изображения из blob URL во время загрузки
+const UploadingImageThumb = ({
+  src,
+  fill,
+}: {
+  src: string;
+  fill?: boolean;
+}) => (
+  <Box
+    component="img"
+    src={src}
+    sx={{
+      width: "100%",
+      height: fill ? "100%" : "auto",
+      maxHeight: fill ? undefined : 200,
+      objectFit: "cover",
+      display: "block",
+      filter: "brightness(0.7)",
+    }}
+  />
+);
+
+// Плейсхолдер для загружаемых файлов (не изображений)
+const UploadingFilePlaceholder = ({
+  count,
+  colors,
+}: {
+  count: number;
+  colors: any;
+}) => (
+  <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mt: 1 }}>
+    {Array.from({ length: count }).map((_, i) => (
+      <Box
+        key={i}
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          p: "8px 12px",
+          bgcolor: "rgba(255,255,255,0.1)",
+          borderRadius: "10px",
+        }}
+      >
+        <InsertDriveFileIcon sx={{ fontSize: 20, opacity: 0.6 }} />
+        <LinearProgress
+          sx={{
+            flexGrow: 1,
+            borderRadius: 2,
+            bgcolor: "rgba(255,255,255,0.2)",
+            "& .MuiLinearProgress-bar": { bgcolor: "rgba(255,255,255,0.6)" },
+          }}
+        />
+      </Box>
+    ))}
+  </Box>
+);
+
 const MessageList = memo(
   ({
     messages,
@@ -183,17 +308,38 @@ const MessageList = memo(
               : null;
             const showDateLabel = currentDate !== prevDate;
 
-            // Нормализуем file_urls — поддерживаем и старый file_url и новый массив
             const fileUrls: string[] = msg.file_urls?.length
               ? msg.file_urls
               : msg.file_url
                 ? [msg.file_url]
                 : [];
 
+            const isUploading = !!msg._uploading;
+
+            // Разделяем на изображения и остальные файлы
+            const imageUrls = fileUrls.filter(
+              (u) =>
+                u.match(/\.(jpg|jpeg|png|gif|webp)/i) || u.startsWith("blob:"),
+            );
+            const otherUrls = fileUrls.filter(
+              (u) =>
+                !u.match(/\.(jpg|jpeg|png|gif|webp)/i) &&
+                !u.startsWith("blob:"),
+            );
+
+            // Для плейсхолдера не-изображений считаем количество
+            const uploadingNonImageCount = isUploading
+              ? (msg._nonImageCount ?? 0)
+              : 0;
+
+            const hasImages = imageUrls.length > 0;
             const hasOnlyOneImage =
-              fileUrls.length === 1 &&
-              !msg.text &&
-              fileUrls[0].match(/\.(jpg|jpeg|png|gif|webp)/i);
+              imageUrls.length === 1 && !msg.text && otherUrls.length === 0;
+            const hasGrid =
+              imageUrls.length >= 2 && !msg.text && otherUrls.length === 0;
+
+            // Пузырь без паддинга если только одна картинка или сетка
+            const noPadding = hasOnlyOneImage || hasGrid;
 
             return (
               <Box key={msg.id} sx={{ display: "contents" }}>
@@ -281,7 +427,7 @@ const MessageList = memo(
 
                     <Box
                       sx={{
-                        p: hasOnlyOneImage ? 0 : "8px 14px",
+                        p: noPadding ? 0 : "8px 14px",
                         borderRadius: isMessageFromMe
                           ? isLastInGroup
                             ? "18px 18px 4px 18px"
@@ -295,7 +441,7 @@ const MessageList = memo(
                         color: isMessageFromMe ? "#fff" : colors.sixth,
                         boxShadow: "0 1px 1px rgba(0,0,0,0.05)",
                         position: "relative",
-                        opacity: msg._pending ? 0.6 : 1,
+                        opacity: msg._pending || isUploading ? 0.75 : 1,
                         transition: "opacity 0.2s",
                         overflow: "hidden",
                         "&:hover .image-metadata": { opacity: 1 },
@@ -307,26 +453,63 @@ const MessageList = memo(
                             fontSize: "1rem",
                             lineHeight: 1.4,
                             wordBreak: "break-word",
+                            p: noPadding ? "8px 14px 4px" : 0,
                           }}
                         >
                           {msg.text}
                         </Typography>
                       )}
 
-                      {/* Рендерим все файлы */}
-                      {fileUrls.map((url, i) => (
-                        <FilePreview key={i} fileUrl={url} chatId={chatId} />
-                      ))}
+                      {/* Сетка изображений */}
+                      {hasImages && (
+                        <ImageGrid
+                          urls={imageUrls}
+                          chatId={chatId}
+                          isUploading={isUploading}
+                        />
+                      )}
 
-                      {/* Метаданные (время + галочки) */}
+                      {/* Обычные файлы */}
+                      {!isUploading &&
+                        otherUrls.map((url, i) => (
+                          <FilePreview key={i} fileUrl={url} chatId={chatId!} />
+                        ))}
+
+                      {/* Плейсхолдер для загружаемых не-изображений */}
+                      {isUploading && uploadingNonImageCount > 0 && (
+                        <UploadingFilePlaceholder
+                          count={uploadingNonImageCount}
+                          colors={colors}
+                        />
+                      )}
+
+                      {/* Индикатор загрузки поверх сетки */}
+                      {isUploading && hasImages && (
+                        <Box
+                          sx={{
+                            position: "absolute",
+                            inset: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            pointerEvents: "none",
+                          }}
+                        >
+                          <CircularProgress size={32} sx={{ color: "#fff" }} />
+                        </Box>
+                      )}
+
+                      {/* Метаданные */}
                       <Box
-                        className={hasOnlyOneImage ? "image-metadata" : ""}
+                        className={
+                          hasOnlyOneImage || hasGrid ? "image-metadata" : ""
+                        }
                         sx={{
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "flex-end",
                           gap: 0.5,
-                          ...(hasOnlyOneImage
+                          ...(hasOnlyOneImage || hasGrid
                             ? {
                                 position: "absolute",
                                 bottom: "6px",
@@ -340,13 +523,17 @@ const MessageList = memo(
                                 zIndex: 10,
                                 color: "#fff",
                               }
-                            : { mt: 0.2 }),
+                            : {
+                                mt: 0.2,
+                                px: noPadding ? "8px" : 0,
+                                pb: noPadding ? "6px" : 0,
+                              }),
                         }}
                       >
                         <Typography
                           sx={{
                             fontSize: "0.7rem",
-                            opacity: hasOnlyOneImage ? 0.9 : 0.5,
+                            opacity: hasOnlyOneImage || hasGrid ? 0.9 : 0.5,
                           }}
                         >
                           {formatLocalTime(msg.created_at)}
@@ -371,11 +558,12 @@ const MessageList = memo(
                               <DoneAllIcon
                                 sx={{
                                   fontSize: 14,
-                                  color: msg._pending
-                                    ? "rgba(255,255,255,0.3)"
-                                    : msg.read_by?.length > 0
-                                      ? "rgba(255,255,255,1)"
-                                      : "rgba(255,255,255,0.5)",
+                                  color:
+                                    msg._pending || isUploading
+                                      ? "rgba(255,255,255,0.3)"
+                                      : msg.read_by?.length > 0
+                                        ? "rgba(255,255,255,1)"
+                                        : "rgba(255,255,255,0.5)",
                                 }}
                               />
                             )}

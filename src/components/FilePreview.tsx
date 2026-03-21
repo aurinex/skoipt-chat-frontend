@@ -6,17 +6,18 @@ import Box from "@mui/material/Box";
 const FilePreview = ({
   fileUrl,
   chatId,
+  grid = false,
 }: {
   fileUrl: string;
   chatId: string;
+  grid?: boolean; // режим сетки — заполняет всю ячейку
 }) => {
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (fileUrl.startsWith("http")) {
-      setUrl(fileUrl); // публичный — сразу
+      setUrl(fileUrl);
     } else {
-      // приватный — запрашиваем presigned URL
       api.files.getPrivateUrl(chatId, fileUrl).then((res) => setUrl(res.url));
     }
   }, [fileUrl]);
@@ -28,6 +29,24 @@ const FilePreview = ({
     fileUrl.match(/\.(jpg|jpeg|png|gif|webp)/i);
 
   if (isImage) {
+    if (grid) {
+      // В режиме сетки — заполняем ячейку целиком
+      return (
+        <Box
+          component="img"
+          src={url}
+          sx={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+            cursor: "pointer",
+          }}
+          onClick={() => window.open(url, "_blank")}
+        />
+      );
+    }
+
     return (
       <Box
         component="img"

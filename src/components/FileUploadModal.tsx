@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -7,55 +7,118 @@ import {
   Modal,
   Fade,
   Backdrop,
+  CircularProgress,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import SendIcon from "@mui/icons-material/Send";
 import AddIcon from "@mui/icons-material/Add";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import AudioFileIcon from "@mui/icons-material/AudioFile";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 
 interface FileUploadModalProps {
   open: boolean;
   files: File[];
   onClose: () => void;
-  onSend: (files: File[], caption: string) => void;
+  onSend: (files: File[], caption: string) => Promise<void>;
   onAddMore: (newFiles: File[]) => void;
   onRemove: (index: number) => void;
   colors: any;
 }
 
 const MAX_FILES = 10;
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
-const getFilePreview = (file: File): string | null => {
-  if (file.type.startsWith("image/") || file.type.startsWith("video/")) {
-    return URL.createObjectURL(file);
+const ALLOWED_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "video/mp4",
+  "audio/mpeg",
+  "audio/ogg",
+  "audio/webm",
+  "audio/m4a",
+  "application/pdf",
+]);
+
+interface ValidationError {
+  file: string;
+  reason: string;
+}
+
+// Валидирует массив файлов, возвращает валидные и список ошибок
+const validateFiles = (
+  files: File[],
+): { valid: File[]; errors: ValidationError[] } => {
+  const valid: File[] = [];
+  const errors: ValidationError[] = [];
+
+  for (const file of files) {
+    if (!ALLOWED_TYPES.has(file.type)) {
+      errors.push({ file: file.name, reason: "неподдерживаемый формат" });
+      continue;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      errors.push({
+        file: file.name,
+        reason: `превышен лимит 50 МБ (${(file.size / 1024 / 1024).toFixed(1)} МБ)`,
+      });
+      continue;
+    }
+    valid.push(file);
   }
-  return null;
+
+  return { valid, errors };
+};
+
+const useBlobUrl = (file: File | null): string | null => {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file) {
+      setUrl(null);
+      return;
+    }
+    if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+      setUrl(null);
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    setUrl(objectUrl);
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [file]);
+
+  return url;
 };
 
 const FileThumb = ({
   file,
-  index,
   isSelected,
+  hasError,
   onSelect,
   onRemove,
+  disabled,
   colors,
 }: {
   file: File;
-  index: number;
   isSelected: boolean;
+  hasError: boolean;
   onSelect: () => void;
   onRemove: () => void;
+  disabled: boolean;
   colors: any;
 }) => {
-  const preview = getFilePreview(file);
+  const preview = useBlobUrl(file);
   const isImage = file.type.startsWith("image/");
   const isVideo = file.type.startsWith("video/");
   const isAudio = file.type.startsWith("audio/");
 
   return (
     <Box
-      onClick={onSelect}
+      onClick={disabled ? undefined : onSelect}
       sx={{
         position: "relative",
         width: 64,
@@ -63,11 +126,14 @@ const FileThumb = ({
         borderRadius: "10px",
         overflow: "hidden",
         flexShrink: 0,
-        cursor: "pointer",
-        border: isSelected
-          ? `2px solid ${colors.eighth}`
-          : "2px solid transparent",
+        cursor: disabled ? "default" : "pointer",
+        border: hasError
+          ? "2px solid #ff4d4f"
+          : isSelected
+            ? `2px solid ${colors.eighth}`
+            : "2px solid transparent",
         transition: "border 0.15s",
+        opacity: disabled ? 0.5 : 1,
       }}
     >
       {preview && isImage ? (
@@ -96,9 +162,13 @@ const FileThumb = ({
           }}
         >
           {isAudio ? (
-            <AudioFileIcon sx={{ fontSize: 24, color: colors.eighth }} />
+            <AudioFileIcon
+              sx={{ fontSize: 24, color: hasError ? "#ff4d4f" : colors.eighth }}
+            />
           ) : (
-            <InsertDriveFileIcon sx={{ fontSize: 24, color: colors.eighth }} />
+            <InsertDriveFileIcon
+              sx={{ fontSize: 24, color: hasError ? "#ff4d4f" : colors.eighth }}
+            />
           )}
           <Typography
             sx={{
@@ -115,29 +185,147 @@ const FileThumb = ({
         </Box>
       )}
 
-      {/* Крестик удаления */}
-      <Box
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove();
-        }}
-        sx={{
-          position: "absolute",
-          top: 2,
-          right: 2,
-          width: 18,
-          height: 18,
-          borderRadius: "50%",
-          bgcolor: "rgba(0,0,0,0.6)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-          "&:hover": { bgcolor: "rgba(0,0,0,0.85)" },
-        }}
-      >
-        <CloseIcon sx={{ fontSize: 12, color: "#fff" }} />
-      </Box>
+      {/* Иконка ошибки поверх миниатюры */}
+      {hasError && (
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            bgcolor: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <WarningAmberIcon sx={{ fontSize: 24, color: "#ff4d4f" }} />
+        </Box>
+      )}
+
+      {!disabled && (
+        <Box
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          sx={{
+            position: "absolute",
+            top: 2,
+            right: 2,
+            width: 18,
+            height: 18,
+            borderRadius: "50%",
+            bgcolor: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            "&:hover": { bgcolor: "rgba(0,0,0,0.85)" },
+          }}
+        >
+          <CloseIcon sx={{ fontSize: 12, color: "#fff" }} />
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+const SelectedFilePreview = ({
+  file,
+  colors,
+}: {
+  file: File | null;
+  colors: any;
+}) => {
+  const preview = useBlobUrl(file);
+  const isImage = file?.type.startsWith("image/");
+  const isVideo = file?.type.startsWith("video/");
+  const isAudio = file?.type.startsWith("audio/");
+
+  if (!file) return null;
+
+  return (
+    <Box
+      sx={{
+        mx: 2,
+        borderRadius: "14px",
+        overflow: "hidden",
+        bgcolor: colors.third,
+        minHeight: 200,
+        maxHeight: 320,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {preview && isImage && (
+        <Box
+          component="img"
+          src={preview}
+          sx={{
+            maxWidth: "100%",
+            maxHeight: 320,
+            objectFit: "contain",
+            display: "block",
+          }}
+        />
+      )}
+      {preview && isVideo && (
+        <Box
+          component="video"
+          src={preview}
+          controls
+          sx={{ maxWidth: "100%", maxHeight: 320, display: "block" }}
+        />
+      )}
+      {isAudio && (
+        <Box
+          sx={{
+            p: 3,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
+          <AudioFileIcon sx={{ fontSize: 48, color: colors.eighth }} />
+          <Typography
+            sx={{
+              color: colors.sixth,
+              fontSize: "0.9rem",
+              textAlign: "center",
+              wordBreak: "break-all",
+            }}
+          >
+            {file.name}
+          </Typography>
+        </Box>
+      )}
+      {!preview && !isAudio && (
+        <Box
+          sx={{
+            p: 3,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
+          <InsertDriveFileIcon sx={{ fontSize: 48, color: colors.eighth }} />
+          <Typography
+            sx={{
+              color: colors.sixth,
+              fontSize: "0.9rem",
+              textAlign: "center",
+              wordBreak: "break-all",
+            }}
+          >
+            {file.name}
+          </Typography>
+          <Typography sx={{ color: colors.fiveth, fontSize: "0.75rem" }}>
+            {(file.size / 1024 / 1024).toFixed(2)} МБ
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 };
@@ -153,26 +341,46 @@ const FileUploadModal = ({
 }: FileUploadModalProps) => {
   const [caption, setCaption] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isSending, setIsSending] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
+    [],
+  );
   const addMoreRef = useRef<HTMLInputElement>(null);
 
-  const selectedFile = files[selectedIndex] ?? files[0];
-  const selectedPreview = selectedFile ? getFilePreview(selectedFile) : null;
-  const isSelectedImage = selectedFile?.type.startsWith("image/");
-  const isSelectedVideo = selectedFile?.type.startsWith("video/");
-  const isSelectedAudio = selectedFile?.type.startsWith("audio/");
+  const safeIndex =
+    files.length > 0 ? Math.min(selectedIndex, files.length - 1) : 0;
+  const selectedFile = files[safeIndex] ?? null;
 
-  const handleSend = useCallback(() => {
-    if (!files.length) return;
-    onSend(files, caption);
-    setCaption("");
-  }, [files, caption, onSend]);
+  // Индексы файлов с ошибками валидации (для подсветки миниатюр)
+  const errorFileNames = new Set(validationErrors.map((e) => e.file));
+  const invalidFileIndices = new Set(
+    files
+      .map((f, i) => (errorFileNames.has(f.name) ? i : -1))
+      .filter((i) => i !== -1),
+  );
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+  // Валидные файлы для отправки
+  const validFiles = files.filter((f) => !errorFileNames.has(f.name));
+  const hasInvalidFiles = invalidFileIndices.size > 0;
+  const canSend = validFiles.length > 0 && !isSending;
+
+  useEffect(() => {
+    if (safeIndex !== selectedIndex) setSelectedIndex(safeIndex);
+  }, [safeIndex]);
+
+  useEffect(() => {
+    if (!open) {
+      setCaption("");
+      setIsSending(false);
+      setValidationErrors([]);
     }
-  };
+  }, [open]);
+
+  // Валидируем при каждом изменении списка файлов
+  useEffect(() => {
+    const { errors } = validateFiles(files);
+    setValidationErrors(errors);
+  }, [files]);
 
   const handleAddMore = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newFiles = Array.from(e.target.files || []);
@@ -181,14 +389,27 @@ const FileUploadModal = ({
     e.target.value = "";
   };
 
-  // Корректируем selectedIndex если файл удалён
-  const safeIndex = Math.min(selectedIndex, files.length - 1);
-  if (safeIndex !== selectedIndex) setSelectedIndex(safeIndex);
+  const handleSend = useCallback(async () => {
+    if (!canSend) return;
+    setIsSending(true);
+    try {
+      await onSend(validFiles, caption);
+    } catch {
+      setIsSending(false);
+    }
+  }, [canSend, validFiles, caption, onSend]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
 
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={isSending ? undefined : onClose}
       closeAfterTransition
       slots={{ backdrop: Backdrop }}
       slotProps={{ backdrop: { timeout: 200 } }}
@@ -222,7 +443,7 @@ const FileUploadModal = ({
             <Typography
               sx={{ fontWeight: 600, color: colors.sixth, fontSize: "1rem" }}
             >
-              Отправить файлы
+              {isSending ? "Отправка..." : "Отправить файлы"}
             </Typography>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Typography sx={{ fontSize: "0.8rem", color: colors.fiveth }}>
@@ -231,6 +452,7 @@ const FileUploadModal = ({
               <IconButton
                 size="small"
                 onClick={onClose}
+                disabled={isSending}
                 sx={{ color: colors.fiveth }}
               >
                 <CloseIcon fontSize="small" />
@@ -238,92 +460,44 @@ const FileUploadModal = ({
             </Box>
           </Box>
 
-          {/* Превью выбранного файла */}
-          <Box
-            sx={{
-              mx: 2,
-              borderRadius: "14px",
-              overflow: "hidden",
-              bgcolor: colors.third,
-              minHeight: 200,
-              maxHeight: 320,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {selectedPreview && isSelectedImage && (
-              <Box
-                component="img"
-                src={selectedPreview}
+          {/* Блок ошибок валидации */}
+          {validationErrors.length > 0 && !isSending && (
+            <Box
+              sx={{
+                mx: 2,
+                mb: 1,
+                p: "10px 14px",
+                bgcolor: "rgba(255,77,79,0.1)",
+                borderRadius: "10px",
+                border: "1px solid rgba(255,77,79,0.3)",
+              }}
+            >
+              <Typography
                 sx={{
-                  maxWidth: "100%",
-                  maxHeight: 320,
-                  objectFit: "contain",
-                  display: "block",
-                }}
-              />
-            )}
-            {selectedPreview && isSelectedVideo && (
-              <Box
-                component="video"
-                src={selectedPreview}
-                controls
-                sx={{ maxWidth: "100%", maxHeight: 320, display: "block" }}
-              />
-            )}
-            {isSelectedAudio && (
-              <Box
-                sx={{
-                  p: 3,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 1,
+                  fontSize: "0.75rem",
+                  color: "#ff4d4f",
+                  fontWeight: 600,
+                  mb: 0.5,
                 }}
               >
-                <AudioFileIcon sx={{ fontSize: 48, color: colors.eighth }} />
+                {validationErrors.length === 1
+                  ? "Файл не будет отправлен:"
+                  : "Файлы не будут отправлены:"}
+              </Typography>
+              {validationErrors.map((err, i) => (
                 <Typography
-                  sx={{
-                    color: colors.sixth,
-                    fontSize: "0.9rem",
-                    textAlign: "center",
-                    wordBreak: "break-all",
-                  }}
+                  key={i}
+                  sx={{ fontSize: "0.72rem", color: "#ff7875" }}
+                  noWrap
                 >
-                  {selectedFile?.name}
+                  • {err.file} — {err.reason}
                 </Typography>
-              </Box>
-            )}
-            {!selectedPreview && !isSelectedAudio && selectedFile && (
-              <Box
-                sx={{
-                  p: 3,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 1,
-                }}
-              >
-                <InsertDriveFileIcon
-                  sx={{ fontSize: 48, color: colors.eighth }}
-                />
-                <Typography
-                  sx={{
-                    color: colors.sixth,
-                    fontSize: "0.9rem",
-                    textAlign: "center",
-                    wordBreak: "break-all",
-                  }}
-                >
-                  {selectedFile?.name}
-                </Typography>
-                <Typography sx={{ color: colors.fiveth, fontSize: "0.75rem" }}>
-                  {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                </Typography>
-              </Box>
-            )}
-          </Box>
+              ))}
+            </Box>
+          )}
+
+          {/* Превью */}
+          <SelectedFilePreview file={selectedFile} colors={colors} />
 
           {/* Полоска миниатюр */}
           {files.length > 0 && (
@@ -345,18 +519,18 @@ const FileUploadModal = ({
             >
               {files.map((file, i) => (
                 <FileThumb
-                  key={i}
+                  key={`${file.name}-${file.size}-${i}`}
                   file={file}
-                  index={i}
                   isSelected={i === safeIndex}
+                  hasError={invalidFileIndices.has(i)}
                   onSelect={() => setSelectedIndex(i)}
                   onRemove={() => onRemove(i)}
+                  disabled={isSending}
                   colors={colors}
                 />
               ))}
 
-              {/* Кнопка добавить ещё */}
-              {files.length < MAX_FILES && (
+              {files.length < MAX_FILES && !isSending && (
                 <Box
                   onClick={() => addMoreRef.current?.click()}
                   sx={{
@@ -386,7 +560,7 @@ const FileUploadModal = ({
             </Box>
           )}
 
-          {/* Caption + кнопка отправить */}
+          {/* Caption + кнопка */}
           <Box
             sx={{
               display: "flex",
@@ -397,13 +571,18 @@ const FileUploadModal = ({
           >
             <TextField
               fullWidth
-              placeholder="Добавить подпись..."
+              placeholder={
+                hasInvalidFiles && validFiles.length > 0
+                  ? `Отправить ${validFiles.length} из ${files.length} файлов...`
+                  : "Добавить подпись..."
+              }
               variant="standard"
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               onKeyDown={handleKeyDown}
               multiline
               maxRows={3}
+              disabled={isSending}
               InputProps={{
                 disableUnderline: true,
                 sx: {
@@ -413,11 +592,13 @@ const FileUploadModal = ({
                   px: 2,
                   py: 1,
                   fontSize: "0.95rem",
+                  opacity: isSending ? 0.5 : 1,
                 },
               }}
             />
             <IconButton
               onClick={handleSend}
+              disabled={!canSend}
               sx={{
                 bgcolor: colors.eighth,
                 color: "#fff",
@@ -425,9 +606,18 @@ const FileUploadModal = ({
                 height: 44,
                 flexShrink: 0,
                 "&:hover": { bgcolor: colors.eighth, opacity: 0.85 },
+                "&.Mui-disabled": {
+                  bgcolor: colors.eighth,
+                  opacity: 0.5,
+                  color: "#fff",
+                },
               }}
             >
-              <SendIcon sx={{ fontSize: 20 }} />
+              {isSending ? (
+                <CircularProgress size={20} sx={{ color: "#fff" }} />
+              ) : (
+                <SendIcon sx={{ fontSize: 20 }} />
+              )}
             </IconButton>
           </Box>
         </Box>
