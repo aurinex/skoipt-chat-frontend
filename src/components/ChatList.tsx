@@ -145,29 +145,74 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
       }
     });
 
+    const unsubNewChat = socket.on("new_chat", (data: any) => {
+      const newChat = data.chat;
+      setLocalChats((prev) => {
+        // Не добавляем дубликат если чат уже есть
+        if (prev.find((c) => String(c.id) === String(newChat.id))) return prev;
+        return [newChat, ...prev];
+      });
+    });
+
+    const unsubKicked = socket.on("kicked", (data: any) => {
+      setLocalChats((prev) =>
+        prev.filter((c) => String(c.id) !== String(data.chat_id)),
+      );
+    });
+
     return () => {
       unsubTyping();
       unsubMsg();
       unsubRead();
       unsubUnread();
+      unsubNewChat();
+      unsubKicked();
     };
   }, []);
 
   const getLastMessagePreview = (msg: any, isMine: boolean) => {
     if (!msg) return "Нет сообщений";
     if (msg.is_system) return msg.text;
-    if (msg.text) return msg.text;
 
-    if (msg.file_url) {
-      const url = msg.file_url.toLowerCase();
-      if (url.match(/\.(jpg|jpeg|png|gif|webp)/)) return "🖼 Фото";
-      if (url.match(/\.(mp4|mov|avi)/)) return "🎥 Видео";
-      if (url.match(/\.(mp3|ogg|webm|m4a)/)) return "🎵 Аудио";
-      if (url.match(/\.pdf/)) return "📄 PDF";
-      return "📎 Файл";
+    // Собираем все файлы в один массив для удобства счета
+    const files = msg.file_urls || (msg.file_url ? [msg.file_url] : []);
+    const hasFiles = files.length > 0;
+    const hasText = !!msg.text;
+
+    // 1. Если нет ни файлов, ни текста
+    if (!hasFiles && !hasText) return "Нет сообщений";
+
+    // 2. Логика определения иконки или подписи для файлов
+    let filePrefix = "";
+    if (hasFiles) {
+      if (files.length === 1) {
+        const url = files[0].toLowerCase();
+        if (url.match(/\.(jpg|jpeg|png|gif|webp)/)) filePrefix = "🖼 Фото";
+        else if (url.match(/\.(mp4|mov|avi)/)) filePrefix = "🎥 Видео";
+        else if (url.match(/\.(mp3|ogg|webm|m4a)/)) filePrefix = "🎵 Аудио";
+        else filePrefix = "📎 Файл";
+      } else {
+        // Склонение слова "файл"
+        const count = files.length;
+        const lastDigit = count % 10;
+        const lastTwoDigits = count % 100;
+        let word = "файлов";
+        if (lastTwoDigits < 11 || lastTwoDigits > 19) {
+          if (lastDigit === 1) word = "файл";
+          else if (lastDigit >= 2 && lastDigit <= 4) word = "файла";
+        }
+        filePrefix = `${count} ${word}`;
+      }
     }
 
-    return "Нет сообщений";
+    // 3. Формируем итоговую строку
+    if (hasFiles && hasText) {
+      return `${msg.text} • ${filePrefix}`;
+    } else if (hasFiles) {
+      return filePrefix;
+    } else {
+      return msg.text; // Только текст
+    }
   };
 
   return (

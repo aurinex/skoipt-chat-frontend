@@ -125,6 +125,10 @@ async function tryRefresh() {
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 const auth = {
+  async getMe() {
+    return request("/auth/me");
+  },
+
   async register({ username, email, password, invite_code }) {
     const data = await request("/auth/register", {
       method: "POST",

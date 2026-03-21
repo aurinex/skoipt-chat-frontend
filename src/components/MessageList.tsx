@@ -21,6 +21,7 @@ interface MessageListProps {
   myId: string | null;
   chatId: string | undefined;
   colors: any;
+  onImageClick?: (url: string) => void;
 }
 
 const MAX_HEIGHT = 1000;
@@ -119,10 +120,12 @@ const ImageGrid = ({
   urls,
   chatId,
   isUploading,
+  onImageClick,
 }: {
   urls: string[];
   chatId: string | undefined;
   isUploading?: boolean;
+  onImageClick?: (url: string) => void;
 }) => {
   const count = urls.length;
 
@@ -130,7 +133,13 @@ const ImageGrid = ({
     return isUploading ? (
       <UploadingImageThumb src={urls[0]} />
     ) : (
-      <FilePreview fileUrl={urls[0]} chatId={chatId!} />
+      <Box sx={{ width: "100%", minWidth: "200px" }}>
+        <FilePreview
+          fileUrl={urls[0]}
+          chatId={chatId!}
+          onImageClick={onImageClick}
+        />
+      </Box>
     );
   }
 
@@ -164,7 +173,12 @@ const ImageGrid = ({
             {isUploading ? (
               <UploadingImageThumb src={url} fill />
             ) : (
-              <FilePreview fileUrl={url} chatId={chatId!} grid />
+              <FilePreview
+                fileUrl={url}
+                chatId={chatId!}
+                grid
+                onImageClick={onImageClick}
+              />
             )}
           </Box>
         );
@@ -238,6 +252,7 @@ const MessageList = memo(
     myId,
     chatId,
     colors,
+    onImageClick,
   }: MessageListProps) => {
     const scrollRef = useRef<HTMLDivElement>(null);
     const prevChatIdRef = useRef(chatId);
@@ -333,6 +348,10 @@ const MessageList = memo(
               : 0;
 
             const hasImages = imageUrls.length > 0;
+            const hasText = !!msg.text;
+
+            const isPureMedia = hasImages && !hasText && otherUrls.length === 0;
+
             const hasOnlyOneImage =
               imageUrls.length === 1 && !msg.text && otherUrls.length === 0;
             const hasGrid =
@@ -368,7 +387,7 @@ const MessageList = memo(
                     justifyContent: isMessageFromMe ? "flex-end" : "flex-start",
                     gap: 1,
                     mb: isLastInGroup ? 2 : 0.4,
-                    mt: showDateLabel && !isFirstInGroup ? 1 : 0,
+                    // mt: showDateLabel && !isFirstInGroup ? 1 : 0,
                   }}
                 >
                   {!isMessageFromMe && (
@@ -427,7 +446,7 @@ const MessageList = memo(
 
                     <Box
                       sx={{
-                        p: noPadding ? 0 : "8px 14px",
+                        p: isPureMedia ? 0 : 0,
                         borderRadius: isMessageFromMe
                           ? isLastInGroup
                             ? "18px 18px 4px 18px"
@@ -439,42 +458,63 @@ const MessageList = memo(
                           ? colors.eighth
                           : colors.second,
                         color: isMessageFromMe ? "#fff" : colors.sixth,
-                        boxShadow: "0 1px 1px rgba(0,0,0,0.05)",
                         position: "relative",
-                        opacity: msg._pending || isUploading ? 0.75 : 1,
-                        transition: "opacity 0.2s",
-                        overflow: "hidden",
-                        "&:hover .image-metadata": { opacity: 1 },
+                        overflow: "hidden", // Чтобы картинки не вылезали за скругления
+                        display: "flex",
+                        flexDirection: "column",
+                        width: "fit-content", // Добавляем это
+                        alignSelf: isMessageFromMe ? "flex-end" : "flex-start", // Важно для выравнивания
+                        maxWidth: "100%", // Чтобы не вылезало за экран
                       }}
                     >
-                      {msg.text && (
+                      {/* КАРТИНКИ */}
+                      {hasImages && (
+                        <Box
+                          sx={{
+                            width: "100%",
+                            // Если сверху есть текст, убираем верхние скругления у картинок
+                            "& img, & .grid-container": {
+                              borderTopLeftRadius: hasText ? 0 : "inherit",
+                              borderTopRightRadius: hasText ? 0 : "inherit",
+                            },
+                          }}
+                        >
+                          <ImageGrid
+                            urls={imageUrls}
+                            chatId={chatId}
+                            isUploading={isUploading}
+                            onImageClick={onImageClick}
+                          />
+                        </Box>
+                      )}
+
+                      {/* ТЕКСТ */}
+                      {hasText && (
                         <Typography
                           sx={{
                             fontSize: "1rem",
                             lineHeight: 1.4,
                             wordBreak: "break-word",
-                            p: noPadding ? "8px 14px 4px" : 0,
+                            p: "8px 14px 6px 14px",
+                            maxWidth: hasImages ? "220px" : "100%",
                           }}
                         >
                           {msg.text}
                         </Typography>
                       )}
 
-                      {/* Сетка изображений */}
-                      {hasImages && (
-                        <ImageGrid
-                          urls={imageUrls}
-                          chatId={chatId}
-                          isUploading={isUploading}
-                        />
-                      )}
-
-                      {/* Обычные файлы */}
-                      {!isUploading &&
-                        otherUrls.map((url, i) => (
-                          <FilePreview key={i} fileUrl={url} chatId={chatId!} />
-                        ))}
-
+                      {/* ФАЙЛЫ */}
+                      <Box sx={{ p: otherUrls.length > 0 ? "4px 12px" : 0 }}>
+                        {!isUploading &&
+                          otherUrls.map((url, i) => (
+                            <FilePreview
+                              key={i}
+                              fileUrl={url}
+                              chatId={chatId!}
+                              onImageClick={onImageClick}
+                            />
+                          ))}
+                      </Box>
                       {/* Плейсхолдер для загружаемых не-изображений */}
                       {isUploading && uploadingNonImageCount > 0 && (
                         <UploadingFilePlaceholder
@@ -484,7 +524,7 @@ const MessageList = memo(
                       )}
 
                       {/* Индикатор загрузки поверх сетки */}
-                      {isUploading && hasImages && (
+                      {/* {isUploading && hasImages && (
                         <Box
                           sx={{
                             position: "absolute",
@@ -497,19 +537,18 @@ const MessageList = memo(
                         >
                           <CircularProgress size={32} sx={{ color: "#fff" }} />
                         </Box>
-                      )}
+                      )} */}
 
-                      {/* Метаданные */}
+                      {/* МЕТАДАННЫЕ */}
                       <Box
-                        className={
-                          hasOnlyOneImage || hasGrid ? "image-metadata" : ""
-                        }
+                        className="image-metadata"
                         sx={{
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "flex-end",
                           gap: 0.5,
-                          ...(hasOnlyOneImage || hasGrid
+                          pt: 0.5,
+                          ...(isPureMedia
                             ? {
                                 position: "absolute",
                                 bottom: "6px",
@@ -518,22 +557,23 @@ const MessageList = memo(
                                 borderRadius: "12px",
                                 px: "8px",
                                 py: "2px",
-                                opacity: 0,
-                                transition: "opacity 0.2s ease-in-out",
-                                zIndex: 10,
                                 color: "#fff",
+                                zIndex: 10,
                               }
                             : {
-                                mt: 0.2,
-                                px: noPadding ? "8px" : 0,
-                                pb: noPadding ? "6px" : 0,
+                                // Если есть текст, время идет снизу в потоке
+                                mt: -1.5, // Немного приподнимаем, если оно внизу текста/картинки
+                                alignSelf: "flex-end",
+                                px: "12px",
+                                pb: "6px",
+                                pointerEvents: "none",
                               }),
                         }}
                       >
                         <Typography
                           sx={{
                             fontSize: "0.7rem",
-                            opacity: hasOnlyOneImage || hasGrid ? 0.9 : 0.5,
+                            opacity: isPureMedia ? 0.9 : 0.5,
                           }}
                         >
                           {formatLocalTime(msg.created_at)}

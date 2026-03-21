@@ -4,9 +4,9 @@ import ChatIcon from "@mui/icons-material/ChatBubbleRounded";
 import AddCircleIcon from "@mui/icons-material/AddCircleRounded";
 import PeopleIcon from "@mui/icons-material/PeopleRounded";
 import SettingsIcon from "@mui/icons-material/SettingsRounded";
-import ContrastRoundedIcon from "@mui/icons-material/ContrastRounded";
 import ThemeSwitcher from "./ThemeSwitcher";
-import { BorderAllRounded } from "@mui/icons-material";
+import api from "../services/api";
+import { useState, useEffect } from "react";
 
 interface NavbarProps {
   orientation?: "vertical" | "horizontal";
@@ -16,6 +16,23 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
   const theme = useTheme();
   const colors = theme.palette.background;
   const isVertical = orientation === "vertical";
+
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const userData = await api.auth.getMe();
+        if (userData && userData.avatar_url) {
+          setAvatarUrl(userData.avatar_url);
+        }
+      } catch (error) {
+        console.error("Ошибка при получении данных пользователя:", error);
+      }
+    };
+
+    fetchUserData();
+  }, []);
 
   const containerStyles = {
     width: isVertical ? 70 : "100%",
@@ -70,13 +87,13 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
           <SettingsIcon />
         </IconButton>
         <Avatar
-          src="/my-avatar.jpg"
+          src={avatarUrl || "/default-avatar.png"}
           sx={{
-            width: 36,
-            height: 36,
+            width: 55,
+            height: 55,
             cursor: "pointer",
             border: `2px solid ${colors.fourth}`,
-            mb: isVertical ? 1 : 0,
+            // mb: isVertical ? 0 : 0,
             ml: isVertical ? 0 : 1,
           }}
         />

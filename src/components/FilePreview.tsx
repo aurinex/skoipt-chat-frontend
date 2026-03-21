@@ -7,10 +7,12 @@ const FilePreview = ({
   fileUrl,
   chatId,
   grid = false,
+  onImageClick, // Добавили пропс
 }: {
   fileUrl: string;
   chatId: string;
-  grid?: boolean; // режим сетки — заполняет всю ячейку
+  grid?: boolean;
+  onImageClick?: (url: string) => void; // Описали тип
 }) => {
   const [url, setUrl] = useState<string | null>(null);
 
@@ -20,7 +22,7 @@ const FilePreview = ({
     } else {
       api.files.getPrivateUrl(chatId, fileUrl).then((res) => setUrl(res.url));
     }
-  }, [fileUrl]);
+  }, [fileUrl, chatId]);
 
   if (!url) return <CircularProgress size={16} sx={{ mt: 1 }} />;
 
@@ -28,38 +30,36 @@ const FilePreview = ({
     url.match(/\.(jpg|jpeg|png|gif|webp)/i) ||
     fileUrl.match(/\.(jpg|jpeg|png|gif|webp)/i);
 
-  if (isImage) {
-    if (grid) {
-      // В режиме сетки — заполняем ячейку целиком
-      return (
-        <Box
-          component="img"
-          src={url}
-          sx={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            display: "block",
-            cursor: "pointer",
-          }}
-          onClick={() => window.open(url, "_blank")}
-        />
-      );
+  // Функция-обработчик клика
+  const handleClick = (e: React.MouseEvent) => {
+    if (isImage && onImageClick) {
+      e.preventDefault();
+      onImageClick(url); // Вместо открытия вкладки вызываем нашу модалку
+    } else {
+      window.open(url, "_blank");
     }
+  };
 
+  if (isImage) {
     return (
       <Box
         component="img"
         src={url}
+        onClick={handleClick}
         sx={{
-          maxWidth: 320,
-          maxHeight: 200,
-          borderRadius: "10px 10px 0px 0px",
-          mt: 1,
+          // Если grid=true, растягиваем на всю ячейку, иначе по старым размерам
+          width: grid ? "100%" : "auto",
+          height: grid ? "100%" : "auto",
+          maxWidth: grid ? "100%" : 320,
+          maxHeight: grid ? "100%" : 200,
+          objectFit: grid ? "cover" : "initial",
+          borderRadius: grid ? "0px" : "10px 10px 0px 0px",
+          // mt: grid ? 0 : 1,
           display: "block",
-          cursor: "pointer",
+          cursor: "pointer", // Иконка лупы для красоты
+          transition: "opacity 0.2s",
+          "&:hover": { opacity: 0.9 },
         }}
-        onClick={() => window.open(url, "_blank")}
       />
     );
   }

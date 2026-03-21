@@ -8,6 +8,7 @@ import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
 import DropZoneOverlay from "./DropZoneOverlay";
 import FileUploadModal from "./FileUploadModal";
+import ImageViewer from "./ImageViewer";
 
 interface ActiveChatProps {
   onMessageSent?: (msg: any) => void;
@@ -33,12 +34,16 @@ const ActiveChat = (props: ActiveChatProps) => {
   const [modalFiles, setModalFiles] = useState<File[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
 
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+
   const openModal = useCallback((files: File[]) => {
-    if (!files.length) return;
-    setModalFiles(files.slice(0, 10));
+    setModalFiles((prev) => {
+      const combined = [...prev, ...files];
+      // Ограничиваем до 10, как ты просил
+      return combined.slice(0, 10);
+    });
     setModalOpen(true);
   }, []);
-
   const closeModal = useCallback(() => {
     setModalOpen(false);
     setModalFiles([]);
@@ -211,17 +216,21 @@ const ActiveChat = (props: ActiveChatProps) => {
 
   return (
     <>
-      <FileUploadModal
-        open={modalOpen}
-        files={modalFiles}
-        onClose={closeModal}
-        onSend={handleModalSend}
-        onAddMore={handleAddMoreFiles}
-        onRemove={handleRemoveFile}
-        colors={colors}
+      <ImageViewer
+        open={!!fullScreenImage}
+        src={fullScreenImage}
+        onClose={() => setFullScreenImage(null)}
       />
-
       <DropZoneOverlay onFilesDrop={openModal} colors={colors}>
+        <FileUploadModal
+          open={modalOpen}
+          files={modalFiles}
+          onClose={closeModal}
+          onSend={handleModalSend}
+          onAddMore={handleAddMoreFiles}
+          onRemove={handleRemoveFile}
+          colors={colors}
+        />
         <Box
           sx={{
             display: "flex",
@@ -244,6 +253,7 @@ const ActiveChat = (props: ActiveChatProps) => {
             myId={myId}
             chatId={chatId}
             colors={colors}
+            onImageClick={setFullScreenImage}
           />
           <MessageInput
             chatId={chatId}

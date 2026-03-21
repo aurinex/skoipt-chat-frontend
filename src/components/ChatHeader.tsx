@@ -117,7 +117,11 @@ const ChatHeader = memo(
         }}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <Avatar sx={{ width: 60, height: 60 }} />
+          <Avatar
+            src={chatData?.interlocutor?.avatar_url}
+            sx={{ width: 60, height: 60 }}
+          />
+          {/* chatData?.interlocutor?.avatar_url */}
           <Box>
             <Typography
               sx={{ color: colors.sixth, fontWeight: 600, fontSize: 24 }}
