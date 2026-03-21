@@ -6,6 +6,7 @@ import { useChat } from "../hooks/useChat";
 import ChatHeader from "./ChatHeader";
 import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
+import DropZoneOverlay from "./DropZoneOverlay";
 
 interface ActiveChatProps {
   onMessageSent?: (msg: any) => void;
@@ -82,58 +83,77 @@ const ActiveChat = (props: ActiveChatProps) => {
   );
 
   const handleFileUpload = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
+    async (source: React.ChangeEvent<HTMLInputElement> | File[]) => {
+      let file: File | undefined;
+
+      // Проверяем, что к нам пришло: массив файлов (drop) или событие (input)
+      if (Array.isArray(source)) {
+        file = source[0]; // Берем первый файл из дропа
+      } else {
+        file = source.target.files?.[0]; // Берем файл из инпута
+      }
+
       if (!file || !chatId) return;
 
       try {
+        // 1. Сначала загружаем файл на сервер
         const res = await api.files.uploadChatFile(chatId, file);
+
+        // Определяем URL (зависит от логики твоего бэкенда)
         const fileUrl = res.is_public ? res.url : res.object_name;
+
+        // 2. Отправляем сообщение с этим URL
         const msg = await api.messages.send(chatId, { file_url: fileUrl });
+
         setMessages((prev) => [...prev, msg]);
         handleUpdateChat(msg);
       } catch (err) {
         console.error("Ошибка загрузки файла:", err);
       }
 
-      e.target.value = "";
+      // Сбрасываем инпут, если это было событие, чтобы можно было выбрать тот же файл снова
+      if (!Array.isArray(source)) {
+        source.target.value = "";
+      }
     },
-    [chatId, handleUpdateChat],
+    [chatId, handleUpdateChat, setMessages],
   );
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-        p: 2,
-        bgcolor: colors.third,
-      }}
-    >
-      <ChatHeader
-        chatData={chatData}
-        typingUsers={typingUsers}
-        isMsgsLoading={isMsgsLoading}
-        colors={colors}
-      />
+    <DropZoneOverlay onFilesDrop={handleFileUpload} colors={colors}>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          height: "100vh",
+          p: 2,
+          bgcolor: colors.third,
+        }}
+      >
+        <ChatHeader
+          chatData={chatData}
+          typingUsers={typingUsers}
+          isMsgsLoading={isMsgsLoading}
+          colors={colors}
+        />
 
-      <MessageList
-        messages={messages}
-        isMsgsLoading={isMsgsLoading}
-        chatData={chatData}
-        myId={myId}
-        chatId={chatId}
-        colors={colors}
-      />
+        <MessageList
+          messages={messages}
+          isMsgsLoading={isMsgsLoading}
+          chatData={chatData}
+          myId={myId}
+          chatId={chatId}
+          colors={colors}
+        />
 
-      <MessageInput
-        chatId={chatId}
-        onSend={handleSend}
-        onFileUpload={handleFileUpload}
-        colors={colors}
-      />
-    </Box>
+        <MessageInput
+          chatId={chatId}
+          onSend={handleSend}
+          onFileUpload={handleFileUpload}
+          colors={colors}
+        />
+      </Box>
+    </DropZoneOverlay>
   );
 };
 
