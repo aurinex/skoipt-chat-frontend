@@ -157,6 +157,24 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
     };
   }, []);
 
+  const getLastMessagePreview = (msg: any, isMine: boolean) => {
+    if (!msg) return "Нет сообщений";
+    if (msg.is_system) return msg.text;
+
+    if (msg.text) return msg.text;
+
+    if (msg.file_url) {
+      const url = msg.file_url.toLowerCase();
+      if (url.match(/\.(jpg|jpeg|png|gif|webp)/)) return "🖼 Фото";
+      if (url.match(/\.(mp4|mov|avi)/)) return "🎥 Видео";
+      if (url.match(/\.(mp3|ogg|webm|m4a)/)) return "🎵 Аудио";
+      if (url.match(/\.pdf/)) return "📄 PDF";
+      return "📎 Файл";
+    }
+
+    return "Нет сообщений";
+  };
+
   return (
     <Box
       sx={{
@@ -254,7 +272,7 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
                                 textOverflow: "ellipsis",
                               }}
                             >
-                              {lastMsg?.text || "Нет сообщений"}
+                              {getLastMessagePreview(lastMsg, isMine)}
                             </Box>
                           )}
                         </Typography>

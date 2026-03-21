@@ -16,6 +16,7 @@ import MicIcon from "@mui/icons-material/Mic";
 import SendIcon from "@mui/icons-material/Send";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import api, { socket } from "../services/api";
+import FilePreview from "./FilePreview";
 
 interface ActiveChatProps {
   onMessageSent?: (msg: any) => void;
@@ -44,6 +45,7 @@ const ActiveChat = (props: ActiveChatProps) => {
   const typingTimersRef = useRef<{ [key: number]: NodeJS.Timeout }>({});
   const myTypingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const readTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const myId = localStorage.getItem("user_id");
 
@@ -206,6 +208,26 @@ const ActiveChat = (props: ActiveChatProps) => {
       Object.values(typingTimersRef.current).forEach(clearTimeout);
     };
   }, [chatId]);
+
+  /// ЗАГРУЗКА ФАЙЛА
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !chatId) return;
+
+    try {
+      const res = await api.files.uploadChatFile(chatId, file);
+
+      const fileUrl = res.is_public ? res.url : res.object_name;
+      const msg = await api.messages.send(chatId, { file_url: fileUrl });
+
+      setMessages((prev) => [...prev, msg]);
+      handleUpdateChat(msg);
+    } catch (err) {
+      console.error("Ошибка загрузки файла:", err);
+    }
+
+    e.target.value = "";
+  };
 
   const getStatusContent = () => {
     // 1. Сначала проверяем, печатает ли кто-то
@@ -677,6 +699,9 @@ const ActiveChat = (props: ActiveChatProps) => {
                         >
                           {msg.text}
                         </Typography>
+                        {msg.file_url && (
+                          <FilePreview fileUrl={msg.file_url} chatId={chatId} />
+                        )}
 
                         <Box
                           sx={{
@@ -710,6 +735,14 @@ const ActiveChat = (props: ActiveChatProps) => {
             })}
       </Box>
 
+      <input
+        ref={fileInputRef}
+        type="file"
+        hidden
+        accept="image/*,video/mp4,audio/*,application/pdf"
+        onChange={handleFileUpload}
+      />
+
       {/* Поле ввода */}
       <Box
         sx={{
@@ -721,7 +754,10 @@ const ActiveChat = (props: ActiveChatProps) => {
           alignItems: "center",
         }}
       >
-        <IconButton sx={{ color: colors.fiveth }}>
+        <IconButton
+          sx={{ color: colors.fiveth }}
+          onClick={() => fileInputRef.current?.click()}
+        >
           <AttachFileIcon />
         </IconButton>
         <TextField
