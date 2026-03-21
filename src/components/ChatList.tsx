@@ -160,6 +160,12 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
       );
     });
 
+    const unsubLeft = socket.on("left_chat", (data: any) => {
+      setLocalChats((prev) =>
+        prev.filter((c) => String(c.id) !== String(data.chat_id)),
+      );
+    });
+
     return () => {
       unsubTyping();
       unsubMsg();
@@ -167,6 +173,7 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
       unsubUnread();
       unsubNewChat();
       unsubKicked();
+      unsubLeft();
     };
   }, []);
 

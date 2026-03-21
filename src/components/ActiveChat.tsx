@@ -36,17 +36,30 @@ const ActiveChat = (props: ActiveChatProps) => {
 
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
-  const openModal = useCallback((files: File[]) => {
-    setModalFiles((prev) => {
-      const combined = [...prev, ...files];
-      // Ограничиваем до 10, как ты просил
-      return combined.slice(0, 10);
-    });
-    setModalOpen(true);
-  }, []);
+  const [draftText, setDraftText] = useState("");
+  const [modalInitialCaption, setModalInitialCaption] = useState("");
+
+  const openModal = useCallback(
+    (files: File[]) => {
+      setModalFiles((prev) => {
+        const combined = [...prev, ...files];
+        return combined.slice(0, 10);
+      });
+
+      if (draftText.trim()) {
+        setModalInitialCaption(draftText);
+        setDraftText("");
+      }
+
+      setModalOpen(true);
+    },
+    [draftText],
+  );
+
   const closeModal = useCallback(() => {
     setModalOpen(false);
     setModalFiles([]);
+    setModalInitialCaption("");
   }, []);
 
   const handleAddMoreFiles = useCallback((newFiles: File[]) => {
@@ -229,6 +242,7 @@ const ActiveChat = (props: ActiveChatProps) => {
           onSend={handleModalSend}
           onAddMore={handleAddMoreFiles}
           onRemove={handleRemoveFile}
+          initialCaption={modalInitialCaption}
           colors={colors}
         />
         <Box
@@ -259,6 +273,8 @@ const ActiveChat = (props: ActiveChatProps) => {
             chatId={chatId}
             onSend={handleSend}
             onFileUpload={handleFileInputChange}
+            value={draftText}
+            onChange={setDraftText}
             colors={colors}
           />
         </Box>

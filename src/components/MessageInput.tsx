@@ -9,6 +9,8 @@ interface MessageInputProps {
   chatId: string | undefined;
   onSend: (text: string) => void;
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  value: string;
+  onChange: (text: string) => void;
   colors: any;
 }
 
@@ -16,15 +18,16 @@ const MessageInput = ({
   chatId,
   onSend,
   onFileUpload,
+  value,
+  onChange,
   colors,
 }: MessageInputProps) => {
-  const [inputText, setInputText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const myTypingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setInputText(value);
+    onChange(value);
     if (!chatId) return;
 
     if (!myTypingTimerRef.current) {
@@ -40,18 +43,46 @@ const MessageInput = ({
   };
 
   const handleSend = () => {
-    if (!inputText.trim()) return;
-    onSend(inputText);
-    setInputText("");
+    if (!value.trim()) return;
+
+    onSend(value);
+    onChange(""); // ✅ очистка
+
     if (myTypingTimerRef.current) {
       clearTimeout(myTypingTimerRef.current);
       myTypingTimerRef.current = null;
     }
+
     if (chatId) socket.sendTyping(chatId, false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleSend();
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const items = e.clipboardData.items;
+
+    const files: File[] = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+
+      if (item.kind === "file") {
+        const file = item.getAsFile();
+        if (file) files.push(file);
+      }
+    }
+
+    if (files.length > 0) {
+      e.preventDefault(); // ❗ важно
+
+      onFileUpload({
+        target: { files },
+      } as any);
+
+      return;
+    }
   };
 
   return (
@@ -83,9 +114,10 @@ const MessageInput = ({
         fullWidth
         placeholder="Сообщение"
         variant="standard"
-        value={inputText}
+        value={value}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
+        onPaste={handlePaste}
         InputProps={{
           disableUnderline: true,
           sx: { color: colors.sixth, px: 1 },

@@ -24,6 +24,7 @@ interface FileUploadModalProps {
   onAddMore: (newFiles: File[]) => void;
   onRemove: (index: number) => void;
   colors: any;
+  initialCaption?: string;
 }
 
 const MAX_FILES = 10;
@@ -338,13 +339,14 @@ const FileUploadModal = ({
   onAddMore,
   onRemove,
   colors,
+  initialCaption = "",
 }: FileUploadModalProps) => {
-  const [caption, setCaption] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isSending, setIsSending] = useState(false);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
     [],
   );
+  const [caption, setCaption] = useState(initialCaption || "");
   const addMoreRef = useRef<HTMLInputElement>(null);
 
   const safeIndex =
@@ -363,6 +365,12 @@ const FileUploadModal = ({
   const validFiles = files.filter((f) => !errorFileNames.has(f.name));
   const hasInvalidFiles = invalidFileIndices.size > 0;
   const canSend = validFiles.length > 0 && !isSending;
+
+  useEffect(() => {
+    if (open) {
+      setCaption(initialCaption || "");
+    }
+  }, [open, initialCaption]);
 
   useEffect(() => {
     if (safeIndex !== selectedIndex) setSelectedIndex(safeIndex);
