@@ -185,6 +185,9 @@ const MessageList = memo(
               : null;
             const showDateLabel = currentDate !== prevDate;
 
+            const isImage = msg.file_url?.match(/\.(jpg|jpeg|png|gif|webp)/i);
+            const isOnlyImage = isImage && !msg.text;
+
             return (
               <Box key={msg.id} sx={{ display: "contents" }}>
                 {showDateLabel && (
@@ -271,7 +274,7 @@ const MessageList = memo(
 
                     <Box
                       sx={{
-                        p: "8px 14px",
+                        p: isOnlyImage ? 0 : "8px 14px",
                         borderRadius: isMessageFromMe
                           ? isLastInGroup
                             ? "18px 18px 4px 18px"
@@ -288,31 +291,74 @@ const MessageList = memo(
                         // Слегка приглушаем pending-сообщения
                         opacity: msg._pending ? 0.6 : 1,
                         transition: "opacity 0.2s",
+                        overflow: "hidden",
+                        "&:hover .image-metadata": {
+                          opacity: 1,
+                        },
+                        "& img": isOnlyImage
+                          ? {
+                              mt: 0,
+                              borderRadius: 0,
+                              display: "block",
+                              width: "100%",
+                              maxWidth: 280,
+                            }
+                          : {},
+                        // Центрируем крутилку загрузки, если картинка еще грузится
+                        "& .MuiCircularProgress-root": isOnlyImage
+                          ? {
+                              m: 3,
+                            }
+                          : {},
                       }}
                     >
-                      <Typography
-                        sx={{
-                          fontSize: "1rem",
-                          lineHeight: 1.4,
-                          wordBreak: "break-word",
-                        }}
-                      >
-                        {msg.text}
-                      </Typography>
+                      {msg.text && (
+                        <Typography
+                          sx={{
+                            fontSize: "1rem",
+                            lineHeight: 1.4,
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {msg.text}
+                        </Typography>
+                      )}
                       {msg.file_url && (
                         <FilePreview fileUrl={msg.file_url} chatId={chatId} />
                       )}
 
                       <Box
+                        className={isOnlyImage ? "image-metadata" : ""}
                         sx={{
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "flex-end",
                           gap: 0.5,
-                          mt: 0.2,
+                          ...(isOnlyImage
+                            ? {
+                                position: "absolute",
+                                bottom: "6px",
+                                right: "6px",
+                                bgcolor: "rgba(0, 0, 0, 0.4)", // Темная подложка для читаемости
+                                borderRadius: "12px",
+                                px: "8px",
+                                py: "2px",
+                                opacity: 0, // Скрыто по умолчанию
+                                transition: "opacity 0.2s ease-in-out",
+                                zIndex: 10,
+                                color: "#fff", // Принудительно белый текст
+                              }
+                            : {
+                                mt: 0.2,
+                              }),
                         }}
                       >
-                        <Typography sx={{ fontSize: "0.7rem", opacity: 0.5 }}>
+                        <Typography
+                          sx={{
+                            fontSize: "0.7rem",
+                            opacity: isOnlyImage ? 0.9 : 0.5,
+                          }}
+                        >
                           {formatLocalTime(msg.created_at)}
                         </Typography>
 

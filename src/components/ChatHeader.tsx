@@ -48,27 +48,55 @@ const ChatHeader = memo(
 
     if (isMsgsLoading && !chatData) {
       return (
-        <Box sx={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <Skeleton
-            variant="circular"
-            width={60}
-            height={60}
-            animation="wave"
-            sx={{ bgcolor: colors.skeleton }}
-          />
-          <Box>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            p: "14px 20px",
+            bgcolor: colors.fourth, // Тот же фон, что у реального хедера
+            borderRadius: "47px", // Тот же радиус
+            mb: 2,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <Skeleton
-              variant="text"
-              width={150}
-              height={30}
+              variant="circular"
+              width={60}
+              height={60}
               animation="wave"
               sx={{ bgcolor: colors.skeleton }}
             />
+            <Box>
+              <Skeleton
+                variant="text"
+                width={180}
+                height={30}
+                animation="wave"
+                sx={{ bgcolor: colors.skeleton }}
+              />
+              <Skeleton
+                variant="text"
+                width={100}
+                height={20}
+                animation="wave"
+                sx={{ bgcolor: colors.skeleton, mt: 0.5 }}
+              />
+            </Box>
+          </Box>
+
+          {/* Имитация кнопок поиска и настроек */}
+          <Box sx={{ display: "flex", gap: 1 }}>
             <Skeleton
-              variant="text"
-              width={80}
-              height={20}
-              animation="wave"
+              variant="circular"
+              width={40}
+              height={40}
+              sx={{ bgcolor: colors.skeleton }}
+            />
+            <Skeleton
+              variant="circular"
+              width={40}
+              height={40}
               sx={{ bgcolor: colors.skeleton }}
             />
           </Box>

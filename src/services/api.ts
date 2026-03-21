@@ -1,10 +1,10 @@
 // api.js — единый API-клиент для мессенджера
 // Использование: import api from './api'
 
-const BASE_URL = "http://localhost:8000";
-const BASE_WS = "localhost:8000";
-// const BASE_URL = "http://10.10.10.5:8000";
-// const BASE_WS = "10.10.10.5:8000";
+// const BASE_URL = "http://localhost:8000";
+// const BASE_WS = "localhost:8000";
+const BASE_URL = "http://10.10.10.5:8000";
+const BASE_WS = "10.10.10.5:8000";
 
 // ─── Хранение токенов ────────────────────────────────────────────────────────
 

@@ -33,9 +33,9 @@ const FilePreview = ({
         component="img"
         src={url}
         sx={{
-          maxWidth: 280,
+          maxWidth: 320,
           maxHeight: 200,
-          borderRadius: 2,
+          borderRadius: "10px 10px 0px 0px",
           mt: 1,
           display: "block",
           cursor: "pointer",

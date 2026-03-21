@@ -57,7 +57,7 @@ export const useChat = (chatId: string | undefined, myId: string | null) => {
         setMessages(msgs);
         setIsMsgsLoading(false);
       })
-      .catch(() => setIsMsgsLoading(false));
+      .catch(() => setIsMsgsLoading(true));
 
     api.chats
       .get(chatId)
