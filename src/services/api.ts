@@ -254,7 +254,7 @@ class MessengerSocket {
 
     this.ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      console.log("WS Получено событие:", data.event, data); // Добавь это!
+      console.log("WS Получено событие:", data.event, data);
       this._emit(data.event, data);
     };
 
@@ -300,13 +300,20 @@ class MessengerSocket {
     this._send({ event: "typing", chat_id: chatId, is_typing: isTyping });
   }
 
-  sendRead(messageId) {
-    this._send({ event: "read", message_id: messageId });
+  sendRead(chatId, messageId) {
+    this._send({
+      event: "read",
+      chat_id: chatId,
+      last_message_id: messageId,
+    });
   }
 
   _send(data) {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(data));
+      const message = typeof data === "string" ? data : JSON.stringify(data);
+      this.ws.send(message);
+    } else {
+      console.warn("Попытка отправки сообщения в закрытый сокет", data);
     }
   }
 }

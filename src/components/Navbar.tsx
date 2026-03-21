@@ -65,15 +65,15 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
 
       {/* Нижняя/Правая группа (Настройки и Аватар) */}
       <Box sx={groupStyles}>
-        <ThemeSwitcher />
+        <ThemeSwitcher orientation="vertical" />
         <IconButton sx={{ color: colors.fiveth }}>
           <SettingsIcon />
         </IconButton>
         <Avatar
           src="/my-avatar.jpg"
           sx={{
-            width: 35,
-            height: 35,
+            width: 36,
+            height: 36,
             cursor: "pointer",
             border: `2px solid ${colors.fourth}`,
             mb: isVertical ? 1 : 0,

@@ -11,5 +11,7 @@ declare module "@mui/material/styles" {
     seventh: string;
     eighth: string;
     text: string;
+    skeleton: string;
+    wb: string;
   }
 }

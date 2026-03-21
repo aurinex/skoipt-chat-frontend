@@ -9,15 +9,153 @@ import {
 } from "@mui/material";
 import { Link, useLocation } from "react-router-dom";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
+import { Skeleton } from "@mui/material";
+import { useState, useEffect } from "react";
+import { socket } from "../services/api";
 
 interface ChatListProps {
   chats: any[];
+  isLoading?: boolean;
 }
 
-const ChatList = ({ chats }: ChatListProps) => {
+const ChatList = ({ chats, isLoading }: ChatListProps) => {
+  const [localChats, setLocalChats] = useState(chats);
   const theme = useTheme();
   const location = useLocation();
   const colors = theme.palette.background;
+
+  const myId = localStorage.getItem("user_id");
+
+  const renderSkeletons = () => (
+    <>
+      {[...Array(7)].map((_, index) => (
+        <ListItem key={index} disablePadding sx={{ mb: 1.5, p: 0 }}>
+          <Box
+            sx={{
+              display: "flex",
+              p: 1.5,
+              width: "100%",
+              alignItems: "center",
+            }}
+          >
+            <Skeleton
+              variant="circular"
+              animation="wave"
+              width={50}
+              height={50}
+              sx={{ mr: 2, bgcolor: colors.skeleton }}
+            />
+            <Box sx={{ flexGrow: 1 }}>
+              <Skeleton
+                variant="text"
+                animation="wave"
+                width="60%"
+                height={20}
+                sx={{ mb: 1, bgcolor: colors.skeleton }}
+              />
+              <Skeleton
+                variant="text"
+                animation="wave"
+                width="90%"
+                height={15}
+                sx={{ bgcolor: colors.skeleton }}
+              />
+            </Box>
+          </Box>
+        </ListItem>
+      ))}
+    </>
+  );
+
+  useEffect(() => {
+    setLocalChats(chats);
+  }, [chats]);
+
+  useEffect(() => {
+    // 1. Слушаем статус "Печатает" для списка
+    const unsubTyping = socket.on("typing", (data: any) => {
+      setLocalChats((prev) =>
+        prev.map((chat) =>
+          String(chat.id) === String(data.chat_id)
+            ? { ...chat, is_typing: data.is_typing }
+            : chat,
+        ),
+      );
+    });
+
+    // 2. Слушаем новые сообщения, чтобы обновить текст и поднять чат вверх
+    const unsubMsg = socket.on("new_message", (data: any) => {
+      const msg = data.message || data;
+      setLocalChats((prev) => {
+        const chatIndex = prev.findIndex(
+          (c) => String(c.id) === String(msg.chat_id),
+        );
+        if (chatIndex === -1) return prev;
+
+        const updatedChats = [...prev];
+        const targetChat = { ...updatedChats[chatIndex], last_message: msg };
+
+        // Удаляем чат со старой позиции и ставим в начало списка
+        updatedChats.splice(chatIndex, 1);
+        return [targetChat, ...updatedChats];
+      });
+    });
+
+    // 3. Слушаем события прочтения (для обновления галочек в списке)
+    const unsubRead = socket.on("read", (data: any) => {
+      setLocalChats((prev) =>
+        prev.map((chat) => {
+          if (String(chat.id) === String(data.chat_id) && chat.last_message) {
+            // Проверяем, входит ли последнее сообщение в список только что прочитанных
+            if (data.message_ids.includes(chat.last_message.id)) {
+              return {
+                ...chat,
+                last_message: {
+                  ...chat.last_message,
+                  read_by: [
+                    ...(chat.last_message.read_by || []),
+                    { user_id: data.user_id },
+                  ],
+                },
+              };
+            }
+          }
+          return chat;
+        }),
+      );
+    });
+
+    const unsubUnread = socket.on("unread_count", (data: any) => {
+      if (data.unread_count === 0) {
+        setLocalChats((prev) =>
+          prev.map((chat) =>
+            String(chat.id) === String(data.chat_id)
+              ? {
+                  ...chat,
+                  last_message: chat.last_message
+                    ? {
+                        ...chat.last_message,
+                        // Добавляем себя в read_by чтобы кружок побелел
+                        read_by: [
+                          ...(chat.last_message.read_by || []),
+                          { user_id: myId },
+                        ],
+                      }
+                    : chat.last_message,
+                }
+              : chat,
+          ),
+        );
+      }
+    });
+
+    return () => {
+      unsubTyping();
+      unsubMsg();
+      unsubRead();
+      unsubUnread();
+    };
+  }, []);
 
   return (
     <Box
@@ -43,131 +181,136 @@ const ChatList = ({ chats }: ChatListProps) => {
 
       <Box sx={{ flexGrow: 1, overflowY: "auto" }}>
         <List sx={{ p: 0 }}>
-          {chats.map((chat) => {
-            const isSelected = location.pathname.includes(chat.id);
-            const lastMsg = chat.last_message;
-            const isMine = lastMsg?.is_mine;
+          {isLoading
+            ? renderSkeletons() // Показываем скелетоны при загрузке
+            : localChats.map((chat) => {
+                const isSelected = location.pathname.includes(chat.id);
+                const lastMsg = chat.last_message;
+                const isMine = lastMsg?.is_mine;
 
-            return (
-              <ListItem key={chat.id} disablePadding sx={{ mb: 0.5, p: 0 }}>
-                <ListItemButton
-                  component={Link}
-                  to={`/chat/${chat.id}`}
-                  sx={{
-                    borderRadius: "24px",
-                    p: 1.5,
-                    bgcolor: isSelected ? colors.fourth : "transparent",
-                    "&:hover": { bgcolor: colors.third },
-                    transition: "background-color 0.2s",
-                  }}
-                >
-                  <Avatar
-                    src={chat.interlocutor?.avatar_url}
-                    sx={{ width: 50, height: 50, mr: 2 }}
-                  />
-
-                  <Box sx={{ flexGrow: 1, overflow: "hidden" }}>
-                    <Typography
+                return (
+                  <ListItem key={chat.id} disablePadding sx={{ mb: 0.5, p: 0 }}>
+                    <ListItemButton
+                      component={Link}
+                      to={`/chat/${chat.id}`}
                       sx={{
-                        color: colors.sixth,
-                        fontWeight: 600,
-                        fontSize: "0.95rem",
+                        borderRadius: "24px",
+                        p: 1.5,
+                        bgcolor: isSelected ? colors.fourth : "transparent",
+                        "&:hover": { bgcolor: colors.third },
+                        transition: "background-color 0.2s",
                       }}
-                      noWrap
                     >
-                      {chat.name ||
-                        chat.interlocutor?.full_name ||
-                        "Пользователь"}
-                    </Typography>
+                      <Avatar
+                        src={chat.interlocutor?.avatar_url}
+                        sx={{ width: 50, height: 50, mr: 2 }}
+                      />
 
-                    <Typography
-                      sx={{
-                        color: isSelected ? colors.sixth : colors.fiveth,
-                        fontSize: "0.85rem",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 0.5,
-                      }}
-                      noWrap
-                    >
-                      {/* 1. Если сообщение наше, добавляем приписку "Вы:" */}
-                      {isMine && (
-                        <Box
-                          component="span"
-                          sx={{ color: colors.fiveth, flexShrink: 0 }}
-                        >
-                          Вы:
-                        </Box>
-                      )}
-
-                      {chat.is_typing ? (
-                        <Box component="span" sx={{ color: colors.eighth }}>
-                          Печатает...
-                        </Box>
-                      ) : (
-                        // Отображаем текст последнего сообщения
-                        <Box
-                          component="span"
+                      <Box sx={{ flexGrow: 1, overflow: "hidden" }}>
+                        <Typography
                           sx={{
-                            noWrap: true,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
+                            color: colors.sixth,
+                            fontWeight: 600,
+                            fontSize: "0.95rem",
                           }}
+                          noWrap
                         >
-                          {lastMsg?.text || "Нет сообщений"}
-                        </Box>
-                      )}
-                    </Typography>
-                  </Box>
+                          {chat.name ||
+                            chat.interlocutor?.full_name ||
+                            "Пользователь"}
+                        </Typography>
 
-                  <Box
-                    sx={{
-                      ml: 1,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "flex-end",
-                      justifyContent: "center", // Центрируем индикаторы по вертикали
-                      minWidth: 20,
-                    }}
-                  >
-                    {/* 2. Логика индикаторов статуса */}
-                    {lastMsg && (
-                      <>
-                        {isMine ? (
-                          // Если отправили МЫ: галочки
-                          <DoneAllIcon
-                            sx={{
-                              fontSize: 18,
-                              // Синий если прочитано (eighth), серый если нет (fiveth)
-                              color: lastMsg.is_read
-                                ? colors.eighth
-                                : colors.text,
-                            }}
-                          />
-                        ) : (
-                          // Если отправили НАМ: кружок
-                          !lastMsg.is_read && (
+                        <Typography
+                          sx={{
+                            color: isSelected ? colors.sixth : colors.fiveth,
+                            fontSize: "0.85rem",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 0.5,
+                          }}
+                          noWrap
+                        >
+                          {/* 1. Если сообщение наше, добавляем приписку "Вы:" */}
+                          {isMine && !lastMsg?.is_system && (
                             <Box
+                              component="span"
+                              sx={{ color: colors.fiveth, flexShrink: 0 }}
+                            >
+                              Вы:
+                            </Box>
+                          )}
+
+                          {chat.is_typing ? (
+                            <Box component="span" sx={{ color: colors.fiveth }}>
+                              Печатает...
+                            </Box>
+                          ) : (
+                            // Отображаем текст последнего сообщения
+                            <Box
+                              component="span"
                               sx={{
-                                width: 12,
-                                height: 12,
-                                // Красный если не в диалоге (seventh), серый если в нем (fourth)
-                                bgcolor: isSelected
-                                  ? colors.third
-                                  : colors.seventh,
-                                borderRadius: "50%",
-                                transition: "background-color 0.3s ease",
+                                noWrap: true,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
                               }}
-                            />
-                          )
+                            >
+                              {lastMsg?.text || "Нет сообщений"}
+                            </Box>
+                          )}
+                        </Typography>
+                      </Box>
+
+                      <Box
+                        sx={{
+                          ml: 1,
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "flex-end",
+                          justifyContent: "center",
+                          minWidth: 24,
+                        }}
+                      >
+                        {lastMsg && (
+                          <>
+                            {isMine ? (
+                              /* --- ВАШЕ ПОСЛЕДНЕЕ СООБЩЕНИЕ (Галочки) --- */
+                              <DoneAllIcon
+                                sx={{
+                                  fontSize: 18,
+
+                                  color:
+                                    lastMsg.read_by &&
+                                    lastMsg.read_by.length > 0
+                                      ? "#fff"
+                                      : colors.eighth,
+                                  transition: "color 0.3s ease",
+                                }}
+                              />
+                            ) : (
+                              /* --- СООБЩЕНИЕ СОБЕСЕДНИКА (Кружок) --- */
+                              <Box
+                                sx={{
+                                  width: 10,
+                                  height: 10,
+                                  borderRadius: "50%",
+                                  // Если вашего ID НЕТ в списке прочитавших — значит сообщение новое для вас
+                                  bgcolor: lastMsg.read_by?.some(
+                                    (r: any) =>
+                                      String(r.user_id) === String(myId),
+                                  )
+                                    ? "#fff"
+                                    : colors.eighth,
+                                  transition: "all 0.3s ease",
+                                }}
+                              />
+                            )}
+                          </>
                         )}
-                      </>
-                    )}
-                  </Box>
-                </ListItemButton>
-              </ListItem>
-            );
-          })}
+                      </Box>
+                    </ListItemButton>
+                  </ListItem>
+                );
+              })}
         </List>
       </Box>
     </Box>

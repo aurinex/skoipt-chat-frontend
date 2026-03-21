@@ -6,7 +6,7 @@ import {
   IconButton,
   Typography,
   Avatar,
-  InputAdornment,
+  Skeleton,
   useTheme,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
@@ -34,6 +34,7 @@ const ActiveChat = (props: ActiveChatProps) => {
   const colors = theme.palette.background;
 
   const [messages, setMessages] = useState<any[]>([]);
+  const [isMsgsLoading, setIsMsgsLoading] = useState(true);
   const [chatData, setChatData] = useState<any>(null); // Состояние для данных чата
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -42,8 +43,31 @@ const ActiveChat = (props: ActiveChatProps) => {
   const [typingUsers, setTypingUsers] = useState<any[]>([]);
   const typingTimersRef = useRef<{ [key: number]: NodeJS.Timeout }>({});
   const myTypingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const readTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const myId = Number(localStorage.getItem("user_id"));
+  const myId = localStorage.getItem("user_id");
+
+  const sendReadEvent = (messageId: number | string) => {
+    if (readTimerRef.current) clearTimeout(readTimerRef.current);
+
+    readTimerRef.current = setTimeout(() => {
+      console.log("[READ] Отправляю read:", chatId, messageId);
+      // Используем готовый метод из api.ts вместо прямого обращения к _send
+      socket.sendRead(chatId, messageId);
+    }, 500);
+  };
+
+  // Авто-прочтение при открытии чата или новых сообщениях
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastIncoming = [...messages]
+        .reverse()
+        .find((m) => String(m.sender_id) !== String(myId));
+      if (lastIncoming) {
+        sendReadEvent(lastIncoming.id);
+      }
+    }
+  }, [messages.length, chatId]);
 
   // 1. Загрузка данных чата и сообщений
   useEffect(() => {
@@ -68,17 +92,42 @@ const ActiveChat = (props: ActiveChatProps) => {
 
     const unsubMsg = socket.on("new_message", (data: any) => {
       const msg = data.message || data;
-
-      if (onMessageSent) {
-        onMessageSent(msg);
-      }
-
       if (String(msg.chat_id) === String(chatId)) {
         setMessages((prev) => {
-          const exists = prev.find((m) => m.id === msg.id);
-          if (exists) return prev;
+          if (prev.find((m) => m.id === msg.id)) return prev;
           return [...prev, msg];
         });
+
+        // Если сообщение пришло от другого человека — помечаем как прочитанное
+        if (String(msg.sender_id) !== myId) {
+          sendReadEvent(msg.id);
+        }
+      }
+    });
+
+    const unsubRead = socket.on("read", (data: any) => {
+      // data обычно содержит: { chat_id, message_ids: [], user_id, read_at }
+      if (String(data.chat_id) === String(chatId)) {
+        setMessages((prev) =>
+          prev.map((msg) => {
+            if (data.message_ids.includes(msg.id)) {
+              // Проверяем, нет ли уже этого пользователя в списке прочитавших
+              const alreadyRead = msg.read_by?.some(
+                (r: any) => r.user_id === data.user_id,
+              );
+              if (alreadyRead) return msg;
+
+              return {
+                ...msg,
+                read_by: [
+                  ...(msg.read_by || []),
+                  { user_id: data.user_id, read_at: data.read_at },
+                ],
+              };
+            }
+            return msg;
+          }),
+        );
       }
     });
 
@@ -113,9 +162,47 @@ const ActiveChat = (props: ActiveChatProps) => {
       }
     });
 
+    const unsubEdited = socket.on("message_edited", (data: any) => {
+      if (String(data.chat_id) === String(chatId)) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === data.message_id
+              ? {
+                  ...m,
+                  text: data.text,
+                  is_edited: true,
+                  edited_at: data.edited_at,
+                }
+              : m,
+          ),
+        );
+      }
+    });
+
+    const unsubDeleted = socket.on("message_deleted", (data: any) => {
+      if (String(data.chat_id) === String(chatId)) {
+        setMessages((prev) => prev.filter((m) => m.id !== data.message_id));
+      }
+    });
+
+    const unsubChatUpdated = socket.on("chat_updated", (data: any) => {
+      if (String(data.chat_id) === String(chatId)) {
+        setChatData((prev: any) => ({
+          ...prev,
+          member_count: data.member_count,
+          members: data.members,
+          admins: data.admins,
+        }));
+      }
+    });
+
     return () => {
       unsubMsg();
+      unsubRead();
       unsubTyping();
+      unsubEdited();
+      unsubDeleted();
+      unsubChatUpdated();
       Object.values(typingTimersRef.current).forEach(clearTimeout);
     };
   }, [chatId]);
@@ -221,6 +308,132 @@ const ActiveChat = (props: ActiveChatProps) => {
     );
   }
 
+  const renderHeaderSkeleton = () => (
+    <Box sx={{ display: "flex", alignItems: "center", gap: "12px" }}>
+      <Skeleton
+        variant="circular"
+        width={60}
+        height={60}
+        animation="wave"
+        sx={{ bgcolor: colors.skeleton }}
+      />
+      <Box>
+        <Skeleton
+          variant="text"
+          width={150}
+          height={30}
+          animation="wave"
+          sx={{ bgcolor: colors.skeleton }}
+        />
+        <Skeleton
+          variant="text"
+          width={80}
+          height={20}
+          animation="wave"
+          sx={{ bgcolor: colors.skeleton }}
+        />
+      </Box>
+    </Box>
+  );
+
+  const renderMessageSkeletons = () => {
+    const MAX_HEIGHT = 1000;
+    const GAP = 16; // gap: 2 в MUI это 16px
+
+    // Определяем возможные конфигурации высот для типов
+    const types = [
+      { name: "text", height: 45 },
+      { name: "long-text", height: 90 },
+      { name: "image", height: 210 }, // 150 (фото) + подпись + падинги
+    ];
+
+    let currentTotalHeight = 0;
+    const skeletonsToRender = [];
+
+    // Цикл подбора: добавляем, пока влезаем в 1000px
+    while (currentTotalHeight < MAX_HEIGHT - 100) {
+      // -100 небольшой запас снизу
+      const randomType = types[Math.floor(Math.random() * types.length)];
+
+      // Проверяем, не вылезем ли мы за лимит после добавления
+      if (currentTotalHeight + randomType.height + GAP > MAX_HEIGHT) break;
+
+      skeletonsToRender.push(randomType);
+      currentTotalHeight += randomType.height + GAP;
+    }
+
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          gap: `${GAP}px`,
+          height: MAX_HEIGHT, // Фиксируем высоту контейнера
+          overflow: "hidden", // Гарантируем отсутствие скролла
+          pt: 2,
+        }}
+      >
+        {skeletonsToRender.map((type, i) => {
+          const isMe = i % 2 === 0;
+
+          return (
+            <Box
+              key={i}
+              sx={{
+                alignSelf: isMe ? "flex-end" : "flex-start",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: isMe ? "flex-end" : "flex-start",
+                width: "45%",
+              }}
+            >
+              {type.name === "image" ? (
+                <Box
+                  sx={{
+                    p: 1,
+                    bgcolor: colors.skeleton,
+                    borderRadius: isMe
+                      ? "20px 20px 5px 20px"
+                      : "20px 20px 20px 5px",
+                    width: "100%",
+                    height: 190, // Фиксированная высота для предсказуемости расчета
+                    opacity: 0.6,
+                  }}
+                >
+                  <Skeleton
+                    variant="rounded"
+                    animation="wave"
+                    height={140}
+                    sx={{ bgcolor: colors.third, borderRadius: "15px", mb: 1 }}
+                  />
+                  <Skeleton
+                    variant="text"
+                    animation="wave"
+                    width="70%"
+                    sx={{ bgcolor: colors.third }}
+                  />
+                </Box>
+              ) : (
+                <Skeleton
+                  variant="rounded"
+                  animation="wave"
+                  height={type.height}
+                  sx={{
+                    bgcolor: colors.skeleton,
+                    borderRadius: isMe
+                      ? "20px 20px 5px 20px"
+                      : "20px 20px 20px 5px",
+                    width: type.name === "text" ? "70%" : "100%",
+                  }}
+                />
+              )}
+            </Box>
+          );
+        })}
+      </Box>
+    );
+  };
+
   return (
     <Box
       sx={{
@@ -243,36 +456,40 @@ const ActiveChat = (props: ActiveChatProps) => {
           mb: 2,
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <Avatar sx={{ width: 60, height: 60 }} />
-          {/* <Avatar 
-            src={chatData?.interlocutor?.avatar_url || ""} 
-            sx={{ width: 60, height: 60 }} 
-          /> */}
-          <Box>
-            <Typography
-              sx={{ color: colors.sixth, fontWeight: 600, fontSize: 24 }}
-            >
-              {chatData?.name ||
-                chatData?.interlocutor?.full_name ||
-                "Загрузка..."}
-            </Typography>
-            <Typography
-              sx={{
-                color: isTyping ? colors.eighth : colors.fiveth,
-                fontSize: 18,
-                mt: "-6px",
-              }}
-            >
-              {getStatusContent()}
-            </Typography>
+        {isMsgsLoading && !chatData ? (
+          renderHeaderSkeleton()
+        ) : (
+          <Box sx={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <Avatar sx={{ width: 60, height: 60 }} />
+            {/* <Avatar 
+              src={chatData?.interlocutor?.avatar_url || ""} 
+              sx={{ width: 60, height: 60 }} 
+            /> */}
+            <Box>
+              <Typography
+                sx={{ color: colors.sixth, fontWeight: 600, fontSize: 24 }}
+              >
+                {chatData?.name ||
+                  chatData?.interlocutor?.full_name ||
+                  "Загрузка..."}
+              </Typography>
+              <Typography
+                sx={{
+                  color: isTyping ? colors.eighth : colors.fiveth,
+                  fontSize: 18,
+                  mt: "-6px",
+                }}
+              >
+                {getStatusContent()}
+              </Typography>
+            </Box>
           </Box>
-        </Box>
+        )}
         <Box>
-          <IconButton sx={{ color: colors.text }}>
+          <IconButton sx={{ color: colors.wb }}>
             <SearchIcon />
           </IconButton>
-          <IconButton sx={{ color: colors.text }}>
+          <IconButton sx={{ color: colors.wb }}>
             <SettingsIcon />
           </IconButton>
         </Box>
@@ -298,142 +515,199 @@ const ActiveChat = (props: ActiveChatProps) => {
           gap: 0.5,
         }}
       >
-        {messages.map((msg, index) => {
-          const isMessageFromMe = msg.is_mine;
-
-          const prevMsg = messages[index - 1];
-          const isFirstInGroup =
-            !prevMsg || prevMsg.sender_id !== msg.sender_id;
-          const nextMsg = messages[index + 1];
-          const isLastInGroup = !nextMsg || nextMsg.sender_id !== msg.sender_id;
-
-          // --- ЛОГИКА ДАТЫ ---
-          const currentDate = new Date(msg.created_at).toDateString();
-          const prevDate = prevMsg
-            ? new Date(prevMsg.created_at).toDateString()
-            : null;
-          const showDateLabel = currentDate !== prevDate;
-
-          return (
-            <Box key={msg.id} sx={{ display: "contents" }}>
-              {/* Автоматическая плашка даты */}
-              {showDateLabel && (
-                <Box
-                  sx={{
-                    alignSelf: "center",
-                    my: 2,
-                    px: 2,
-                    py: 0.5,
-                    bgcolor: colors.third,
-                    borderRadius: "20px",
-                  }}
-                >
-                  <Typography
+        {isMsgsLoading && messages.length === 0
+          ? renderMessageSkeletons()
+          : messages.map((msg, index) => {
+              if (msg.is_system) {
+                return (
+                  <Box
+                    key={msg.id}
                     sx={{
-                      color: colors.sixth,
-                      fontSize: "14px",
-                      p: "6px 25px",
-                      borderRadius: "19px",
-                      background: `
-                  linear-gradient(${theme.palette.background.second}, ${theme.palette.background.second}) padding-box,
-                  radial-gradient(circle at 50%, #636363, #CDCDCD 50%, #636363 100%) border-box
-                `,
-                      border: "1px solid transparent",
+                      alignSelf: "center",
+                      my: 1,
+                      px: 2,
+                      py: 0.5,
+                      bgcolor: colors.fourth,
+                      borderRadius: "20px",
                     }}
                   >
-                    {formatDateLabel(msg.created_at)}
-                  </Typography>
-                </Box>
-              )}
-
-              {/* Сообщение */}
-              <Box
-                sx={{
-                  alignSelf: isMessageFromMe ? "flex-end" : "flex-start",
-                  maxWidth: "75%",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: isMessageFromMe ? "flex-end" : "flex-start",
-                  mb: isLastInGroup ? 2 : 0.5,
-                  mt: showDateLabel && !isFirstInGroup ? 1 : 0,
-                }}
-              >
-                {/* Имя (только в группах и если сообщение первое в цепочке) */}
-                {!isMessageFromMe &&
-                  chatData?.member_count > 2 &&
-                  isFirstInGroup && (
                     <Typography
                       sx={{
+                        color: colors.fiveth,
                         fontSize: "0.75rem",
-                        color: colors.eighth,
-                        fontWeight: 600,
-                        mb: 0.5,
-                        ml: 1,
+                        textAlign: "center",
                       }}
                     >
-                      {msg.sender?.first_name || "Участник"}
+                      {msg.text}
                     </Typography>
+                  </Box>
+                );
+              }
+              const isMessageFromMe = msg.is_mine;
+
+              const prevMsg = messages[index - 1];
+              const isFirstInGroup =
+                !prevMsg || prevMsg.sender_id !== msg.sender_id;
+              const nextMsg = messages[index + 1];
+              const isLastInGroup =
+                !nextMsg || nextMsg.sender_id !== msg.sender_id;
+
+              // --- ЛОГИКА ДАТЫ ---
+              const currentDate = new Date(msg.created_at).toDateString();
+              const prevDate = prevMsg
+                ? new Date(prevMsg.created_at).toDateString()
+                : null;
+              const showDateLabel = currentDate !== prevDate;
+
+              return (
+                <Box key={msg.id} sx={{ display: "contents" }}>
+                  {showDateLabel && (
+                    <Box sx={{ alignSelf: "center", my: 2 }}>
+                      <Typography
+                        sx={{
+                          color: colors.sixth,
+                          fontSize: "14px",
+                          p: "6px 25px",
+                          borderRadius: "19px",
+                          bgcolor: colors.second, // Упростил для чистоты, можешь вернуть свой градиент
+                          border: "1px solid rgba(255,255,255,0.1)",
+                        }}
+                      >
+                        {formatDateLabel(msg.created_at)}
+                      </Typography>
+                    </Box>
                   )}
 
-                <Box
-                  sx={{
-                    p: "10px 16px",
-                    borderRadius: isMessageFromMe
-                      ? isLastInGroup
-                        ? "20px 20px 5px 20px"
-                        : "20px 20px 20px 20px"
-                      : isLastInGroup
-                        ? "20px 20px 20px 5px"
-                        : "20px 20px 20px 20px",
-                    bgcolor: isMessageFromMe ? colors.eighth : colors.second,
-                    color: isMessageFromMe ? "#fff" : colors.sixth,
-                    boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
-                    minWidth: "60px",
-                  }}
-                >
-                  <Typography
-                    sx={{
-                      fontSize: "0.95rem",
-                      lineHeight: 1.4,
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    {msg.text}
-                  </Typography>
-
+                  {/* ГЛАВНЫЙ КОНТЕЙНЕР СТРОКИ */}
                   <Box
                     sx={{
                       display: "flex",
-                      alignItems: "center",
-                      justifyContent: "flex-end",
-                      gap: 0.5,
-                      mt: 0.5,
+                      flexDirection: "row",
+                      alignItems: "flex-end", // Аватар будет внизу сообщения
+                      justifyContent: isMessageFromMe
+                        ? "flex-end"
+                        : "flex-start",
+                      gap: 1,
+                      mb: isLastInGroup ? 2 : 0.4,
+                      mt: showDateLabel && !isFirstInGroup ? 1 : 0,
                     }}
                   >
-                    <Typography
+                    {/* АВАТАР СЛЕВА (только для чужих) */}
+                    {!isMessageFromMe && (
+                      <Box
+                        sx={{
+                          width: 45,
+                          flexShrink: 0,
+                          display: "flex",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {isLastInGroup ? (
+                          <Avatar
+                            src={msg.sender?.avatar_url}
+                            sx={{
+                              width: 45,
+                              height: 45,
+                              fontSize: "1.2rem",
+                              bgcolor: colors.eighth,
+                            }}
+                          >
+                            {msg.sender?.first_name?.[0]}
+                          </Avatar>
+                        ) : (
+                          <Box sx={{ width: 34 }} />
+                        )}
+                      </Box>
+                    )}
+
+                    {/* ПУЗЫРЬ И ИМЯ */}
+                    <Box
                       sx={{
-                        fontSize: "0.65rem",
-                        color: isMessageFromMe
-                          ? "rgba(255,255,255,0.7)"
-                          : colors.fiveth,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: isMessageFromMe ? "flex-end" : "flex-start",
+                        maxWidth: "75%",
                       }}
                     >
-                      {formatLocalTime(msg.created_at)}
-                    </Typography>
-                    {isMessageFromMe && (
-                      <DoneAllIcon
+                      {/* Имя над первым сообщением в группе */}
+                      {!isMessageFromMe &&
+                        chatData?.member_count > 2 &&
+                        isFirstInGroup && (
+                          <Typography
+                            sx={{
+                              fontSize: "0.8rem",
+                              color: colors.eighth,
+                              fontWeight: 600,
+                              mb: 0.3,
+                              ml: 1.5,
+                            }}
+                          >
+                            {msg.sender?.first_name}{" "}
+                            {msg.sender?.last_name?.[0]
+                              ? `${msg.sender.last_name[0]}.`
+                              : ""}
+                          </Typography>
+                        )}
+
+                      {/* Само облачко */}
+                      <Box
                         sx={{
-                          fontSize: 14,
-                          color: msg.is_read ? "#fff" : "rgba(255,255,255,0.5)",
+                          p: "8px 14px",
+                          borderRadius: isMessageFromMe
+                            ? isLastInGroup
+                              ? "18px 18px 4px 18px"
+                              : "18px"
+                            : isLastInGroup
+                              ? "18px 18px 18px 4px"
+                              : "18px",
+                          bgcolor: isMessageFromMe
+                            ? colors.eighth
+                            : colors.second,
+                          color: isMessageFromMe ? "#fff" : colors.sixth,
+                          boxShadow: "0 1px 1px rgba(0,0,0,0.05)",
+                          position: "relative",
                         }}
-                      />
-                    )}
+                      >
+                        <Typography
+                          sx={{
+                            fontSize: "1rem",
+                            lineHeight: 1.4,
+                            wordBreak: "break-word",
+                          }}
+                        >
+                          {msg.text}
+                        </Typography>
+
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "flex-end",
+                            gap: 0.5,
+                            mt: 0.2,
+                          }}
+                        >
+                          <Typography sx={{ fontSize: "0.7rem", opacity: 0.5 }}>
+                            {formatLocalTime(msg.created_at)}
+                          </Typography>
+                          {isMessageFromMe && (
+                            <DoneAllIcon
+                              sx={{
+                                fontSize: 14,
+                                color:
+                                  msg.read_by?.length > 0
+                                    ? "rgba(255, 255, 255, 1)"
+                                    : "rgba(255, 255, 255, 0.5)",
+                              }}
+                            />
+                          )}
+                        </Box>
+                      </Box>
+                    </Box>
                   </Box>
                 </Box>
-              </Box>
-            </Box>
-          );
-        })}
+              );
+            })}
       </Box>
 
       {/* Поле ввода */}

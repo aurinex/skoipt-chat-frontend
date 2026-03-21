@@ -63,6 +63,11 @@ export const ThemeProvider = ({ children }: any) => {
             eighth: actualMode === "dark" ? "#0050E4" : "#0050E4",
 
             text: actualMode === "dark" ? "#000000" : "#FFFFFF",
+            wb: actualMode === "dark" ? "#FFFFFF" : "#000000",
+            skeleton:
+              actualMode === "dark"
+                ? "rgba(255, 255, 255, 0.05)"
+                : "rgba(0, 0, 0, 0.05)",
 
             default: actualMode === "dark" ? "#2C2C2C" : "#FFFFFF",
           },
