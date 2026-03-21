@@ -71,7 +71,7 @@ const Layout = () => {
       })
       .catch((err) => {
         console.error("Ошибка загрузки чатов:", err);
-        setIsLoading(false);
+        setIsLoading(true);
       });
 
     // 2. Подписка на сокеты (используем ту же функцию)
