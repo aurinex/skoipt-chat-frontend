@@ -69,6 +69,7 @@ const MessageInput = ({
         ref={fileInputRef}
         type="file"
         hidden
+        multiple
         accept="image/*,video/mp4,audio/*,application/pdf"
         onChange={onFileUpload}
       />

@@ -1,10 +1,10 @@
 // api.js — единый API-клиент для мессенджера
 // Использование: import api from './api'
 
-// const BASE_URL = "http://localhost:8000";
-// const BASE_WS = "localhost:8000";
-const BASE_URL = "http://10.10.10.5:8000";
-const BASE_WS = "10.10.10.5:8000";
+const BASE_URL = "http://localhost:8000";
+const BASE_WS = "localhost:8000";
+// const BASE_URL = "http://10.10.10.5:8000";
+// const BASE_WS = "10.10.10.5:8000";
 
 // ─── Хранение токенов ────────────────────────────────────────────────────────
 
@@ -237,10 +237,10 @@ const messages = {
     return request(`/chats/${chatId}/messages/?before_id=${beforeId}`);
   },
 
-  async send(chatId, { text = null, file_url = null, reply_to = null }) {
+  async send(chatId, { text = null, file_urls = [], reply_to = null }) {
     return request(`/chats/${chatId}/messages/`, {
       method: "POST",
-      body: JSON.stringify({ text, file_url, reply_to }),
+      body: JSON.stringify({ text, file_urls, reply_to }),
     });
   },
 

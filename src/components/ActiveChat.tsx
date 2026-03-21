@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useParams, useOutletContext } from "react-router-dom";
 import { Box, Typography, useTheme } from "@mui/material";
 import api from "../services/api";
@@ -7,6 +7,7 @@ import ChatHeader from "./ChatHeader";
 import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
 import DropZoneOverlay from "./DropZoneOverlay";
+import FileUploadModal from "./FileUploadModal";
 
 interface ActiveChatProps {
   onMessageSent?: (msg: any) => void;
@@ -26,6 +27,32 @@ const ActiveChat = (props: ActiveChatProps) => {
 
   const { messages, setMessages, isMsgsLoading, chatData, typingUsers } =
     useChat(chatId, myId);
+
+  const [modalFiles, setModalFiles] = useState<File[]>([]);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const openModal = useCallback((files: File[]) => {
+    if (!files.length) return;
+    setModalFiles(files.slice(0, 10));
+    setModalOpen(true);
+  }, []);
+
+  const closeModal = useCallback(() => {
+    setModalOpen(false);
+    setModalFiles([]);
+  }, []);
+
+  const handleAddMoreFiles = useCallback((newFiles: File[]) => {
+    setModalFiles((prev) => [...prev, ...newFiles].slice(0, 10));
+  }, []);
+
+  const handleRemoveFile = useCallback((index: number) => {
+    setModalFiles((prev) => {
+      const updated = prev.filter((_, i) => i !== index);
+      if (updated.length === 0) setModalOpen(false);
+      return updated;
+    });
+  }, []);
 
   if (!chatId) {
     return (
@@ -49,7 +76,6 @@ const ActiveChat = (props: ActiveChatProps) => {
     async (text: string) => {
       if (!text.trim() || !chatId) return;
 
-      // Оптимистичное сообщение — появляется мгновенно до ответа сервера
       const tempId = `temp_${Date.now()}`;
       const optimisticMsg = {
         id: tempId,
@@ -66,12 +92,10 @@ const ActiveChat = (props: ActiveChatProps) => {
 
       try {
         const msg = await api.messages.send(chatId, { text });
-        // Заменяем временное сообщение на реальное от сервера
         setMessages((prev) => prev.map((m) => (m.id === tempId ? msg : m)));
         handleUpdateChat(msg);
       } catch (err) {
         console.error("Ошибка отправки:", err);
-        // Помечаем как failed — пользователь видит индикатор ошибки
         setMessages((prev) =>
           prev.map((m) =>
             m.id === tempId ? { ...m, _pending: false, _failed: true } : m,
@@ -82,78 +106,85 @@ const ActiveChat = (props: ActiveChatProps) => {
     [chatId, myId, handleUpdateChat],
   );
 
-  const handleFileUpload = useCallback(
-    async (source: React.ChangeEvent<HTMLInputElement> | File[]) => {
-      let file: File | undefined;
-
-      // Проверяем, что к нам пришло: массив файлов (drop) или событие (input)
-      if (Array.isArray(source)) {
-        file = source[0]; // Берем первый файл из дропа
-      } else {
-        file = source.target.files?.[0]; // Берем файл из инпута
-      }
-
-      if (!file || !chatId) return;
+  const handleModalSend = useCallback(
+    async (files: File[], caption: string) => {
+      if (!chatId) return;
+      closeModal();
 
       try {
-        // 1. Сначала загружаем файл на сервер
-        const res = await api.files.uploadChatFile(chatId, file);
-
-        // Определяем URL (зависит от логики твоего бэкенда)
-        const fileUrl = res.is_public ? res.url : res.object_name;
-
-        // 2. Отправляем сообщение с этим URL
-        const msg = await api.messages.send(chatId, { file_url: fileUrl });
-
+        const uploaded = await Promise.all(
+          files.map((file) => api.files.uploadChatFile(chatId, file)),
+        );
+        const fileUrls = uploaded.map((res) =>
+          res.is_public ? res.url : res.object_name,
+        );
+        const msg = await api.messages.send(chatId, {
+          file_urls: fileUrls,
+          text: caption || null,
+        });
         setMessages((prev) => [...prev, msg]);
         handleUpdateChat(msg);
       } catch (err) {
-        console.error("Ошибка загрузки файла:", err);
-      }
-
-      // Сбрасываем инпут, если это было событие, чтобы можно было выбрать тот же файл снова
-      if (!Array.isArray(source)) {
-        source.target.value = "";
+        console.error("Ошибка отправки файлов:", err);
       }
     },
-    [chatId, handleUpdateChat, setMessages],
+    [chatId, handleUpdateChat, closeModal],
+  );
+
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files || []);
+      if (files.length) openModal(files);
+      e.target.value = "";
+    },
+    [openModal],
   );
 
   return (
-    <DropZoneOverlay onFilesDrop={handleFileUpload} colors={colors}>
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          height: "100vh",
-          p: 2,
-          bgcolor: colors.third,
-        }}
-      >
-        <ChatHeader
-          chatData={chatData}
-          typingUsers={typingUsers}
-          isMsgsLoading={isMsgsLoading}
-          colors={colors}
-        />
+    <>
+      <FileUploadModal
+        open={modalOpen}
+        files={modalFiles}
+        onClose={closeModal}
+        onSend={handleModalSend}
+        onAddMore={handleAddMoreFiles}
+        onRemove={handleRemoveFile}
+        colors={colors}
+      />
 
-        <MessageList
-          messages={messages}
-          isMsgsLoading={isMsgsLoading}
-          chatData={chatData}
-          myId={myId}
-          chatId={chatId}
-          colors={colors}
-        />
-
-        <MessageInput
-          chatId={chatId}
-          onSend={handleSend}
-          onFileUpload={handleFileUpload}
-          colors={colors}
-        />
-      </Box>
-    </DropZoneOverlay>
+      <DropZoneOverlay onFilesDrop={openModal} colors={colors}>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            height: "100vh",
+            p: 2,
+            bgcolor: colors.third,
+          }}
+        >
+          <ChatHeader
+            chatData={chatData}
+            typingUsers={typingUsers}
+            isMsgsLoading={isMsgsLoading}
+            colors={colors}
+          />
+          <MessageList
+            messages={messages}
+            isMsgsLoading={isMsgsLoading}
+            chatData={chatData}
+            myId={myId}
+            chatId={chatId}
+            colors={colors}
+          />
+          <MessageInput
+            chatId={chatId}
+            onSend={handleSend}
+            onFileUpload={handleFileInputChange}
+            colors={colors}
+          />
+        </Box>
+      </DropZoneOverlay>
+    </>
   );
 };
 

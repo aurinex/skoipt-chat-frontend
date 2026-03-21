@@ -1,4 +1,4 @@
-import { useRef, useEffect, memo, useCallback } from "react";
+import { useRef, useEffect, memo } from "react";
 import { Box, Typography, Avatar, Skeleton, Tooltip } from "@mui/material";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
@@ -24,7 +24,7 @@ const SKELETON_TYPES = [
 
 const SKELETON_ITEMS = (() => {
   let total = 0;
-  const items = [];
+  const items: typeof SKELETON_TYPES = [];
   while (total < MAX_HEIGHT - 100) {
     const type =
       SKELETON_TYPES[Math.floor(Math.random() * SKELETON_TYPES.length)];
@@ -115,7 +115,6 @@ const MessageList = memo(
     colors,
   }: MessageListProps) => {
     const scrollRef = useRef<HTMLDivElement>(null);
-    // Отслеживаем предыдущий chatId чтобы мгновенно показать скелетон при смене чата
     const prevChatIdRef = useRef(chatId);
     const isChangingChat = prevChatIdRef.current !== chatId;
     if (isChangingChat) prevChatIdRef.current = chatId;
@@ -178,15 +177,23 @@ const MessageList = memo(
               !prevMsg || prevMsg.sender_id !== msg.sender_id;
             const isLastInGroup =
               !nextMsg || nextMsg.sender_id !== msg.sender_id;
-
             const currentDate = new Date(msg.created_at).toDateString();
             const prevDate = prevMsg
               ? new Date(prevMsg.created_at).toDateString()
               : null;
             const showDateLabel = currentDate !== prevDate;
 
-            const isImage = msg.file_url?.match(/\.(jpg|jpeg|png|gif|webp)/i);
-            const isOnlyImage = isImage && !msg.text;
+            // Нормализуем file_urls — поддерживаем и старый file_url и новый массив
+            const fileUrls: string[] = msg.file_urls?.length
+              ? msg.file_urls
+              : msg.file_url
+                ? [msg.file_url]
+                : [];
+
+            const hasOnlyOneImage =
+              fileUrls.length === 1 &&
+              !msg.text &&
+              fileUrls[0].match(/\.(jpg|jpeg|png|gif|webp)/i);
 
             return (
               <Box key={msg.id} sx={{ display: "contents" }}>
@@ -274,7 +281,7 @@ const MessageList = memo(
 
                     <Box
                       sx={{
-                        p: isOnlyImage ? 0 : "8px 14px",
+                        p: hasOnlyOneImage ? 0 : "8px 14px",
                         borderRadius: isMessageFromMe
                           ? isLastInGroup
                             ? "18px 18px 4px 18px"
@@ -288,28 +295,10 @@ const MessageList = memo(
                         color: isMessageFromMe ? "#fff" : colors.sixth,
                         boxShadow: "0 1px 1px rgba(0,0,0,0.05)",
                         position: "relative",
-                        // Слегка приглушаем pending-сообщения
                         opacity: msg._pending ? 0.6 : 1,
                         transition: "opacity 0.2s",
                         overflow: "hidden",
-                        "&:hover .image-metadata": {
-                          opacity: 1,
-                        },
-                        "& img": isOnlyImage
-                          ? {
-                              mt: 0,
-                              borderRadius: 0,
-                              display: "block",
-                              width: "100%",
-                              maxWidth: 280,
-                            }
-                          : {},
-                        // Центрируем крутилку загрузки, если картинка еще грузится
-                        "& .MuiCircularProgress-root": isOnlyImage
-                          ? {
-                              m: 3,
-                            }
-                          : {},
+                        "&:hover .image-metadata": { opacity: 1 },
                       }}
                     >
                       {msg.text && (
@@ -323,40 +312,41 @@ const MessageList = memo(
                           {msg.text}
                         </Typography>
                       )}
-                      {msg.file_url && (
-                        <FilePreview fileUrl={msg.file_url} chatId={chatId} />
-                      )}
 
+                      {/* Рендерим все файлы */}
+                      {fileUrls.map((url, i) => (
+                        <FilePreview key={i} fileUrl={url} chatId={chatId} />
+                      ))}
+
+                      {/* Метаданные (время + галочки) */}
                       <Box
-                        className={isOnlyImage ? "image-metadata" : ""}
+                        className={hasOnlyOneImage ? "image-metadata" : ""}
                         sx={{
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "flex-end",
                           gap: 0.5,
-                          ...(isOnlyImage
+                          ...(hasOnlyOneImage
                             ? {
                                 position: "absolute",
                                 bottom: "6px",
                                 right: "6px",
-                                bgcolor: "rgba(0, 0, 0, 0.4)", // Темная подложка для читаемости
+                                bgcolor: "rgba(0,0,0,0.4)",
                                 borderRadius: "12px",
                                 px: "8px",
                                 py: "2px",
-                                opacity: 0, // Скрыто по умолчанию
+                                opacity: 0,
                                 transition: "opacity 0.2s ease-in-out",
                                 zIndex: 10,
-                                color: "#fff", // Принудительно белый текст
+                                color: "#fff",
                               }
-                            : {
-                                mt: 0.2,
-                              }),
+                            : { mt: 0.2 }),
                         }}
                       >
                         <Typography
                           sx={{
                             fontSize: "0.7rem",
-                            opacity: isOnlyImage ? 0.9 : 0.5,
+                            opacity: hasOnlyOneImage ? 0.9 : 0.5,
                           }}
                         >
                           {formatLocalTime(msg.created_at)}
@@ -365,7 +355,6 @@ const MessageList = memo(
                         {isMessageFromMe && (
                           <>
                             {msg._failed ? (
-                              // Ошибка отправки — красная иконка с тултипом
                               <Tooltip
                                 title="Не отправлено. Попробуйте снова."
                                 placement="top"
@@ -383,10 +372,10 @@ const MessageList = memo(
                                 sx={{
                                   fontSize: 14,
                                   color: msg._pending
-                                    ? "rgba(255,255,255,0.3)" // бледная галочка пока pending
+                                    ? "rgba(255,255,255,0.3)"
                                     : msg.read_by?.length > 0
-                                      ? "rgba(255,255,255,1)" // прочитано
-                                      : "rgba(255,255,255,0.5)", // доставлено
+                                      ? "rgba(255,255,255,1)"
+                                      : "rgba(255,255,255,0.5)",
                                 }}
                               />
                             )}
