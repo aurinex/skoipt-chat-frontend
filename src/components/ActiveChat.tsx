@@ -1,7 +1,6 @@
-import { useRef, useState } from "react";
 import { useParams, useOutletContext } from "react-router-dom";
 import { Box, Typography, useTheme } from "@mui/material";
-import api, { socket } from "../services/api";
+import api from "../services/api";
 import { useChat } from "../hooks/useChat";
 import ChatHeader from "./ChatHeader";
 import MessageList from "./MessageList";
@@ -26,9 +25,6 @@ const ActiveChat = (props: ActiveChatProps) => {
   const { messages, setMessages, isMsgsLoading, chatData, typingUsers } =
     useChat(chatId, myId);
 
-  const [inputText, setInputText] = useState("");
-  const myTypingTimerRef = useRef<NodeJS.Timeout | null>(null);
-
   if (!chatId) {
     return (
       <Box
@@ -47,36 +43,15 @@ const ActiveChat = (props: ActiveChatProps) => {
     );
   }
 
-  const handleSend = async () => {
-    if (!inputText.trim() || !chatId) return;
+  const handleSend = async (text: string) => {
+    if (!text.trim() || !chatId) return;
     try {
-      const msg = await api.messages.send(chatId, { text: inputText });
+      const msg = await api.messages.send(chatId, { text });
       setMessages((prev) => [...prev, msg]);
       handleUpdateChat(msg);
-      setInputText("");
-      socket.sendTyping(chatId, false);
     } catch (err) {
       console.error("Ошибка отправки:", err);
     }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setInputText(value);
-    if (!chatId) return;
-
-    if (!myTypingTimerRef.current) {
-      socket.sendTyping(chatId, true);
-    }
-
-    if (myTypingTimerRef.current) {
-      clearTimeout(myTypingTimerRef.current);
-    }
-
-    myTypingTimerRef.current = setTimeout(() => {
-      socket.sendTyping(chatId, false);
-      myTypingTimerRef.current = null;
-    }, 2000);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -124,8 +99,6 @@ const ActiveChat = (props: ActiveChatProps) => {
 
       <MessageInput
         chatId={chatId}
-        inputText={inputText}
-        onInputChange={handleInputChange}
         onSend={handleSend}
         onFileUpload={handleFileUpload}
         colors={colors}

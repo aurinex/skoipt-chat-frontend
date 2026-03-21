@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Box, TextField, IconButton } from "@mui/material";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
 import MicIcon from "@mui/icons-material/Mic";
@@ -7,32 +7,51 @@ import { socket } from "../services/api";
 
 interface MessageInputProps {
   chatId: string | undefined;
-  inputText: string;
-  onInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onSend: () => void;
+  onSend: (text: string) => void;
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   colors: any;
 }
 
 const MessageInput = ({
   chatId,
-  inputText,
-  onInputChange,
   onSend,
   onFileUpload,
   colors,
 }: MessageInputProps) => {
+  const [inputText, setInputText] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const myTypingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      onSend();
-      if (myTypingTimerRef.current) {
-        clearTimeout(myTypingTimerRef.current);
-        myTypingTimerRef.current = null;
-      }
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setInputText(value);
+    if (!chatId) return;
+
+    if (!myTypingTimerRef.current) {
+      socket.sendTyping(chatId, true);
     }
+    if (myTypingTimerRef.current) {
+      clearTimeout(myTypingTimerRef.current);
+    }
+    myTypingTimerRef.current = setTimeout(() => {
+      socket.sendTyping(chatId, false);
+      myTypingTimerRef.current = null;
+    }, 2000);
+  };
+
+  const handleSend = () => {
+    if (!inputText.trim()) return;
+    onSend(inputText);
+    setInputText("");
+    if (myTypingTimerRef.current) {
+      clearTimeout(myTypingTimerRef.current);
+      myTypingTimerRef.current = null;
+    }
+    if (chatId) socket.sendTyping(chatId, false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSend();
   };
 
   return (
@@ -64,7 +83,7 @@ const MessageInput = ({
         placeholder="Сообщение"
         variant="standard"
         value={inputText}
-        onChange={onInputChange}
+        onChange={handleInputChange}
         onKeyDown={handleKeyDown}
         InputProps={{
           disableUnderline: true,
@@ -74,7 +93,7 @@ const MessageInput = ({
       <IconButton sx={{ color: colors.fiveth }}>
         <MicIcon />
       </IconButton>
-      <IconButton sx={{ color: colors.eighth }} onClick={onSend}>
+      <IconButton sx={{ color: colors.eighth }} onClick={handleSend}>
         <SendIcon />
       </IconButton>
     </Box>
