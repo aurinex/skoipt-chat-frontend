@@ -78,8 +78,6 @@ const Layout = () => {
       handleUpdateChat(msg);
     };
 
-    socket.on("new_message", handleSocketMessage);
-
     const unsubscribe = socket.on("new_message", handleSocketMessage);
     return () => {
       if (typeof unsubscribe === "function") {
