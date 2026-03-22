@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import api, { getMyId } from "../services/api";
+import { useSendMessageMutation } from "../queries/useChatMutations";
 import type { Message } from "../types";
 
 interface UseMessageSenderParams {
@@ -24,6 +25,7 @@ export const useMessageSender = ({
   closeModal,
 }: UseMessageSenderParams) => {
   const myId = getMyId() ?? "";
+  const sendMessageMutation = useSendMessageMutation();
 
   const handleSend = useCallback(
     async (text: string, replyToId?: string) => {
@@ -50,9 +52,12 @@ export const useMessageSender = ({
       ]);
 
       try {
-        const msg = await api.messages.send(chatId, {
-          text,
-          reply_to: replyToId || null,
+        const msg = await sendMessageMutation.mutateAsync({
+          chatId,
+          data: {
+            text,
+            reply_to: replyToId || null,
+          },
         });
         setMessages((prev) =>
           prev.map((m) =>
@@ -69,7 +74,15 @@ export const useMessageSender = ({
         );
       }
     },
-    [chatId, myId, replyTo, onReplyReset, setMessages, handleUpdateChat],
+    [
+      chatId,
+      myId,
+      replyTo,
+      onReplyReset,
+      sendMessageMutation,
+      setMessages,
+      handleUpdateChat,
+    ],
   );
 
   const handleModalSend = useCallback(
@@ -132,10 +145,13 @@ export const useMessageSender = ({
           return;
         }
 
-        const msg = await api.messages.send(chatId, {
-          file_urls: fileUrls,
-          text: caption || null,
-          reply_to: replyTo?.id || null,
+        const msg = await sendMessageMutation.mutateAsync({
+          chatId,
+          data: {
+            file_urls: fileUrls,
+            text: caption || null,
+            reply_to: replyTo?.id || null,
+          },
         });
 
         setMessages((prev) =>
@@ -162,6 +178,7 @@ export const useMessageSender = ({
       myId,
       replyTo,
       onReplyReset,
+      sendMessageMutation,
       setMessages,
       handleUpdateChat,
       closeModal,

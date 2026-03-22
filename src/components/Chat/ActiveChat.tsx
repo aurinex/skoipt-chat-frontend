@@ -1,68 +1,93 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Box, Typography, useTheme } from "@mui/material";
-import { useComposer } from "../../hooks/useComposer";
-import { useMessageSender } from "../../hooks/useMessageSender";
 import { getMyId } from "../../services/api";
-import { useChatsStore } from "../../stores/useChatsStore";
-import { useActiveChatStore } from "../../stores/useActiveChatStore";
+import { useMessageSender } from "../../hooks/useMessageSender";
+import {
+  activeChatSelectors,
+  useActiveChatStore,
+} from "../../stores/useActiveChatStore";
+import { useComposerStore } from "../../stores/useComposerStore";
 import ChatShell from "./ChatShell";
 import ChatHeader from "./ChatHeader";
 import MessageList from "./MessageList";
-import MessageInput from "./MessageInput";
-import ReplyPreview from "./ReplyPreview";
+import ActiveChatComposer from "./ActiveChatComposer";
 import ImageViewer from "../Ui/ImageViewer";
-import type { Message, TypingUser } from "../../types";
-
-const EMPTY_MESSAGES: Message[] = [];
-const EMPTY_TYPING_USERS: TypingUser[] = [];
+import { useChatListCacheActions } from "../../queries/chatListCache";
+import { useChatDetailsQuery } from "../../queries/useChatDetailsQuery";
+import { useChatMessagesQuery } from "../../queries/useChatMessagesQuery";
+import { flattenMessagePages, useMessageCacheActions } from "../../queries/messageCache";
 
 const ActiveChat = () => {
   const { chatId } = useParams<{ chatId: string }>();
   const theme = useTheme();
   const colors = theme.palette.background;
   const myId = getMyId();
-  const handleUpdateChat = useChatsStore((state) => state.updateChatFromMessage);
+  const { updateChatFromMessage } = useChatListCacheActions();
   const composerScopeId = chatId ? `chat:${chatId}` : "chat:none";
 
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
   const initializeRealtime = useActiveChatStore(
-    (state) => state.initializeRealtime,
+    activeChatSelectors.initializeRealtime,
   );
-  const setCurrentChat = useActiveChatStore((state) => state.setCurrentChat);
-  const loadChat = useActiveChatStore((state) => state.loadChat);
-  const setMessagesForChat = useActiveChatStore(
-    (state) => state.setMessagesForChat,
+  const setCurrentChat = useActiveChatStore(activeChatSelectors.setCurrentChat);
+  const typingUsers = useActiveChatStore(
+    activeChatSelectors.typingUsers(chatId),
   );
-  const messages = useActiveChatStore((state) =>
-    chatId ? (state.messagesByChatId[chatId] ?? EMPTY_MESSAGES) : EMPTY_MESSAGES,
-  );
-  const isMsgsLoading = useActiveChatStore((state) =>
-    chatId ? (state.loadingByChatId[chatId] ?? false) : false,
-  );
-  const chatData = useActiveChatStore((state) =>
-    chatId ? (state.chatDataByChatId[chatId] ?? null) : null,
-  );
-  const typingUsers = useActiveChatStore((state) =>
-    chatId
-      ? (state.typingUsersByChatId[chatId] ?? EMPTY_TYPING_USERS)
-      : EMPTY_TYPING_USERS,
-  );
-
+  const { setMessages } = useMessageCacheActions(chatId);
   const {
-    draftText,
-    setDraftText,
-    replyTo,
-    setReplyTo,
-    modalFiles,
-    modalOpen,
-    modalInitialCaption,
-    openModal,
-    closeModal,
-    addFiles,
-    removeFile,
-    handleFileInputChange,
-  } = useComposer(composerScopeId);
+    data: messagesData,
+    isPending: isMsgsLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useChatMessagesQuery(chatId);
+  const { data: chatData } = useChatDetailsQuery(chatId);
+  const messages = useMemo(
+    () => flattenMessagePages(messagesData?.pages ?? []),
+    [messagesData?.pages],
+  );
+  const handleLoadMore = useCallback(() => {
+    void fetchNextPage();
+  }, [fetchNextPage]);
+  const modalFiles = useComposerStore(
+    (state) => state.composers[composerScopeId]?.modalFiles ?? [],
+  );
+  const modalOpen = useComposerStore(
+    (state) => state.composers[composerScopeId]?.modalOpen ?? false,
+  );
+  const modalInitialCaption = useComposerStore(
+    (state) => state.composers[composerScopeId]?.modalInitialCaption ?? "",
+  );
+  const replyTo = useComposerStore(
+    (state) => state.composers[composerScopeId]?.replyTo ?? null,
+  );
+  const openModal = useComposerStore((state) => state.openModal);
+  const closeModal = useComposerStore((state) => state.closeModal);
+  const addFiles = useComposerStore((state) => state.addFiles);
+  const removeFile = useComposerStore((state) => state.removeFile);
+  const setReplyTo = useComposerStore((state) => state.setReplyTo);
+
+  const handleOpenModal = useCallback(
+    (files: File[]) => openModal(composerScopeId, files),
+    [composerScopeId, openModal],
+  );
+  const handleCloseModal = useCallback(
+    () => closeModal(composerScopeId),
+    [closeModal, composerScopeId],
+  );
+  const handleAddFiles = useCallback(
+    (files: File[]) => addFiles(composerScopeId, files),
+    [addFiles, composerScopeId],
+  );
+  const handleRemoveFile = useCallback(
+    (index: number) => removeFile(composerScopeId, index),
+    [composerScopeId, removeFile],
+  );
+  const handleReplySelect = useCallback(
+    (message: (typeof messages)[number]) => setReplyTo(composerScopeId, message),
+    [composerScopeId, setReplyTo],
+  );
 
   useEffect(() => {
     initializeRealtime();
@@ -70,27 +95,15 @@ const ActiveChat = () => {
 
   useEffect(() => {
     setCurrentChat(chatId ?? null, myId);
+  }, [chatId, myId, setCurrentChat]);
 
-    if (chatId) {
-      void loadChat(chatId);
-    }
-  }, [chatId, loadChat, myId, setCurrentChat]);
-
-  const setMessages = useMemo(
-    () => (updater: Message[] | ((prev: Message[]) => Message[])) => {
-      if (!chatId) return;
-      setMessagesForChat(chatId, updater);
-    },
-    [chatId, setMessagesForChat],
-  );
-
-  const { handleSend, handleModalSend } = useMessageSender({
+  const { handleModalSend } = useMessageSender({
     chatId: chatId!,
     replyTo,
-    onReplyReset: () => setReplyTo(null),
+    onReplyReset: () => setReplyTo(composerScopeId, null),
     setMessages,
-    handleUpdateChat,
-    closeModal,
+    handleUpdateChat: updateChatFromMessage,
+    closeModal: handleCloseModal,
   });
 
   if (!chatId) {
@@ -122,11 +135,11 @@ const ActiveChat = () => {
         modalOpen={modalOpen}
         modalFiles={modalFiles}
         modalInitialCaption={modalInitialCaption}
-        onModalClose={closeModal}
+        onModalClose={handleCloseModal}
         onModalSend={handleModalSend}
-        onAddMoreFiles={addFiles}
-        onRemoveFile={removeFile}
-        onFilesDrop={openModal}
+        onAddMoreFiles={handleAddFiles}
+        onRemoveFile={handleRemoveFile}
+        onFilesDrop={handleOpenModal}
       >
         <Box
           sx={{
@@ -138,7 +151,7 @@ const ActiveChat = () => {
           }}
         >
           <ChatHeader
-            chatData={chatData}
+            chatData={chatData ?? null}
             typingUsers={typingUsers}
             isMsgsLoading={isMsgsLoading}
             colors={colors}
@@ -146,25 +159,21 @@ const ActiveChat = () => {
           <MessageList
             messages={messages}
             isMsgsLoading={isMsgsLoading}
-            chatData={chatData}
+            chatData={chatData ?? null}
             chatId={chatId}
             colors={colors}
             onImageClick={setFullScreenImage}
-            onReply={setReplyTo}
+            onReply={handleReplySelect}
+            onLoadMore={handleLoadMore}
+            canLoadMore={Boolean(hasNextPage)}
+            isLoadingMore={isFetchingNextPage}
           />
-          <ReplyPreview
-            replyTo={replyTo}
-            onCancel={() => setReplyTo(null)}
-            colors={colors}
-          />
-          <MessageInput
+          <ActiveChatComposer
             chatId={chatId}
-            onSend={handleSend}
-            onFileUpload={handleFileInputChange}
-            value={draftText}
-            onChange={setDraftText}
+            composerScopeId={composerScopeId}
             colors={colors}
-            replyTo={replyTo}
+            setMessages={setMessages}
+            handleUpdateChat={updateChatFromMessage}
           />
         </Box>
       </ChatShell>

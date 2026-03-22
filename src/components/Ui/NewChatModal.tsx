@@ -18,10 +18,14 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { useNavigate } from "react-router-dom";
-import api from "../../services/api";
 import type { User } from "../../types";
 import AppTextField from "../Ui/AppTextField";
 import { useTheme } from "@mui/material";
+import { useUsersSearchQuery } from "../../queries/useUsersSearchQuery";
+import {
+  useCreateChannelMutation,
+  useCreateGroupMutation,
+} from "../../queries/useChatMutations";
 
 type Mode = "direct" | "group" | "channel";
 
@@ -37,49 +41,47 @@ const NewChatModal: React.FC<{
   const [name, setName] = useState("");
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
   const [search, setSearch] = useState("");
-  const [results, setResults] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
+  // const [results, setResults] = useState<User[]>([]);
+  // const [loading, setLoading] = useState(false);
 
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   const [height, setHeight] = useState<number | "auto">("auto");
 
+  const { data: results = [], isPending: loading } =
+    useUsersSearchQuery(search);
+  const createGroupMutation = useCreateGroupMutation();
+  const createChannelMutation = useCreateChannelMutation();
+
   useEffect(() => {
     if (!contentRef.current) return;
-
     const el = contentRef.current;
-
-    // текущая высота
     const startHeight = el.offsetHeight;
-
     setHeight(startHeight);
-
     requestAnimationFrame(() => {
       if (!contentRef.current) return;
-
       const endHeight = contentRef.current.scrollHeight;
-
       setHeight(endHeight);
     });
   }, [mode, selectedUsers.length, results.length]);
 
   // 🔍 поиск
-  useEffect(() => {
-    if (!search.trim()) {
-      setResults([]);
-      return;
-    }
+  // useEffect(() => {
+  //   if (!search.trim()) {
+  //     setResults([]);
+  //     return;
+  //   }
 
-    const t = setTimeout(() => {
-      setLoading(true);
-      api.users
-        .search(search)
-        .then(setResults)
-        .catch(() => setResults([]))
-        .finally(() => setLoading(false));
-    }, 300);
+  //   const t = setTimeout(() => {
+  //     setLoading(true);
+  //     api.users
+  //       .search(search)
+  //       .then(setResults)
+  //       .catch(() => setResults([]))
+  //       .finally(() => setLoading(false));
+  //   }, 300);
 
-    return () => clearTimeout(t);
-  }, [search]);
+  //   return () => clearTimeout(t);
+  // }, [search]);
 
   // 🧹 очистка
   useEffect(() => {
@@ -88,7 +90,6 @@ const NewChatModal: React.FC<{
       setName("");
       setSelectedUsers([]);
       setSearch("");
-      setResults([]);
     }
   }, [open]);
 
@@ -113,7 +114,7 @@ const NewChatModal: React.FC<{
       if (mode === "group") {
         if (!name || selectedUsers.length === 0) return;
 
-        const chat = (await api.chats.createGroup({
+        const chat = (await createGroupMutation.mutateAsync({
           name,
           member_ids: selectedUsers.map((u) => u.id),
         })) as { id: string };
@@ -124,7 +125,7 @@ const NewChatModal: React.FC<{
       if (mode === "channel") {
         if (!name) return;
 
-        const chat = (await api.chats.createChannel({ name })) as {
+        const chat = (await createChannelMutation.mutateAsync({ name })) as {
           id: string;
         };
 

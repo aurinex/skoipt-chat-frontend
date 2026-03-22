@@ -1,4 +1,4 @@
-import { useRef, useEffect, memo, useState } from "react";
+import { useRef, useEffect, useLayoutEffect, memo, useState } from "react";
 import {
   Box,
   Typography,
@@ -23,6 +23,9 @@ interface MessageListProps {
   colors: AppColors;
   onImageClick?: (url: string) => void;
   onReply?: (msg: Message) => void;
+  onLoadMore?: () => void;
+  canLoadMore?: boolean;
+  isLoadingMore?: boolean;
 }
 
 const MAX_HEIGHT = 1000;
@@ -278,20 +281,84 @@ const MessageList = memo(
     colors,
     onImageClick,
     onReply,
+    onLoadMore,
+    canLoadMore = false,
+    isLoadingMore = false,
   }: MessageListProps) => {
     const scrollRef = useRef<HTMLDivElement>(null);
     const prevChatIdRef = useRef(chatId);
+    const prevFirstMessageIdRef = useRef<string | null>(messages[0]?.id ?? null);
+    const prevLastMessageIdRef = useRef<string | null>(
+      messages[messages.length - 1]?.id ?? null,
+    );
+    const prevScrollHeightRef = useRef(0);
+    const prevScrollTopRef = useRef(0);
+    const shouldRestoreScrollRef = useRef(false);
     const isChangingChat = prevChatIdRef.current !== chatId;
     if (isChangingChat) prevChatIdRef.current = chatId;
 
     const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
-    useEffect(() => {
-      scrollRef.current?.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: "smooth",
-      });
+    useLayoutEffect(() => {
+      const container = scrollRef.current;
+      if (!container) return;
+
+      const firstMessageId = messages[0]?.id ?? null;
+      const lastMessageId = messages[messages.length - 1]?.id ?? null;
+      const prevFirstMessageId = prevFirstMessageIdRef.current;
+      const prevLastMessageId = prevLastMessageIdRef.current;
+      const isInitialRender = prevLastMessageId === null;
+      const prependedOlderMessages =
+        shouldRestoreScrollRef.current &&
+        firstMessageId !== prevFirstMessageId &&
+        lastMessageId === prevLastMessageId;
+      const appendedNewMessages = lastMessageId !== prevLastMessageId;
+
+      if (isChangingChat || isInitialRender) {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: "auto",
+        });
+      } else if (prependedOlderMessages) {
+        const scrollDelta = container.scrollHeight - prevScrollHeightRef.current;
+        container.scrollTop = prevScrollTopRef.current + scrollDelta;
+        shouldRestoreScrollRef.current = false;
+      } else if (appendedNewMessages) {
+        const distanceFromBottom =
+          prevScrollHeightRef.current - prevScrollTopRef.current - container.clientHeight;
+        const wasNearBottom = distanceFromBottom <= 120;
+
+        if (wasNearBottom) {
+          container.scrollTo({
+            top: container.scrollHeight,
+            behavior: "smooth",
+          });
+        }
+      }
+
+      prevFirstMessageIdRef.current = firstMessageId;
+      prevLastMessageIdRef.current = lastMessageId;
+      prevScrollHeightRef.current = container.scrollHeight;
+      prevScrollTopRef.current = container.scrollTop;
     }, [messages]);
+
+    useEffect(() => {
+      const container = scrollRef.current;
+      if (!container || !onLoadMore || !canLoadMore || isLoadingMore) return;
+
+      const handleScroll = () => {
+        prevScrollHeightRef.current = container.scrollHeight;
+        prevScrollTopRef.current = container.scrollTop;
+
+        if (container.scrollTop <= 80) {
+          shouldRestoreScrollRef.current = true;
+          onLoadMore();
+        }
+      };
+
+      container.addEventListener("scroll", handleScroll);
+      return () => container.removeEventListener("scroll", handleScroll);
+    }, [canLoadMore, isLoadingMore, onLoadMore]);
 
     const showSkeleton = isMsgsLoading || isChangingChat;
 
@@ -310,7 +377,13 @@ const MessageList = memo(
         {showSkeleton && messages.length === 0 ? (
           <MessageSkeleton colors={colors} />
         ) : (
-          messages.map((msg, index) => {
+          <>
+            {isLoadingMore && (
+              <Box sx={{ display: "flex", justifyContent: "center", py: 1 }}>
+                <LinearProgress sx={{ width: 120, borderRadius: 2 }} />
+              </Box>
+            )}
+            {messages.map((msg, index) => {
             if (msg.is_system) {
               return (
                 <Box
@@ -706,7 +779,8 @@ const MessageList = memo(
                 </Box>
               </Box>
             );
-          })
+            })}
+          </>
         )}
       </Box>
     );

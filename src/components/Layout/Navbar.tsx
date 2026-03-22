@@ -1,12 +1,11 @@
 import { Box, IconButton, Avatar, useTheme, Skeleton } from "@mui/material";
 import ThemeSwitcher from "./ThemeSwitcher";
-import api from "../../services/api";
-import { useState, useEffect } from "react";
 
 import HomeIconCustom from "../../assets/icons/home.svg?react";
 import MessageIconCustom from "../../assets/icons/message.svg?react";
 import FriendsIconCustom from "../../assets/icons/friends.svg?react";
 import SettingsIconCustom from "../../assets/icons/settings.svg?react";
+import { useMeQuery } from "../../queries/useMeQuery";
 
 interface NavbarProps {
   orientation?: "vertical" | "horizontal";
@@ -16,30 +15,8 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
   const theme = useTheme();
   const colors = theme.palette.background;
   const isVertical = orientation === "vertical";
-
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        setIsLoading(true);
-
-        const userData = await api.auth.getMe();
-
-        if (userData && userData.avatar_url) {
-          setAvatarUrl(userData.avatar_url);
-        }
-
-        setIsLoading(false);
-      } catch (error) {
-        setIsLoading(true);
-        console.error("Ошибка при получении данных пользователя:", error);
-      }
-    };
-
-    fetchUserData();
-  }, []);
+  const { data: me, isPending: isLoading } = useMeQuery();
+  const avatarUrl = me?.avatar_url ?? null;
 
   const containerStyles = {
     width: isVertical ? 70 : "100%",

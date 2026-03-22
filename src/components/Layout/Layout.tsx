@@ -4,31 +4,24 @@ import { useEffect, useRef } from "react";
 import { socket, getMyId } from "../../services/api";
 import Navbar from "./Navbar";
 import ChatList from "../Chat/ChatList";
-import { useChatsStore } from "../../stores/useChatsStore";
+import { useChatListCacheActions } from "../../queries/chatListCache";
 
 const Layout = () => {
   const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
-  const loadChats = useChatsStore((state) => state.loadChats);
-  const updateChatFromMessage = useChatsStore(
-    (state) => state.updateChatFromMessage,
-  );
-  const setChatTyping = useChatsStore((state) => state.setChatTyping);
-  const markChatLastMessageRead = useChatsStore(
-    (state) => state.markChatLastMessageRead,
-  );
-  const syncUnreadCount = useChatsStore((state) => state.syncUnreadCount);
-  const prependChat = useChatsStore((state) => state.prependChat);
-  const removeChat = useChatsStore((state) => state.removeChat);
+  const {
+    updateChatFromMessage,
+    setChatTyping,
+    markChatLastMessageRead,
+    syncUnreadCount,
+    prependChat,
+    removeChat,
+  } = useChatListCacheActions();
 
   useEffect(() => {
     const sound = new Audio("/sounds/message.mp3");
     sound.volume = 0.5;
     notificationSoundRef.current = sound;
   }, []);
-
-  useEffect(() => {
-    loadChats();
-  }, [loadChats]);
 
   useEffect(() => {
     const unsubTyping = socket.on("typing", (data) => {

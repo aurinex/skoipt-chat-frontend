@@ -1,13 +1,17 @@
-import { useState, useCallback, useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Box, Typography, useTheme } from "@mui/material";
 import api from "../../services/api";
 import { useComposer } from "../../hooks/useComposer";
-import type { ChatPreview } from "../../types";
 import ChatShell from "./ChatShell";
 import ChatHeader from "./ChatHeader";
 import MessageInput from "./MessageInput";
 import ReplyPreview from "./ReplyPreview";
+import { useChatPreviewQuery } from "../../queries/useChatPreviewQuery";
+import {
+  useOpenDirectMutation,
+  useSendFirstMessageMutation,
+} from "../../queries/useChatMutations";
 
 const NewChat = () => {
   const [searchParams] = useSearchParams();
@@ -17,9 +21,13 @@ const NewChat = () => {
 
   const userId = searchParams.get("userId");
   const composerScopeId = userId ? `new-chat:${userId}` : "new-chat:none";
-
-  const [preview, setPreview] = useState<ChatPreview | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
+  const {
+    data: preview,
+    isPending: previewLoading,
+    error: previewError,
+  } = useChatPreviewQuery(userId);
+  const sendFirstMessageMutation = useSendFirstMessageMutation();
+  const openDirectMutation = useOpenDirectMutation();
 
   const {
     draftText,
@@ -37,32 +45,31 @@ const NewChat = () => {
   } = useComposer(composerScopeId);
 
   useEffect(() => {
-    if (!userId) return;
-    setPreviewLoading(true);
-    api.users
-      .chatPreview(userId)
-      .then((data) => {
-        if (data.chat_id) {
-          navigate(`/chat/${data.chat_id}`, { replace: true });
-        } else {
-          setPreview(data);
-        }
-      })
-      .catch((e) => console.error("Ошибка загрузки превью:", e))
-      .finally(() => setPreviewLoading(false));
-  }, [userId]);
+    if (preview?.chat_id) {
+      navigate(`/chat/${preview.chat_id}`, { replace: true });
+    }
+  }, [navigate, preview?.chat_id]);
+
+  useEffect(() => {
+    if (previewError) {
+      console.error("Ошибка загрузки превью:", previewError);
+    }
+  }, [previewError]);
 
   const handleSend = useCallback(
     async (text: string) => {
       if (!text.trim() || !userId) return;
       try {
-        const result = await api.chats.sendFirstMessage(userId, { text });
+        const result = await sendFirstMessageMutation.mutateAsync({
+          targetUserId: userId,
+          data: { text },
+        });
         navigate(`/chat/${result.chat_id}`, { replace: true });
       } catch (err) {
         console.error("Ошибка отправки:", err);
       }
     },
-    [userId, navigate],
+    [navigate, sendFirstMessageMutation, userId],
   );
 
   const handleModalSend = useCallback(
@@ -70,7 +77,7 @@ const NewChat = () => {
       if (!userId) return;
       closeModal();
       try {
-        const chat = await api.chats.openDirect(userId);
+        const chat = await openDirectMutation.mutateAsync(userId);
         const chatId = chat.id;
 
         const uploadResults = await Promise.allSettled(
@@ -96,7 +103,7 @@ const NewChat = () => {
         console.error("Ошибка отправки файлов:", err);
       }
     },
-    [userId, navigate, closeModal],
+    [userId, navigate, closeModal, openDirectMutation],
   );
 
   if (!userId) {
@@ -138,7 +145,7 @@ const NewChat = () => {
         }}
       >
         <ChatHeader
-          chatData={preview}
+          chatData={preview ?? null}
           typingUsers={[]}
           isMsgsLoading={previewLoading}
           colors={colors}
