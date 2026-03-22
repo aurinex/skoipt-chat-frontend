@@ -6,12 +6,16 @@ import {
   Avatar,
   Typography,
   useTheme,
+  IconButton,
+  TextField,
 } from "@mui/material";
 import { Link, useLocation } from "react-router-dom";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import { Skeleton } from "@mui/material";
 import { useState, useEffect, useRef } from "react";
 import { socket } from "../services/api";
+import newMessageIcon from "../assets/icons/new_message.svg";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 
 interface ChatListProps {
   chats: any[];
@@ -228,19 +232,51 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
         display: "flex",
         flexDirection: "column",
         height: "100vh",
+        gap: 2,
       }}
     >
-      <Typography
-        variant="h5"
+      <Box
         sx={{
-          p: "60px 0px 20px 0px",
-          fontWeight: 700,
-          color: colors.sixth,
-          fontSize: 36,
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
         }}
       >
-        Мессенджер
-      </Typography>
+        <Typography
+          variant="h5"
+          sx={{
+            fontWeight: 700,
+            color: colors.sixth,
+            fontSize: 36,
+          }}
+        >
+          Мессенджер
+        </Typography>
+        <KeyboardArrowDownIcon />
+        <IconButton sx={{ color: colors.fiveth }}>
+          <img src={newMessageIcon} width={24} height={24} />
+        </IconButton>
+      </Box>
+
+      <Box
+        sx={{
+          bgcolor: colors.fourth,
+          padding: "10px 0px 10px 0px",
+          borderRadius: "24px",
+        }}
+      >
+        <TextField
+          multiline
+          maxRows={6}
+          fullWidth
+          placeholder="Поиск"
+          variant="standard"
+          InputProps={{
+            disableUnderline: true,
+            sx: { color: colors.sixth, px: 2, fontSize: 14 },
+          }}
+        />
+      </Box>
 
       <Box sx={{ flexGrow: 1, overflowY: "auto" }}>
         <List sx={{ p: 0 }}>

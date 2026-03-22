@@ -96,11 +96,11 @@ const Layout = () => {
 
   return (
     <Box sx={{ display: "flex", height: "100vh", overflow: "hidden" }}>
-      <Box sx={{ padding: "54px 0 54px 25px" }}>
+      <Box sx={{ padding: "30px 0 30px 25px" }}>
         <Navbar orientation="vertical" />
       </Box>
 
-      <Box sx={{ margin: "0px 36px 0px 36px" }}>
+      <Box sx={{ padding: "30px 36px 0px 36px" }}>
         <ChatList chats={chats} isLoading={isLoading} />
       </Box>
 

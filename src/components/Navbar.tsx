@@ -1,16 +1,10 @@
 import { Box, IconButton, Avatar, useTheme, Skeleton } from "@mui/material";
-import HomeIcon from "@mui/icons-material/HomeRounded";
-import ChatIcon from "@mui/icons-material/ChatBubbleRounded";
-import AddCircleIcon from "@mui/icons-material/AddCircleRounded";
-import PeopleIcon from "@mui/icons-material/PeopleRounded";
-import SettingsIcon from "@mui/icons-material/SettingsRounded";
 import ThemeSwitcher from "./ThemeSwitcher";
 import api from "../services/api";
 import { useState, useEffect } from "react";
 
 import homeIcon from "../assets/icons/home.svg";
 import messageIcon from "../assets/icons/message.svg";
-import newMessageIcon from "../assets/icons/new_message.svg";
 import friendsIcon from "../assets/icons/friends.svg";
 import settingsIcon from "../assets/icons/settings.svg";
 
@@ -146,9 +140,6 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
             }}
           >
             <img src={messageIcon} width={24} height={24} />
-          </IconButton>
-          <IconButton sx={{ color: colors.fiveth }}>
-            <img src={newMessageIcon} width={24} height={24} />
           </IconButton>
           <IconButton sx={{ color: colors.fiveth }}>
             <img src={friendsIcon} width={24} height={24} />

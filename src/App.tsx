@@ -5,7 +5,6 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import LoginPage from "./pages/LoginPage";
 import ChatPage from "./pages/ChatPage"; // Создай пустую страницу для теста
 import ActiveChat from "./components/ActiveChat";
-
 function App() {
   return (
     <ThemeProvider>
