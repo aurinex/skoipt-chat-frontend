@@ -2,8 +2,8 @@ import { useState, useCallback, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Box, Typography, useTheme } from "@mui/material";
 import api from "../../services/api";
-import { useFileUpload } from "../../hooks/useFileUpload";
-import type { ChatPreview, Message } from "../../types";
+import { useComposer } from "../../hooks/useComposer";
+import type { ChatPreview } from "../../types";
 import ChatShell from "./ChatShell";
 import ChatHeader from "./ChatHeader";
 import MessageInput from "./MessageInput";
@@ -16,13 +16,16 @@ const NewChat = () => {
   const colors = theme.palette.background;
 
   const userId = searchParams.get("userId");
+  const composerScopeId = userId ? `new-chat:${userId}` : "new-chat:none";
 
   const [preview, setPreview] = useState<ChatPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [draftText, setDraftText] = useState("");
-  const [replyTo, setReplyTo] = useState<Message | null>(null);
 
   const {
+    draftText,
+    setDraftText,
+    replyTo,
+    setReplyTo,
     modalFiles,
     modalOpen,
     modalInitialCaption,
@@ -31,7 +34,7 @@ const NewChat = () => {
     addFiles,
     removeFile,
     handleFileInputChange,
-  } = useFileUpload(draftText, () => setDraftText(""));
+  } = useComposer(composerScopeId);
 
   useEffect(() => {
     if (!userId) return;

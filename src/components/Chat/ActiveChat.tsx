@@ -2,10 +2,9 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Box, Typography, useTheme } from "@mui/material";
 import { useChat } from "../../hooks/useChat";
-import { useFileUpload } from "../../hooks/useFileUpload";
+import { useComposer } from "../../hooks/useComposer";
 import { useMessageSender } from "../../hooks/useMessageSender";
 import { getMyId } from "../../services/api";
-import type { Message } from "../../types";
 import { useChatsStore } from "../../stores/useChatsStore";
 import ChatShell from "./ChatShell";
 import ChatHeader from "./ChatHeader";
@@ -20,15 +19,18 @@ const ActiveChat = () => {
   const colors = theme.palette.background;
   const myId = getMyId();
   const handleUpdateChat = useChatsStore((state) => state.updateChatFromMessage);
+  const composerScopeId = chatId ? `chat:${chatId}` : "chat:none";
 
-  const [draftText, setDraftText] = useState("");
-  const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
   const { messages, setMessages, isMsgsLoading, chatData, typingUsers } =
     useChat(chatId, myId);
 
   const {
+    draftText,
+    setDraftText,
+    replyTo,
+    setReplyTo,
     modalFiles,
     modalOpen,
     modalInitialCaption,
@@ -37,7 +39,7 @@ const ActiveChat = () => {
     addFiles,
     removeFile,
     handleFileInputChange,
-  } = useFileUpload(draftText, () => setDraftText(""));
+  } = useComposer(composerScopeId);
 
   const { handleSend, handleModalSend } = useMessageSender({
     chatId: chatId!,

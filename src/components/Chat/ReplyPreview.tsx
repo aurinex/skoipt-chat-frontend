@@ -1,7 +1,8 @@
 import { Box, Typography, IconButton } from "@mui/material";
+import type { Message } from "../../types";
 
 interface ReplyPreviewProps {
-  replyTo: any;
+  replyTo: Message | null;
   onCancel?: () => void;
   colors: any;
 }
