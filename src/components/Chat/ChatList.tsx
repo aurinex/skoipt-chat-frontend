@@ -1,40 +1,24 @@
 import { Box, Typography, useTheme, IconButton } from "@mui/material";
-import { useState, useEffect } from "react";
-import api from "../../services/api";
+import { useState } from "react";
 import NewMessageCustomIcon from "../../assets/icons/new_message.svg?react";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import ChatSearch from "./ChatSearch";
 import ChatListItems from "./ChatListItems";
 import UserSearchResults from "./UserSearchResults";
-import { chatSelectors, useChatsStore } from "../../stores/useChatsStore";
-import type { User } from "../../types";
 import NewChatModal from "../Ui/NewChatModal";
+import { useChatsQuery } from "../../queries/useChatsQuery";
+import { useUsersSearchQuery } from "../../queries/useUsersSearchQuery";
 
 const ChatList = () => {
-  const chats = useChatsStore(chatSelectors.chats);
-  const isLoading = useChatsStore(chatSelectors.isLoading);
   const [searchQuery, setSearchQuery] = useState("");
-  const [userResults, setUserResults] = useState<User[]>([]);
-  const [usersLoading, setUsersLoading] = useState(false);
   const theme = useTheme();
   const colors = theme.palette.background;
   const isSearching = searchQuery.trim().length > 0;
+  const { data: chats = [], isPending: isChatsLoading } = useChatsQuery();
+  const { data: userResults = [], isPending: usersLoading } =
+    useUsersSearchQuery(searchQuery);
 
   const [openNewChatModal, setOpenNewChatModal] = useState(false);
-
-  // Поиск пользователей по беку при изменении query
-  useEffect(() => {
-    if (!isSearching) {
-      setUserResults([]);
-      return;
-    }
-    setUsersLoading(true);
-    api.users
-      .search(searchQuery)
-      .then((res) => setUserResults(res))
-      .catch(() => setUserResults([]))
-      .finally(() => setUsersLoading(false));
-  }, [searchQuery]);
 
   return (
     <Box
@@ -113,7 +97,9 @@ const ChatList = () => {
           </>
         )}
 
-        {!isSearching && <ChatListItems chats={chats} isLoading={isLoading} />}
+        {!isSearching && (
+          <ChatListItems chats={chats} isLoading={isChatsLoading} />
+        )}
       </Box>
       <NewChatModal
         open={openNewChatModal}

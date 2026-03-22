@@ -17,6 +17,8 @@ import {
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import type { User } from "../../types";
+import { useChatListCacheActions } from "../../queries/chatListCache";
+import { useUsersSearchQuery } from "../../queries/useUsersSearchQuery";
 
 type Mode = "direct" | "group" | "channel";
 
@@ -30,27 +32,8 @@ const NewChatModal: React.FC<{
   const [name, setName] = useState("");
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
   const [search, setSearch] = useState("");
-  const [results, setResults] = useState<User[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  // 🔍 поиск
-  useEffect(() => {
-    if (!search.trim()) {
-      setResults([]);
-      return;
-    }
-
-    const t = setTimeout(() => {
-      setLoading(true);
-      api.users
-        .search(search)
-        .then(setResults)
-        .catch(() => setResults([]))
-        .finally(() => setLoading(false));
-    }, 300);
-
-    return () => clearTimeout(t);
-  }, [search]);
+  const { invalidateChats } = useChatListCacheActions();
+  const { data: results = [], isPending: loading } = useUsersSearchQuery(search);
 
   // 🧹 очистка
   useEffect(() => {
@@ -59,7 +42,6 @@ const NewChatModal: React.FC<{
       setName("");
       setSelectedUsers([]);
       setSearch("");
-      setResults([]);
     }
   }, [open]);
 
@@ -90,6 +72,7 @@ const NewChatModal: React.FC<{
           member_ids: selectedUsers.map((u) => u.id),
         })) as { id: string };
 
+        await invalidateChats();
         navigate(`/chat/${chat.id}`);
       }
 
@@ -100,6 +83,7 @@ const NewChatModal: React.FC<{
           id: string;
         };
 
+        await invalidateChats();
         navigate(`/chat/${chat.id}`);
       }
 

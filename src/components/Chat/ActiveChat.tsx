@@ -4,7 +4,6 @@ import { Box, Typography, useTheme } from "@mui/material";
 import { useComposer } from "../../hooks/useComposer";
 import { useMessageSender } from "../../hooks/useMessageSender";
 import { getMyId } from "../../services/api";
-import { useChatsStore } from "../../stores/useChatsStore";
 import {
   activeChatSelectors,
   useActiveChatStore,
@@ -16,13 +15,14 @@ import MessageInput from "./MessageInput";
 import ReplyPreview from "./ReplyPreview";
 import ImageViewer from "../Ui/ImageViewer";
 import type { Message } from "../../types";
+import { useChatListCacheActions } from "../../queries/chatListCache";
 
 const ActiveChat = () => {
   const { chatId } = useParams<{ chatId: string }>();
   const theme = useTheme();
   const colors = theme.palette.background;
   const myId = getMyId();
-  const handleUpdateChat = useChatsStore((state) => state.updateChatFromMessage);
+  const { updateChatFromMessage } = useChatListCacheActions();
   const composerScopeId = chatId ? `chat:${chatId}` : "chat:none";
 
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
@@ -83,7 +83,7 @@ const ActiveChat = () => {
     replyTo,
     onReplyReset: () => setReplyTo(null),
     setMessages,
-    handleUpdateChat,
+    handleUpdateChat: updateChatFromMessage,
     closeModal,
   });
 
