@@ -8,6 +8,12 @@ import ThemeSwitcher from "./ThemeSwitcher";
 import api from "../services/api";
 import { useState, useEffect } from "react";
 
+import homeIcon from "../assets/icons/home.svg";
+import messageIcon from "../assets/icons/message.svg";
+import newMessageIcon from "../assets/icons/new_message.svg";
+import friendsIcon from "../assets/icons/friends.svg";
+import settingsIcon from "../assets/icons/settings.svg";
+
 interface NavbarProps {
   orientation?: "vertical" | "horizontal";
 }
@@ -129,7 +135,7 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
       ) : (
         <Box sx={groupStyles}>
           <IconButton sx={{ color: colors.fiveth }}>
-            <HomeIcon />
+            <img src={homeIcon} width={24} height={24} />
           </IconButton>
           <IconButton
             sx={{
@@ -139,13 +145,13 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
               "&:hover": { bgcolor: colors.eighth, opacity: 0.9 },
             }}
           >
-            <ChatIcon />
+            <img src={messageIcon} width={24} height={24} />
           </IconButton>
           <IconButton sx={{ color: colors.fiveth }}>
-            <AddCircleIcon />
+            <img src={newMessageIcon} width={24} height={24} />
           </IconButton>
           <IconButton sx={{ color: colors.fiveth }}>
-            <PeopleIcon />
+            <img src={friendsIcon} width={24} height={24} />
           </IconButton>
         </Box>
       )}
@@ -188,7 +194,7 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
             <ThemeSwitcher orientation="vertical" />
 
             <IconButton sx={{ color: colors.fiveth }}>
-              <SettingsIcon />
+              <img src={settingsIcon} width={24} height={24} />
             </IconButton>
 
             <Avatar

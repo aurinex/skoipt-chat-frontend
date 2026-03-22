@@ -92,7 +92,13 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
         if (chatIndex === -1) return prev;
 
         const updatedChats = [...prev];
-        const targetChat = { ...updatedChats[chatIndex], last_message: msg };
+        const targetChat = {
+          ...updatedChats[chatIndex],
+          last_message: {
+            ...msg,
+            is_read: msg.is_mine ? true : false,
+          },
+        };
         updatedChats.splice(chatIndex, 1);
         return [targetChat, ...updatedChats];
       });
@@ -107,10 +113,7 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
                 ...chat,
                 last_message: {
                   ...chat.last_message,
-                  read_by: [
-                    ...(chat.last_message.read_by || []),
-                    { user_id: data.user_id },
-                  ],
+                  is_read: true,
                 },
               };
             }
@@ -122,8 +125,6 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
 
     const unsubUnread = socket.on("unread_count", (data: any) => {
       if (data.unread_count === 0) {
-        // Читаем актуальный myId из ref — не из замыкания
-        const currentMyId = myIdRef.current;
         setLocalChats((prev) =>
           prev.map((chat) =>
             String(chat.id) === String(data.chat_id)
@@ -132,10 +133,7 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
                   last_message: chat.last_message
                     ? {
                         ...chat.last_message,
-                        read_by: [
-                          ...(chat.last_message.read_by || []),
-                          { user_id: currentMyId },
-                        ],
+                        is_read: true,
                       }
                     : chat.last_message,
                 }
@@ -252,8 +250,6 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
                 const isSelected = location.pathname.includes(chat.id);
                 const lastMsg = chat.last_message;
                 const isMine = lastMsg?.is_mine;
-                const myId = myIdRef.current;
-
                 return (
                   <ListItem key={chat.id} disablePadding sx={{ mb: 0.5, p: 0 }}>
                     <ListItemButton
@@ -325,7 +321,7 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
 
                       <Box
                         sx={{
-                          ml: 1,
+                          ml: 2,
                           display: "flex",
                           flexDirection: "column",
                           alignItems: "flex-end",
@@ -338,25 +334,22 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
                             {isMine ? (
                               <DoneAllIcon
                                 sx={{
+                                  mr: "12px",
                                   fontSize: 18,
-                                  color:
-                                    lastMsg.read_by &&
-                                    lastMsg.read_by.length > 0
-                                      ? "#fff"
-                                      : colors.eighth,
+                                  color: lastMsg.is_read
+                                    ? "#fff"
+                                    : colors.eighth,
                                   transition: "color 0.3s ease",
                                 }}
                               />
                             ) : (
                               <Box
                                 sx={{
+                                  mr: "17px",
                                   width: 10,
                                   height: 10,
                                   borderRadius: "50%",
-                                  bgcolor: lastMsg.read_by?.some(
-                                    (r: any) =>
-                                      String(r.user_id) === String(myId),
-                                  )
+                                  bgcolor: lastMsg.is_read
                                     ? "#fff"
                                     : colors.eighth,
                                   transition: "all 0.3s ease",

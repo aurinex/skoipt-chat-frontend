@@ -4,6 +4,9 @@ import SearchIcon from "@mui/icons-material/Search";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { getParticipantString } from "../utils/chatFormatters";
 
+import findIcon from "../assets/icons/find.svg";
+import settingsIcon from "../assets/icons/settings.svg";
+
 interface ChatHeaderProps {
   chatData: any;
   typingUsers: any[];
@@ -143,10 +146,10 @@ const ChatHeader = memo(
         </Box>
         <Box>
           <IconButton sx={{ color: colors.wb }}>
-            <SearchIcon />
+            <img src={findIcon} width={24} height={24} />
           </IconButton>
           <IconButton sx={{ color: colors.wb }}>
-            <SettingsIcon />
+            <img src={settingsIcon} width={24} height={24} />
           </IconButton>
         </Box>
       </Box>

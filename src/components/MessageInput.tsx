@@ -5,6 +5,10 @@ import MicIcon from "@mui/icons-material/Mic";
 import SendIcon from "@mui/icons-material/Send";
 import { socket } from "../services/api";
 
+import fileIcon from "../assets/icons/file.svg";
+import micIcon from "../assets/icons/micro.svg";
+import sendIcon from "../assets/icons/send.svg";
+
 interface MessageInputProps {
   chatId: string | undefined;
   onSend: (text: string, replyToId?: string) => void;
@@ -115,7 +119,7 @@ const MessageInput = ({
         sx={{ color: colors.fiveth }}
         onClick={() => fileInputRef.current?.click()}
       >
-        <AttachFileIcon />
+        <img src={fileIcon} width={24} height={24} />
       </IconButton>
       <TextField
         multiline
@@ -133,10 +137,10 @@ const MessageInput = ({
         }}
       />
       <IconButton sx={{ color: colors.fiveth }}>
-        <MicIcon />
+        <img src={micIcon} width={24} height={24} />
       </IconButton>
       <IconButton sx={{ color: colors.eighth }} onClick={handleSend}>
-        <SendIcon />
+        <img src={sendIcon} width={24} height={24} />
       </IconButton>
     </Box>
   );
