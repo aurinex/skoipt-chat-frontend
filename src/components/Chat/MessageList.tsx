@@ -23,6 +23,9 @@ interface MessageListProps {
   colors: AppColors;
   onImageClick?: (url: string) => void;
   onReply?: (msg: Message) => void;
+  onLoadMore?: () => void;
+  canLoadMore?: boolean;
+  isLoadingMore?: boolean;
 }
 
 const MAX_HEIGHT = 1000;
@@ -278,6 +281,9 @@ const MessageList = memo(
     colors,
     onImageClick,
     onReply,
+    onLoadMore,
+    canLoadMore = false,
+    isLoadingMore = false,
   }: MessageListProps) => {
     const scrollRef = useRef<HTMLDivElement>(null);
     const prevChatIdRef = useRef(chatId);
@@ -292,6 +298,20 @@ const MessageList = memo(
         behavior: "smooth",
       });
     }, [messages]);
+
+    useEffect(() => {
+      const container = scrollRef.current;
+      if (!container || !onLoadMore || !canLoadMore || isLoadingMore) return;
+
+      const handleScroll = () => {
+        if (container.scrollTop <= 80) {
+          onLoadMore();
+        }
+      };
+
+      container.addEventListener("scroll", handleScroll);
+      return () => container.removeEventListener("scroll", handleScroll);
+    }, [canLoadMore, isLoadingMore, onLoadMore]);
 
     const showSkeleton = isMsgsLoading || isChangingChat;
 
@@ -310,7 +330,13 @@ const MessageList = memo(
         {showSkeleton && messages.length === 0 ? (
           <MessageSkeleton colors={colors} />
         ) : (
-          messages.map((msg, index) => {
+          <>
+            {isLoadingMore && (
+              <Box sx={{ display: "flex", justifyContent: "center", py: 1 }}>
+                <LinearProgress sx={{ width: 120, borderRadius: 2 }} />
+              </Box>
+            )}
+            {messages.map((msg, index) => {
             if (msg.is_system) {
               return (
                 <Box
@@ -706,7 +732,8 @@ const MessageList = memo(
                 </Box>
               </Box>
             );
-          })
+            })}
+          </>
         )}
       </Box>
     );

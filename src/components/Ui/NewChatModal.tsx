@@ -15,10 +15,12 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import api from "../../services/api";
 import type { User } from "../../types";
-import { useChatListCacheActions } from "../../queries/chatListCache";
 import { useUsersSearchQuery } from "../../queries/useUsersSearchQuery";
+import {
+  useCreateChannelMutation,
+  useCreateGroupMutation,
+} from "../../queries/useChatMutations";
 
 type Mode = "direct" | "group" | "channel";
 
@@ -32,8 +34,9 @@ const NewChatModal: React.FC<{
   const [name, setName] = useState("");
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
   const [search, setSearch] = useState("");
-  const { invalidateChats } = useChatListCacheActions();
   const { data: results = [], isPending: loading } = useUsersSearchQuery(search);
+  const createGroupMutation = useCreateGroupMutation();
+  const createChannelMutation = useCreateChannelMutation();
 
   // 🧹 очистка
   useEffect(() => {
@@ -67,23 +70,21 @@ const NewChatModal: React.FC<{
       if (mode === "group") {
         if (!name || selectedUsers.length === 0) return;
 
-        const chat = (await api.chats.createGroup({
+        const chat = (await createGroupMutation.mutateAsync({
           name,
           member_ids: selectedUsers.map((u) => u.id),
         })) as { id: string };
 
-        await invalidateChats();
         navigate(`/chat/${chat.id}`);
       }
 
       if (mode === "channel") {
         if (!name) return;
 
-        const chat = (await api.chats.createChannel({ name })) as {
+        const chat = (await createChannelMutation.mutateAsync({ name })) as {
           id: string;
         };
 
-        await invalidateChats();
         navigate(`/chat/${chat.id}`);
       }
 

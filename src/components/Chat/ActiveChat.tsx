@@ -14,8 +14,10 @@ import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
 import ReplyPreview from "./ReplyPreview";
 import ImageViewer from "../Ui/ImageViewer";
-import type { Message } from "../../types";
 import { useChatListCacheActions } from "../../queries/chatListCache";
+import { useChatDetailsQuery } from "../../queries/useChatDetailsQuery";
+import { useChatMessagesQuery } from "../../queries/useChatMessagesQuery";
+import { flattenMessagePages, useMessageCacheActions } from "../../queries/messageCache";
 
 const ActiveChat = () => {
   const { chatId } = useParams<{ chatId: string }>();
@@ -30,17 +32,21 @@ const ActiveChat = () => {
     activeChatSelectors.initializeRealtime,
   );
   const setCurrentChat = useActiveChatStore(activeChatSelectors.setCurrentChat);
-  const loadChat = useActiveChatStore(activeChatSelectors.loadChat);
-  const setMessagesForChat = useActiveChatStore(
-    activeChatSelectors.setMessagesForChat,
-  );
-  const messages = useActiveChatStore(activeChatSelectors.messages(chatId));
-  const isMsgsLoading = useActiveChatStore(
-    activeChatSelectors.isLoading(chatId),
-  );
-  const chatData = useActiveChatStore(activeChatSelectors.chatData(chatId));
   const typingUsers = useActiveChatStore(
     activeChatSelectors.typingUsers(chatId),
+  );
+  const { setMessages } = useMessageCacheActions(chatId);
+  const {
+    data: messagesData,
+    isPending: isMsgsLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useChatMessagesQuery(chatId);
+  const { data: chatData } = useChatDetailsQuery(chatId);
+  const messages = useMemo(
+    () => flattenMessagePages(messagesData?.pages ?? []),
+    [messagesData?.pages],
   );
 
   const {
@@ -64,19 +70,7 @@ const ActiveChat = () => {
 
   useEffect(() => {
     setCurrentChat(chatId ?? null, myId);
-
-    if (chatId) {
-      void loadChat(chatId);
-    }
-  }, [chatId, loadChat, myId, setCurrentChat]);
-
-  const setMessages = useMemo(
-    () => (updater: Message[] | ((prev: Message[]) => Message[])) => {
-      if (!chatId) return;
-      setMessagesForChat(chatId, updater);
-    },
-    [chatId, setMessagesForChat],
-  );
+  }, [chatId, myId, setCurrentChat]);
 
   const { handleSend, handleModalSend } = useMessageSender({
     chatId: chatId!,
@@ -132,7 +126,7 @@ const ActiveChat = () => {
           }}
         >
           <ChatHeader
-            chatData={chatData}
+            chatData={chatData ?? null}
             typingUsers={typingUsers}
             isMsgsLoading={isMsgsLoading}
             colors={colors}
@@ -140,11 +134,14 @@ const ActiveChat = () => {
           <MessageList
             messages={messages}
             isMsgsLoading={isMsgsLoading}
-            chatData={chatData}
+            chatData={chatData ?? null}
             chatId={chatId}
             colors={colors}
             onImageClick={setFullScreenImage}
             onReply={setReplyTo}
+            onLoadMore={() => fetchNextPage()}
+            canLoadMore={Boolean(hasNextPage)}
+            isLoadingMore={isFetchingNextPage}
           />
           <ReplyPreview
             replyTo={replyTo}

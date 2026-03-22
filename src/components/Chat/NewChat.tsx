@@ -7,8 +7,11 @@ import ChatShell from "./ChatShell";
 import ChatHeader from "./ChatHeader";
 import MessageInput from "./MessageInput";
 import ReplyPreview from "./ReplyPreview";
-import { useChatListCacheActions } from "../../queries/chatListCache";
 import { useChatPreviewQuery } from "../../queries/useChatPreviewQuery";
+import {
+  useOpenDirectMutation,
+  useSendFirstMessageMutation,
+} from "../../queries/useChatMutations";
 
 const NewChat = () => {
   const [searchParams] = useSearchParams();
@@ -18,12 +21,13 @@ const NewChat = () => {
 
   const userId = searchParams.get("userId");
   const composerScopeId = userId ? `new-chat:${userId}` : "new-chat:none";
-  const { invalidateChats } = useChatListCacheActions();
   const {
     data: preview,
     isPending: previewLoading,
     error: previewError,
   } = useChatPreviewQuery(userId);
+  const sendFirstMessageMutation = useSendFirstMessageMutation();
+  const openDirectMutation = useOpenDirectMutation();
 
   const {
     draftText,
@@ -56,14 +60,16 @@ const NewChat = () => {
     async (text: string) => {
       if (!text.trim() || !userId) return;
       try {
-        const result = await api.chats.sendFirstMessage(userId, { text });
-        await invalidateChats();
+        const result = await sendFirstMessageMutation.mutateAsync({
+          targetUserId: userId,
+          data: { text },
+        });
         navigate(`/chat/${result.chat_id}`, { replace: true });
       } catch (err) {
         console.error("Ошибка отправки:", err);
       }
     },
-    [invalidateChats, navigate, userId],
+    [navigate, sendFirstMessageMutation, userId],
   );
 
   const handleModalSend = useCallback(
@@ -71,7 +77,7 @@ const NewChat = () => {
       if (!userId) return;
       closeModal();
       try {
-        const chat = await api.chats.openDirect(userId);
+        const chat = await openDirectMutation.mutateAsync(userId);
         const chatId = chat.id;
 
         const uploadResults = await Promise.allSettled(
@@ -92,13 +98,12 @@ const NewChat = () => {
           text: caption || null,
           file_urls: fileUrls,
         });
-        await invalidateChats();
         navigate(`/chat/${chatId}`, { replace: true });
       } catch (err) {
         console.error("Ошибка отправки файлов:", err);
       }
     },
-    [userId, navigate, closeModal, invalidateChats],
+    [userId, navigate, closeModal, openDirectMutation],
   );
 
   if (!userId) {
