@@ -1,17 +1,21 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Box, Typography, useTheme } from "@mui/material";
-import { useChat } from "../../hooks/useChat";
 import { useComposer } from "../../hooks/useComposer";
 import { useMessageSender } from "../../hooks/useMessageSender";
 import { getMyId } from "../../services/api";
 import { useChatsStore } from "../../stores/useChatsStore";
+import { useActiveChatStore } from "../../stores/useActiveChatStore";
 import ChatShell from "./ChatShell";
 import ChatHeader from "./ChatHeader";
 import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
 import ReplyPreview from "./ReplyPreview";
 import ImageViewer from "../Ui/ImageViewer";
+import type { Message, TypingUser } from "../../types";
+
+const EMPTY_MESSAGES: Message[] = [];
+const EMPTY_TYPING_USERS: TypingUser[] = [];
 
 const ActiveChat = () => {
   const { chatId } = useParams<{ chatId: string }>();
@@ -22,9 +26,28 @@ const ActiveChat = () => {
   const composerScopeId = chatId ? `chat:${chatId}` : "chat:none";
 
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
-
-  const { messages, setMessages, isMsgsLoading, chatData, typingUsers } =
-    useChat(chatId, myId);
+  const initializeRealtime = useActiveChatStore(
+    (state) => state.initializeRealtime,
+  );
+  const setCurrentChat = useActiveChatStore((state) => state.setCurrentChat);
+  const loadChat = useActiveChatStore((state) => state.loadChat);
+  const setMessagesForChat = useActiveChatStore(
+    (state) => state.setMessagesForChat,
+  );
+  const messages = useActiveChatStore((state) =>
+    chatId ? (state.messagesByChatId[chatId] ?? EMPTY_MESSAGES) : EMPTY_MESSAGES,
+  );
+  const isMsgsLoading = useActiveChatStore((state) =>
+    chatId ? (state.loadingByChatId[chatId] ?? false) : false,
+  );
+  const chatData = useActiveChatStore((state) =>
+    chatId ? (state.chatDataByChatId[chatId] ?? null) : null,
+  );
+  const typingUsers = useActiveChatStore((state) =>
+    chatId
+      ? (state.typingUsersByChatId[chatId] ?? EMPTY_TYPING_USERS)
+      : EMPTY_TYPING_USERS,
+  );
 
   const {
     draftText,
@@ -40,6 +63,26 @@ const ActiveChat = () => {
     removeFile,
     handleFileInputChange,
   } = useComposer(composerScopeId);
+
+  useEffect(() => {
+    initializeRealtime();
+  }, [initializeRealtime]);
+
+  useEffect(() => {
+    setCurrentChat(chatId ?? null, myId);
+
+    if (chatId) {
+      void loadChat(chatId);
+    }
+  }, [chatId, loadChat, myId, setCurrentChat]);
+
+  const setMessages = useMemo(
+    () => (updater: Message[] | ((prev: Message[]) => Message[])) => {
+      if (!chatId) return;
+      setMessagesForChat(chatId, updater);
+    },
+    [chatId, setMessagesForChat],
+  );
 
   const { handleSend, handleModalSend } = useMessageSender({
     chatId: chatId!,
