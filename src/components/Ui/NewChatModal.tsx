@@ -47,8 +47,8 @@ const NewChatModal: React.FC<{
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   const [height, setHeight] = useState<number | "auto">("auto");
 
-  const { data: results = [], isPending: loading } =
-    useUsersSearchQuery(search);
+  const { data, isFetching } = useUsersSearchQuery(search);
+  const results: User[] = data ?? [];
   const createGroupMutation = useCreateGroupMutation();
   const createChannelMutation = useCreateChannelMutation();
 
@@ -285,10 +285,10 @@ const NewChatModal: React.FC<{
 
                   {mode !== "channel" && (
                     <Box sx={{ maxHeight: 500, overflowY: "auto" }}>
-                      {loading && <CircularProgress size={20} />}
+                      {isFetching && <CircularProgress size={20} />}
 
                       <List>
-                        {results.map((user) => (
+                        {results.map((user: User) => (
                           <ListItem key={user.id} disablePadding>
                             <ListItemButton
                               onClick={() => handleSelectUser(user)}
