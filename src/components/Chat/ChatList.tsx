@@ -2,7 +2,7 @@ import { Box, Typography, useTheme, IconButton } from "@mui/material";
 import { useState, useEffect, useRef } from "react";
 import { getMyId, socket } from "../../services/api";
 import api from "../../services/api";
-import newMessageIcon from "../../assets/icons/new_message.svg";
+import NewMessageCustomIcon from "../../assets/icons/new_message.svg?react";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import ChatSearch from "./ChatSearch";
 import ChatListItems from "./ChatListItems";
@@ -137,7 +137,7 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
   return (
     <Box
       sx={{
-        width: 321,
+        width: 400,
         bgcolor: colors.second,
         display: "flex",
         flexDirection: "column",
@@ -152,15 +152,17 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
           justifyContent: "space-between",
         }}
       >
-        <Typography
-          variant="h5"
-          sx={{ fontWeight: 700, color: colors.sixth, fontSize: 36 }}
-        >
-          Мессенджер
-        </Typography>
-        <KeyboardArrowDownIcon />
-        <IconButton sx={{ color: colors.fiveth }}>
-          <img src={newMessageIcon} width={24} height={24} />
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+          <Typography
+            variant="h5"
+            sx={{ fontWeight: 700, color: colors.sixth, fontSize: 36 }}
+          >
+            Мессенджер
+          </Typography>
+          <KeyboardArrowDownIcon />
+        </Box>
+        <IconButton sx={{ color: colors.wb }}>
+          <NewMessageCustomIcon width={24} height={24} />
         </IconButton>
       </Box>
 

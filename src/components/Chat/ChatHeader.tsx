@@ -2,8 +2,8 @@ import { memo } from "react";
 import { Box, Typography, Avatar, IconButton, Skeleton } from "@mui/material";
 import { getParticipantString } from "../../utils/chatFormatters";
 
-import findIcon from "../../assets/icons/find.svg";
-import settingsIcon from "../../assets/icons/settings.svg";
+import FindCustomIcon from "../../assets/icons/find.svg?react";
+import SettingsCustomIcon from "../../assets/icons/settings.svg?react";
 
 interface ChatHeaderProps {
   chatData: any;
@@ -144,10 +144,10 @@ const ChatHeader = memo(
         </Box>
         <Box>
           <IconButton sx={{ color: colors.wb }}>
-            <img src={findIcon} width={24} height={24} />
+            <FindCustomIcon width={24} height={24} />
           </IconButton>
           <IconButton sx={{ color: colors.wb }}>
-            <img src={settingsIcon} width={24} height={24} />
+            <SettingsCustomIcon width={24} height={24} />
           </IconButton>
         </Box>
       </Box>

@@ -73,7 +73,7 @@ const LoginPage = () => {
               <Box>
                 <Typography
                   sx={{
-                    color: theme.palette.background.text,
+                    color: theme.palette.background.wb,
                     fontSize: "20px",
                     marginLeft: "12px",
                   }}
@@ -95,7 +95,7 @@ const LoginPage = () => {
               <Box>
                 <Typography
                   sx={{
-                    color: theme.palette.background.text,
+                    color: theme.palette.background.wb,
                     fontSize: "20px",
                     marginLeft: "12px",
                   }}
@@ -128,7 +128,7 @@ const LoginPage = () => {
                     height: "49px",
                     bgcolor: theme.palette.background.fourth,
                     borderRadius: "20px",
-                    color: theme.palette.background.text,
+                    color: theme.palette.background.wb,
                     textTransform: "none",
                     fontSize: "20px",
                     mt: "30px",

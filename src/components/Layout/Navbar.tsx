@@ -3,10 +3,10 @@ import ThemeSwitcher from "./ThemeSwitcher";
 import api from "../../services/api";
 import { useState, useEffect } from "react";
 
-import homeIcon from "../../assets/icons/home.svg";
-import messageIcon from "../../assets/icons/message.svg";
-import friendsIcon from "../../assets/icons/friends.svg";
-import settingsIcon from "../../assets/icons/settings.svg";
+import HomeIconCustom from "../../assets/icons/home.svg?react";
+import MessageIconCustom from "../../assets/icons/message.svg?react";
+import FriendsIconCustom from "../../assets/icons/friends.svg?react";
+import SettingsIconCustom from "../../assets/icons/settings.svg?react";
 
 interface NavbarProps {
   orientation?: "vertical" | "horizontal";
@@ -128,8 +128,8 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
         </Box>
       ) : (
         <Box sx={groupStyles}>
-          <IconButton sx={{ color: colors.fiveth }}>
-            <img src={homeIcon} width={24} height={24} />
+          <IconButton sx={{ color: colors.wb }}>
+            <HomeIconCustom width={24} height={24} />
           </IconButton>
           <IconButton
             sx={{
@@ -139,10 +139,10 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
               "&:hover": { bgcolor: colors.eighth, opacity: 0.9 },
             }}
           >
-            <img src={messageIcon} width={24} height={24} />
+            <MessageIconCustom width={24} height={24} />
           </IconButton>
-          <IconButton sx={{ color: colors.fiveth }}>
-            <img src={friendsIcon} width={24} height={24} />
+          <IconButton sx={{ color: colors.wb }}>
+            <FriendsIconCustom width={24} height={24} />
           </IconButton>
         </Box>
       )}
@@ -184,8 +184,8 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
           <>
             <ThemeSwitcher orientation="vertical" />
 
-            <IconButton sx={{ color: colors.fiveth }}>
-              <img src={settingsIcon} width={24} height={24} />
+            <IconButton sx={{ color: colors.wb }}>
+              <SettingsIconCustom width={24} height={24} />
             </IconButton>
 
             <Avatar

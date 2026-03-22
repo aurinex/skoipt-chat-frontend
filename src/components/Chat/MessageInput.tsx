@@ -2,9 +2,9 @@ import { useRef, useState } from "react";
 import { Box, TextField, IconButton } from "@mui/material";
 import { socket } from "../../services/api";
 
-import fileIcon from "../../assets/icons/file.svg";
-import micIcon from "../../assets/icons/micro.svg";
-import sendIcon from "../../assets/icons/send.svg";
+import FileCustomIcon from "../../assets/icons/file.svg?react";
+import MicCustomIcon from "../../assets/icons/micro.svg?react";
+import SendCustomIcon from "../../assets/icons/send.svg?react";
 
 interface MessageInputProps {
   chatId: string | undefined;
@@ -116,7 +116,7 @@ const MessageInput = ({
         sx={{ color: colors.fiveth }}
         onClick={() => fileInputRef.current?.click()}
       >
-        <img src={fileIcon} width={24} height={24} />
+        <FileCustomIcon width={24} height={24} />
       </IconButton>
       <TextField
         multiline
@@ -134,10 +134,10 @@ const MessageInput = ({
         }}
       />
       <IconButton sx={{ color: colors.fiveth }}>
-        <img src={micIcon} width={24} height={24} />
+        <MicCustomIcon width={24} height={24} />
       </IconButton>
-      <IconButton sx={{ color: colors.eighth }} onClick={handleSend}>
-        <img src={sendIcon} width={24} height={24} />
+      <IconButton sx={{ color: colors.wb }} onClick={handleSend}>
+        <SendCustomIcon width={24} height={24} />
       </IconButton>
     </Box>
   );
