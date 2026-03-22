@@ -12,16 +12,17 @@ import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import FilePreview from "../Ui/FilePreview";
 import { formatLocalTime, formatDateLabel } from "../../utils/chatFormatters";
+import type { Message, ChatData } from "../../types";
 
 interface MessageListProps {
-  messages: any[];
+  messages: Message[];
   isMsgsLoading: boolean;
-  chatData: any;
+  chatData: ChatData | null;
   myId: string | null;
   chatId: string | undefined;
   colors: any;
   onImageClick?: (url: string) => void;
-  onReply?: (msg: any) => void;
+  onReply?: (msg: Message) => void;
 }
 
 const MAX_HEIGHT = 1000;

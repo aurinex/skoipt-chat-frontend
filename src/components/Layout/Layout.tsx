@@ -5,9 +5,10 @@ import api, { getMyId, socket } from "../../services/api";
 import Navbar from "./Navbar";
 import ChatList from "../Chat/ChatList";
 import { useTheme } from "@mui/material";
+import type { Chat } from "../../types";
 
 const Layout = () => {
-  const [chats, setChats] = useState<any[]>([]);
+  const [chats, setChats] = useState<Chat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const notificationSound = new Audio("/sounds/message.mp3");
   notificationSound.volume = 0.5;

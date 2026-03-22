@@ -4,6 +4,7 @@ import { Box, Typography, useTheme } from "@mui/material";
 import { useChat } from "../../hooks/useChat";
 import { useFileUpload } from "../../hooks/useFileUpload";
 import { useMessageSender } from "../../hooks/useMessageSender";
+import type { Message } from "../../types";
 import ChatShell from "./ChatShell";
 import ChatHeader from "./ChatHeader";
 import MessageList from "./MessageList";
@@ -12,7 +13,7 @@ import ReplyPreview from "./ReplyPreview";
 import ImageViewer from "../Ui/ImageViewer";
 
 interface ContextType {
-  handleUpdateChat: (msg: any) => void;
+  handleUpdateChat: (msg: Message) => void;
 }
 
 const ActiveChat = () => {
@@ -22,7 +23,7 @@ const ActiveChat = () => {
   const colors = theme.palette.background;
 
   const [draftText, setDraftText] = useState("");
-  const [replyTo, setReplyTo] = useState<any | null>(null);
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
   const { messages, setMessages, isMsgsLoading, chatData, typingUsers } =
