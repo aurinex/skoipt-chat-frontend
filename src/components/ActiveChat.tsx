@@ -1,5 +1,10 @@
-import { useCallback, useState } from "react";
-import { useParams, useOutletContext } from "react-router-dom";
+import { useCallback, useState, useEffect } from "react";
+import {
+  useParams,
+  useOutletContext,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import { Box, Typography, useTheme } from "@mui/material";
 import api from "../services/api";
 import { useChat } from "../hooks/useChat";
@@ -11,49 +16,63 @@ import FileUploadModal from "./FileUploadModal";
 import ImageViewer from "./ImageViewer";
 import ReplyPreview from "./ReplyPreview";
 
-interface ActiveChatProps {
-  onMessageSent?: (msg: any) => void;
-}
-
 interface ContextType {
   handleUpdateChat: (msg: any) => void;
 }
 
-const ALLOWED_IMAGE_EXTS = /\.(jpg|jpeg|png|gif|webp)$/i;
-
-const ActiveChat = (props: ActiveChatProps) => {
+const ActiveChat = () => {
   const { handleUpdateChat } = useOutletContext<ContextType>();
   const { chatId } = useParams<{ chatId: string }>();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const theme = useTheme();
   const colors = theme.palette.background;
 
   const myId = localStorage.getItem("user_id");
 
+  const pendingUserId = searchParams.get("userId");
+  const isNewChat = !chatId && !!pendingUserId;
+
+  // Превью для нового чата — загружается с бека
+  const [preview, setPreview] = useState<any | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  // ВСЕ хуки до любых return
   const { messages, setMessages, isMsgsLoading, chatData, typingUsers } =
-    useChat(chatId, myId);
+    useChat(isNewChat ? null : chatId, myId);
 
   const [modalFiles, setModalFiles] = useState<File[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
-
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
-
   const [draftText, setDraftText] = useState("");
   const [modalInitialCaption, setModalInitialCaption] = useState("");
-
   const [replyTo, setReplyTo] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (!isNewChat || !pendingUserId) return;
+
+    setPreviewLoading(true);
+    api.users
+      .chatPreview(pendingUserId)
+      .then((data) => {
+        if (data.chat_id) {
+          // Чат уже существует — редиректим сразу
+          navigate(`/chat/${data.chat_id}`, { replace: true });
+        } else {
+          setPreview(data);
+        }
+      })
+      .catch((e) => console.error("Ошибка загрузки превью:", e))
+      .finally(() => setPreviewLoading(false));
+  }, [isNewChat, pendingUserId]);
 
   const openModal = useCallback(
     (files: File[]) => {
-      setModalFiles((prev) => {
-        const combined = [...prev, ...files];
-        return combined.slice(0, 10);
-      });
-
+      setModalFiles((prev) => [...prev, ...files].slice(0, 10));
       if (draftText.trim()) {
         setModalInitialCaption(draftText);
         setDraftText("");
       }
-
       setModalOpen(true);
     },
     [draftText],
@@ -77,7 +96,8 @@ const ActiveChat = (props: ActiveChatProps) => {
     });
   }, []);
 
-  if (!chatId) {
+  // Ранний return — ТОЛЬКО после всех хуков
+  if (!chatId && !isNewChat) {
     return (
       <Box
         sx={{
@@ -95,14 +115,30 @@ const ActiveChat = (props: ActiveChatProps) => {
     );
   }
 
+  const resolveChat = async (): Promise<string | null> => {
+    if (!isNewChat) return chatId!;
+    if (!pendingUserId) return null;
+    try {
+      const chat = await api.chats.openDirect(pendingUserId);
+      navigate(`/chat/${chat.id}`, { replace: true });
+      return chat.id;
+    } catch (e) {
+      console.error("Не удалось создать чат:", e);
+      return null;
+    }
+  };
+
   const handleSend = useCallback(
     async (text: string, replyToId?: string) => {
-      if (!text.trim() || !chatId) return;
+      if (!text.trim()) return;
+
+      const resolvedChatId = await resolveChat();
+      if (!resolvedChatId) return;
 
       const tempId = `temp_${Date.now()}`;
       const optimisticMsg = {
         id: tempId,
-        chat_id: chatId,
+        chat_id: resolvedChatId,
         text,
         is_mine: true,
         sender_id: myId,
@@ -116,7 +152,7 @@ const ActiveChat = (props: ActiveChatProps) => {
       setMessages((prev) => [...prev, optimisticMsg]);
 
       try {
-        const msg = await api.messages.send(chatId, {
+        const msg = await api.messages.send(resolvedChatId, {
           text,
           reply_to: replyToId || null,
         });
@@ -136,32 +172,30 @@ const ActiveChat = (props: ActiveChatProps) => {
         );
       }
     },
-    [chatId, myId, handleUpdateChat, replyTo],
+    [chatId, myId, handleUpdateChat, replyTo, isNewChat, pendingUserId],
   );
 
   const handleModalSend = useCallback(
     async (files: File[], caption: string): Promise<void> => {
-      if (!chatId) return;
+      const resolvedChatId = await resolveChat();
+      if (!resolvedChatId) return;
 
-      // Создаём blob URL для изображений — для мгновенного превью
       const imageFiles = files.filter((f) => f.type.startsWith("image/"));
       const nonImageFiles = files.filter((f) => !f.type.startsWith("image/"));
       const blobUrls = imageFiles.map((f) => URL.createObjectURL(f));
 
       const tempId = `temp_files_${Date.now()}`;
-
-      // Оптимистичный плейсхолдер — виден сразу пока идёт загрузка
       const optimisticMsg = {
         id: tempId,
-        chat_id: chatId,
+        chat_id: resolvedChatId,
         text: caption || null,
         is_mine: true,
         sender_id: myId,
         created_at: new Date().toISOString(),
         read_by: [],
-        file_urls: blobUrls, // blob URL для превью изображений
-        _uploading: true, // флаг — идёт загрузка
-        _nonImageCount: nonImageFiles.length, // сколько не-изображений показать плейсхолдером
+        file_urls: blobUrls,
+        _uploading: true,
+        _nonImageCount: nonImageFiles.length,
         reply_to: replyTo?.id || null,
         reply_to_message: replyTo || null,
       };
@@ -171,7 +205,7 @@ const ActiveChat = (props: ActiveChatProps) => {
 
       try {
         const results = await Promise.allSettled(
-          files.map((file) => api.files.uploadChatFile(chatId, file)),
+          files.map((file) => api.files.uploadChatFile(resolvedChatId, file)),
         );
 
         const fileUrls: string[] = [];
@@ -191,7 +225,6 @@ const ActiveChat = (props: ActiveChatProps) => {
         });
 
         if (fileUrls.length === 0) {
-          // Все файлы упали — помечаем как failed
           setMessages((prev) =>
             prev.map((m) =>
               m.id === tempId
@@ -199,18 +232,16 @@ const ActiveChat = (props: ActiveChatProps) => {
                 : m,
             ),
           );
-          // Освобождаем blob URL
           blobUrls.forEach(URL.revokeObjectURL);
           return;
         }
 
-        const msg = await api.messages.send(chatId, {
+        const msg = await api.messages.send(resolvedChatId, {
           file_urls: fileUrls,
           text: caption || null,
           reply_to: replyTo?.id || null,
         });
 
-        // Заменяем плейсхолдер реальным сообщением
         setMessages((prev) =>
           prev.map((m) =>
             m.id === tempId ? { ...msg, reply_to_message: replyTo } : m,
@@ -218,10 +249,6 @@ const ActiveChat = (props: ActiveChatProps) => {
         );
         setReplyTo(null);
         handleUpdateChat(msg);
-
-        if (failedFiles.length > 0) {
-          console.warn(`Не удалось загрузить: ${failedFiles.join(", ")}`);
-        }
       } catch (err) {
         console.error("Ошибка отправки файлов:", err);
         setMessages((prev) =>
@@ -232,11 +259,18 @@ const ActiveChat = (props: ActiveChatProps) => {
           ),
         );
       } finally {
-        // Освобождаем blob URL в любом случае
         blobUrls.forEach(URL.revokeObjectURL);
       }
     },
-    [chatId, myId, handleUpdateChat, closeModal, replyTo],
+    [
+      chatId,
+      myId,
+      handleUpdateChat,
+      closeModal,
+      replyTo,
+      isNewChat,
+      pendingUserId,
+    ],
   );
 
   const handleFileInputChange = useCallback(
@@ -247,6 +281,8 @@ const ActiveChat = (props: ActiveChatProps) => {
     },
     [openModal],
   );
+
+  const effectiveChatData = isNewChat ? preview : chatData;
 
   return (
     <>
@@ -276,28 +312,45 @@ const ActiveChat = (props: ActiveChatProps) => {
           }}
         >
           <ChatHeader
-            chatData={chatData}
+            chatData={effectiveChatData}
             typingUsers={typingUsers}
-            isMsgsLoading={isMsgsLoading}
+            isMsgsLoading={isNewChat ? previewLoading : isMsgsLoading}
             colors={colors}
           />
-          <MessageList
-            messages={messages}
-            isMsgsLoading={isMsgsLoading}
-            chatData={chatData}
-            myId={myId}
-            chatId={chatId}
-            colors={colors}
-            onImageClick={setFullScreenImage}
-            onReply={setReplyTo}
-          />
+
+          {isNewChat ? (
+            <Box
+              sx={{
+                flexGrow: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Typography sx={{ color: colors.fiveth, fontSize: 14 }}>
+                Напишите первое сообщение
+              </Typography>
+            </Box>
+          ) : (
+            <MessageList
+              messages={messages}
+              isMsgsLoading={isMsgsLoading}
+              chatData={chatData}
+              myId={myId}
+              chatId={chatId}
+              colors={colors}
+              onImageClick={setFullScreenImage}
+              onReply={setReplyTo}
+            />
+          )}
+
           <ReplyPreview
             replyTo={replyTo}
             onCancel={() => setReplyTo(null)}
             colors={colors}
           />
           <MessageInput
-            chatId={chatId}
+            chatId={isNewChat ? undefined : chatId}
             onSend={handleSend}
             onFileUpload={handleFileInputChange}
             value={draftText}

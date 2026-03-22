@@ -9,7 +9,6 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import api from "../services/api";
 
 interface User {
   id: string;
@@ -38,15 +37,6 @@ const UserSearchResults = ({
   const colors = theme.palette.background;
   const navigate = useNavigate();
 
-  const handleOpenChat = async (userId: string) => {
-    try {
-      const chat = await api.chats.openDirect(userId);
-      navigate(`/chat/${chat.id}`);
-    } catch (e) {
-      console.error("Не удалось открыть чат", e);
-    }
-  };
-
   if (isLoading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
@@ -68,7 +58,7 @@ const UserSearchResults = ({
       {users.map((user) => (
         <ListItem key={user.id} disablePadding sx={{ mb: 0.5 }}>
           <ListItemButton
-            onClick={() => handleOpenChat(user.id)}
+            onClick={() => navigate(`/chat/new?userId=${user.id}`)}
             sx={{
               borderRadius: "24px",
               p: 1.5,
@@ -97,7 +87,6 @@ const UserSearchResults = ({
                 />
               )}
             </Box>
-
             <Box sx={{ flexGrow: 1, overflow: "hidden" }}>
               <Typography
                 sx={{
