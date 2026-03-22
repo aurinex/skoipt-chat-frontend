@@ -4,6 +4,7 @@ import { Box, Typography, useTheme } from "@mui/material";
 import { useChat } from "../../hooks/useChat";
 import { useFileUpload } from "../../hooks/useFileUpload";
 import { useMessageSender } from "../../hooks/useMessageSender";
+import { getMyId } from "../../services/api";
 import type { Message } from "../../types";
 import { useChatsStore } from "../../stores/useChatsStore";
 import ChatShell from "./ChatShell";
@@ -17,6 +18,7 @@ const ActiveChat = () => {
   const { chatId } = useParams<{ chatId: string }>();
   const theme = useTheme();
   const colors = theme.palette.background;
+  const myId = getMyId();
   const handleUpdateChat = useChatsStore((state) => state.updateChatFromMessage);
 
   const [draftText, setDraftText] = useState("");
@@ -24,7 +26,7 @@ const ActiveChat = () => {
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
   const { messages, setMessages, isMsgsLoading, chatData, typingUsers } =
-    useChat(chatId, null);
+    useChat(chatId, myId);
 
   const {
     modalFiles,
