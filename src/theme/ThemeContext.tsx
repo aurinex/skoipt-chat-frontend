@@ -62,6 +62,7 @@ export const ThemeProvider = ({ children }: any) => {
             seventh: actualMode === "dark" ? "#FA3B3B" : "#FA3B3B",
             eighth: actualMode === "dark" ? "#0050E4" : "#0050E4",
 
+            highlight: actualMode === "dark" ? "#ffffff14" : "#ffffff4d",
             text: actualMode === "dark" ? "#000000" : "#FFFFFF",
             wb: actualMode === "dark" ? "#FFFFFF" : "#000000",
             skeleton:
@@ -73,8 +74,8 @@ export const ThemeProvider = ({ children }: any) => {
           },
         },
         typography: {
-          fontFamily: "SF Pro Display, sans-serif",
-          fontWeightRegular: "400",
+          fontFamily: "Montserrat, sans-serif",
+          fontWeightRegular: "500",
         },
       }),
     [actualMode],

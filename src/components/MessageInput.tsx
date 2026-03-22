@@ -7,7 +7,8 @@ import { socket } from "../services/api";
 
 interface MessageInputProps {
   chatId: string | undefined;
-  onSend: (text: string) => void;
+  onSend: (text: string, replyToId?: string) => void;
+  replyTo?: any;
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   value: string;
   onChange: (text: string) => void;
@@ -21,11 +22,14 @@ const MessageInput = ({
   value,
   onChange,
   colors,
+  replyTo,
 }: MessageInputProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const myTypingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
     const value = e.target.value;
     onChange(value);
     if (!chatId) return;
@@ -45,7 +49,7 @@ const MessageInput = ({
   const handleSend = () => {
     if (!value.trim()) return;
 
-    onSend(value);
+    onSend(value, replyTo?.id);
     onChange(""); // ✅ очистка
 
     if (myTypingTimerRef.current) {
@@ -57,7 +61,10 @@ const MessageInput = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSend();
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault(); // ❗ блокируем перенос
+      handleSend();
+    }
   };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
@@ -111,6 +118,8 @@ const MessageInput = ({
         <AttachFileIcon />
       </IconButton>
       <TextField
+        multiline
+        maxRows={6}
         fullWidth
         placeholder="Сообщение"
         variant="standard"

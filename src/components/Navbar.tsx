@@ -1,4 +1,4 @@
-import { Box, IconButton, Avatar, useTheme } from "@mui/material";
+import { Box, IconButton, Avatar, useTheme, Skeleton } from "@mui/material";
 import HomeIcon from "@mui/icons-material/HomeRounded";
 import ChatIcon from "@mui/icons-material/ChatBubbleRounded";
 import AddCircleIcon from "@mui/icons-material/AddCircleRounded";
@@ -18,15 +18,22 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
   const isVertical = orientation === "vertical";
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
+        setIsLoading(true);
+
         const userData = await api.auth.getMe();
+
         if (userData && userData.avatar_url) {
           setAvatarUrl(userData.avatar_url);
         }
+
+        setIsLoading(false);
       } catch (error) {
+        setIsLoading(true);
         console.error("Ошибка при получении данных пользователя:", error);
       }
     };
@@ -55,48 +62,148 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
     alignItems: "center",
   };
 
+  const NavIconButton = ({
+    children,
+    active = false,
+  }: {
+    children: React.ReactNode;
+    active?: boolean;
+  }) =>
+    isLoading ? (
+      <Skeleton
+        variant="circular"
+        width={40}
+        height={40}
+        sx={{ bgcolor: colors.fourth, opacity: 0.5 }}
+      />
+    ) : (
+      <IconButton
+        sx={{
+          color: active ? colors.sixth : colors.fiveth,
+          bgcolor: active ? colors.eighth : "transparent",
+          borderRadius: "12px",
+          "&:hover": {
+            bgcolor: active ? colors.eighth : "rgba(255,255,255,0.05)",
+            opacity: 0.9,
+          },
+        }}
+      >
+        {children}
+      </IconButton>
+    );
+
   return (
     <Box sx={containerStyles}>
       {/* Верхняя/Левая группа иконок */}
-      <Box sx={groupStyles}>
-        <IconButton sx={{ color: colors.fiveth }}>
-          <HomeIcon />
-        </IconButton>
-        <IconButton
-          sx={{
-            color: colors.sixth,
-            bgcolor: colors.eighth,
-            borderRadius: "12px",
-            "&:hover": { bgcolor: colors.eighth, opacity: 0.9 },
-          }}
-        >
-          <ChatIcon />
-        </IconButton>
-        <IconButton sx={{ color: colors.fiveth }}>
-          <AddCircleIcon />
-        </IconButton>
-        <IconButton sx={{ color: colors.fiveth }}>
-          <PeopleIcon />
-        </IconButton>
-      </Box>
+      {isLoading ? (
+        <Box sx={groupStyles}>
+          <Skeleton
+            variant="circular"
+            animation="wave"
+            width={36}
+            height={36}
+            sx={{ bgcolor: colors.skeleton }}
+          />
+          <Skeleton
+            variant="circular"
+            animation="wave"
+            width={36}
+            height={36}
+            sx={{ bgcolor: colors.skeleton }}
+          />
+          <Skeleton
+            variant="circular"
+            animation="wave"
+            width={36}
+            height={36}
+            sx={{ bgcolor: colors.skeleton }}
+          />
+          <Skeleton
+            variant="circular"
+            animation="wave"
+            width={36}
+            height={36}
+            sx={{ bgcolor: colors.skeleton }}
+          />
+        </Box>
+      ) : (
+        <Box sx={groupStyles}>
+          <IconButton sx={{ color: colors.fiveth }}>
+            <HomeIcon />
+          </IconButton>
+          <IconButton
+            sx={{
+              color: colors.sixth,
+              bgcolor: colors.eighth,
+              borderRadius: "12px",
+              "&:hover": { bgcolor: colors.eighth, opacity: 0.9 },
+            }}
+          >
+            <ChatIcon />
+          </IconButton>
+          <IconButton sx={{ color: colors.fiveth }}>
+            <AddCircleIcon />
+          </IconButton>
+          <IconButton sx={{ color: colors.fiveth }}>
+            <PeopleIcon />
+          </IconButton>
+        </Box>
+      )}
 
       {/* Нижняя/Правая группа (Настройки и Аватар) */}
       <Box sx={groupStyles}>
-        <ThemeSwitcher orientation="vertical" />
-        <IconButton sx={{ color: colors.fiveth }}>
-          <SettingsIcon />
-        </IconButton>
-        <Avatar
-          src={avatarUrl || "/default-avatar.png"}
-          sx={{
-            width: 55,
-            height: 55,
-            cursor: "pointer",
-            border: `2px solid ${colors.fourth}`,
-            // mb: isVertical ? 0 : 0,
-            ml: isVertical ? 0 : 1,
-          }}
-        />
+        {isLoading ? (
+          <>
+            <Box sx={groupStyles}>
+              {[...Array(3)].map((_, i) => (
+                <Skeleton
+                  key={i}
+                  variant="circular"
+                  animation="wave"
+                  width={24}
+                  height={24}
+                  sx={{ bgcolor: colors.skeleton }}
+                />
+              ))}
+            </Box>
+
+            <Skeleton
+              variant="circular"
+              animation="wave"
+              width={36}
+              height={36}
+              sx={{ bgcolor: colors.skeleton }}
+            />
+
+            <Skeleton
+              variant="circular"
+              animation="wave"
+              width={55}
+              height={55}
+              sx={{ bgcolor: colors.skeleton, mb: isVertical ? 1 : 0 }}
+            />
+          </>
+        ) : (
+          <>
+            <ThemeSwitcher orientation="vertical" />
+
+            <IconButton sx={{ color: colors.fiveth }}>
+              <SettingsIcon />
+            </IconButton>
+
+            <Avatar
+              src={avatarUrl || "/default-avatar.png"}
+              sx={{
+                width: 55,
+                height: 55,
+                cursor: "pointer",
+                border: `2px solid ${colors.fourth}`,
+                mb: isVertical ? 1 : 0,
+                ml: isVertical ? 0 : 1,
+              }}
+            />
+          </>
+        )}
       </Box>
     </Box>
   );

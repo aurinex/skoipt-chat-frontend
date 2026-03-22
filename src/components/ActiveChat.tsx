@@ -9,6 +9,7 @@ import MessageInput from "./MessageInput";
 import DropZoneOverlay from "./DropZoneOverlay";
 import FileUploadModal from "./FileUploadModal";
 import ImageViewer from "./ImageViewer";
+import ReplyPreview from "./ReplyPreview";
 
 interface ActiveChatProps {
   onMessageSent?: (msg: any) => void;
@@ -38,6 +39,8 @@ const ActiveChat = (props: ActiveChatProps) => {
 
   const [draftText, setDraftText] = useState("");
   const [modalInitialCaption, setModalInitialCaption] = useState("");
+
+  const [replyTo, setReplyTo] = useState<any | null>(null);
 
   const openModal = useCallback(
     (files: File[]) => {
@@ -93,7 +96,7 @@ const ActiveChat = (props: ActiveChatProps) => {
   }
 
   const handleSend = useCallback(
-    async (text: string) => {
+    async (text: string, replyToId?: string) => {
       if (!text.trim() || !chatId) return;
 
       const tempId = `temp_${Date.now()}`;
@@ -106,13 +109,23 @@ const ActiveChat = (props: ActiveChatProps) => {
         created_at: new Date().toISOString(),
         read_by: [],
         _pending: true,
+        reply_to: replyToId || null,
+        reply_to_message: replyTo || null,
       };
 
       setMessages((prev) => [...prev, optimisticMsg]);
 
       try {
-        const msg = await api.messages.send(chatId, { text });
-        setMessages((prev) => prev.map((m) => (m.id === tempId ? msg : m)));
+        const msg = await api.messages.send(chatId, {
+          text,
+          reply_to: replyToId || null,
+        });
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempId ? { ...msg, reply_to_message: replyTo } : m,
+          ),
+        );
+        setReplyTo(null);
         handleUpdateChat(msg);
       } catch (err) {
         console.error("Ошибка отправки:", err);
@@ -123,7 +136,7 @@ const ActiveChat = (props: ActiveChatProps) => {
         );
       }
     },
-    [chatId, myId, handleUpdateChat],
+    [chatId, myId, handleUpdateChat, replyTo],
   );
 
   const handleModalSend = useCallback(
@@ -149,6 +162,8 @@ const ActiveChat = (props: ActiveChatProps) => {
         file_urls: blobUrls, // blob URL для превью изображений
         _uploading: true, // флаг — идёт загрузка
         _nonImageCount: nonImageFiles.length, // сколько не-изображений показать плейсхолдером
+        reply_to: replyTo?.id || null,
+        reply_to_message: replyTo || null,
       };
 
       setMessages((prev) => [...prev, optimisticMsg]);
@@ -192,10 +207,16 @@ const ActiveChat = (props: ActiveChatProps) => {
         const msg = await api.messages.send(chatId, {
           file_urls: fileUrls,
           text: caption || null,
+          reply_to: replyTo?.id || null,
         });
 
         // Заменяем плейсхолдер реальным сообщением
-        setMessages((prev) => prev.map((m) => (m.id === tempId ? msg : m)));
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempId ? { ...msg, reply_to_message: replyTo } : m,
+          ),
+        );
+        setReplyTo(null);
         handleUpdateChat(msg);
 
         if (failedFiles.length > 0) {
@@ -215,7 +236,7 @@ const ActiveChat = (props: ActiveChatProps) => {
         blobUrls.forEach(URL.revokeObjectURL);
       }
     },
-    [chatId, myId, handleUpdateChat, closeModal],
+    [chatId, myId, handleUpdateChat, closeModal, replyTo],
   );
 
   const handleFileInputChange = useCallback(
@@ -268,6 +289,12 @@ const ActiveChat = (props: ActiveChatProps) => {
             chatId={chatId}
             colors={colors}
             onImageClick={setFullScreenImage}
+            onReply={setReplyTo}
+          />
+          <ReplyPreview
+            replyTo={replyTo}
+            onCancel={() => setReplyTo(null)}
+            colors={colors}
           />
           <MessageInput
             chatId={chatId}
@@ -276,6 +303,7 @@ const ActiveChat = (props: ActiveChatProps) => {
             value={draftText}
             onChange={setDraftText}
             colors={colors}
+            replyTo={replyTo}
           />
         </Box>
       </DropZoneOverlay>

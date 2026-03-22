@@ -132,7 +132,7 @@ const ChatHeader = memo(
             </Typography>
             <Typography
               sx={{
-                color: isTyping ? colors.eighth : colors.fiveth,
+                color: colors.fiveth,
                 fontSize: 18,
                 mt: "-6px",
               }}

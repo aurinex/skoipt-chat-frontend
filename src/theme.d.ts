@@ -13,5 +13,6 @@ declare module "@mui/material/styles" {
     text: string;
     skeleton: string;
     wb: string;
+    highlight: string;
   }
 }

@@ -366,6 +366,17 @@ const FileUploadModal = ({
   const hasInvalidFiles = invalidFileIndices.size > 0;
   const canSend = validFiles.length > 0 && !isSending;
 
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      // даём модалке отрендериться
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  }, [open]);
+
   useEffect(() => {
     if (open) {
       setCaption(initialCaption || "");
@@ -421,6 +432,8 @@ const FileUploadModal = ({
       closeAfterTransition
       slots={{ backdrop: Backdrop }}
       slotProps={{ backdrop: { timeout: 200 } }}
+      disableAutoFocus
+      disableEnforceFocus
     >
       <Fade in={open}>
         <Box
@@ -578,6 +591,10 @@ const FileUploadModal = ({
             }}
           >
             <TextField
+              inputRef={inputRef}
+              onPaste={(e) => {
+                inputRef.current?.focus();
+              }}
               fullWidth
               placeholder={
                 hasInvalidFiles && validFiles.length > 0

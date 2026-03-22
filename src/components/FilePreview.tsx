@@ -3,17 +3,21 @@ import api from "../services/api";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
 
+interface FilePreviewProps {
+  fileUrl: string;
+  chatId: string;
+  onImageClick?: (url: string) => void;
+  grid?: boolean;
+  variant?: "default" | "small";
+}
+
 const FilePreview = ({
   fileUrl,
   chatId,
   grid = false,
-  onImageClick, // Добавили пропс
-}: {
-  fileUrl: string;
-  chatId: string;
-  grid?: boolean;
-  onImageClick?: (url: string) => void; // Описали тип
-}) => {
+  onImageClick,
+  variant = "default",
+}: FilePreviewProps) => {
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,6 +45,53 @@ const FilePreview = ({
   };
 
   if (isImage) {
+    if (variant === "small" && !grid) {
+      return (
+        <Box
+          sx={{
+            position: "relative",
+            width: "100%",
+            minWidth: "200px",
+            maxWidth: 300,
+            borderRadius: "inherit",
+            overflow: "hidden",
+          }}
+        >
+          {/* 🔹 blur фон */}
+          <Box
+            component="img"
+            src={url}
+            sx={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              filter: "blur(20px) brightness(0.6)",
+              transform: "scale(1.2)",
+            }}
+          />
+
+          {/* 🔹 основная картинка */}
+          <Box
+            component="img"
+            src={url}
+            onClick={handleClick}
+            sx={{
+              position: "relative",
+              zIndex: 1,
+              display: "block",
+              margin: "0 auto",
+              maxWidth: "100%",
+              maxHeight: 300,
+              objectFit: "contain",
+              cursor: "pointer",
+            }}
+          />
+        </Box>
+      );
+    }
+
     return (
       <Box
         component="img"

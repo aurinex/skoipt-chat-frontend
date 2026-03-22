@@ -1,4 +1,4 @@
-import { useRef, useEffect, memo } from "react";
+import { useRef, useEffect, memo, useState } from "react";
 import {
   Box,
   Typography,
@@ -22,6 +22,7 @@ interface MessageListProps {
   chatId: string | undefined;
   colors: any;
   onImageClick?: (url: string) => void;
+  onReply?: (msg: any) => void;
 }
 
 const MAX_HEIGHT = 1000;
@@ -133,11 +134,37 @@ const ImageGrid = ({
     return isUploading ? (
       <UploadingImageThumb src={urls[0]} />
     ) : (
-      <Box sx={{ width: "100%", minWidth: "200px" }}>
+      <Box
+        sx={{
+          position: "relative",
+          width: "100%",
+          minWidth: "200px",
+          maxWidth: 300,
+          borderRadius: "inherit",
+          overflow: "hidden",
+        }}
+      >
+        {/* 🔹 Blur фон */}
+        <Box
+          component="img"
+          src={urls[0]}
+          sx={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            filter: "blur(20px) brightness(0.6)",
+            transform: "scale(1.2)",
+          }}
+        />
+
+        {/* 🔹 Основная картинка */}
         <FilePreview
           fileUrl={urls[0]}
           chatId={chatId!}
           onImageClick={onImageClick}
+          variant="small"
         />
       </Box>
     );
@@ -253,11 +280,14 @@ const MessageList = memo(
     chatId,
     colors,
     onImageClick,
+    onReply,
   }: MessageListProps) => {
     const scrollRef = useRef<HTMLDivElement>(null);
     const prevChatIdRef = useRef(chatId);
     const isChangingChat = prevChatIdRef.current !== chatId;
     if (isChangingChat) prevChatIdRef.current = chatId;
+
+    const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
     useEffect(() => {
       scrollRef.current?.scrollTo({
@@ -302,6 +332,7 @@ const MessageList = memo(
                       color: colors.fiveth,
                       fontSize: "0.75rem",
                       textAlign: "center",
+                      whiteSpace: "pre-wrap",
                     }}
                   >
                     {msg.text}
@@ -380,14 +411,16 @@ const MessageList = memo(
                 )}
 
                 <Box
+                  id={`msg-${msg.id}`}
+                  onDoubleClick={() => onReply?.(msg)}
                   sx={{
+                    position: "relative",
                     display: "flex",
                     flexDirection: "row",
                     alignItems: "flex-end",
                     justifyContent: isMessageFromMe ? "flex-end" : "flex-start",
                     gap: 1,
                     mb: isLastInGroup ? 2 : 0.4,
-                    // mt: showDateLabel && !isFirstInGroup ? 1 : 0,
                   }}
                 >
                   {!isMessageFromMe && (
@@ -443,9 +476,28 @@ const MessageList = memo(
                             : ""}
                         </Typography>
                       )}
-
+                    {highlightedId === msg.id && (
+                      <Box
+                        sx={{
+                          position: "absolute",
+                          inset: 0,
+                          borderRadius: "16px",
+                          zIndex: 0,
+                          pointerEvents: "none",
+                          ml: "54px",
+                          background: `linear-gradient(
+                            ${isMessageFromMe ? "270deg" : "90deg"},
+                            ${colors.highlight} 0%,
+                            ${colors.third} 90%
+                          )`,
+                          animation: "fadeHighlight 2s ease forwards",
+                        }}
+                      />
+                    )}
                     <Box
                       sx={{
+                        position: "relative",
+                        zIndex: 1,
                         p: isPureMedia ? 0 : 0,
                         borderRadius: isMessageFromMe
                           ? isLastInGroup
@@ -458,7 +510,6 @@ const MessageList = memo(
                           ? colors.eighth
                           : colors.second,
                         color: isMessageFromMe ? "#fff" : colors.sixth,
-                        position: "relative",
                         overflow: "hidden", // Чтобы картинки не вылезали за скругления
                         display: "flex",
                         flexDirection: "column",
@@ -488,6 +539,57 @@ const MessageList = memo(
                         </Box>
                       )}
 
+                      {msg.reply_to_message && (
+                        <Box
+                          onClick={(e) => {
+                            e.stopPropagation();
+
+                            const targetId = msg.reply_to;
+                            const el = document.getElementById(
+                              `msg-${targetId}`,
+                            );
+
+                            if (el) {
+                              el.scrollIntoView({
+                                behavior: "smooth",
+                                block: "center",
+                              });
+
+                              setHighlightedId(targetId);
+
+                              setTimeout(() => {
+                                setHighlightedId(null);
+                              }, 2000);
+                            }
+                          }}
+                          sx={{
+                            px: 1.5,
+                            py: 1,
+                            // borderLeft: `3px solid ${colors.eighth}`,
+                            bgcolor: "rgba(255, 255, 255, 0.12)",
+                            borderRadius: "6px",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <Typography
+                            sx={{ fontSize: "0.75rem", color: "#fff" }}
+                          >
+                            {msg.reply_to_message.sender?.first_name || "Ответ"}
+                          </Typography>
+                          <Typography
+                            sx={{
+                              fontSize: "0.8rem",
+                              color: "#cdcdcdff",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {msg.reply_to_message.text || "Файл"}
+                          </Typography>
+                        </Box>
+                      )}
+
                       {/* ТЕКСТ */}
                       {hasText && (
                         <Typography
@@ -497,6 +599,7 @@ const MessageList = memo(
                             wordBreak: "break-word",
                             p: "8px 14px 6px 14px",
                             maxWidth: hasImages ? "220px" : "100%",
+                            whiteSpace: "pre-wrap",
                           }}
                         >
                           {msg.text}
