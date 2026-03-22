@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { useParams, useOutletContext } from "react-router-dom";
 import { Box, Typography, useTheme } from "@mui/material";
-import api from "../services/api";
+import api, { getMyId } from "../services/api";
 import { useChat } from "../hooks/useChat";
 import ChatHeader from "./Chat/ChatHeader";
 import MessageList from "./MessageList";
@@ -27,7 +27,7 @@ const ActiveChat = (props: ActiveChatProps) => {
   const theme = useTheme();
   const colors = theme.palette.background;
 
-  const myId = localStorage.getItem("user_id");
+  const myId = getMyId();
 
   const { messages, setMessages, isMsgsLoading, chatData, typingUsers } =
     useChat(chatId, myId);

@@ -1,12 +1,12 @@
 import { Box, Typography, useTheme, IconButton } from "@mui/material";
 import { useState, useEffect, useRef } from "react";
-import { socket } from "../../services/api";
+import { getMyId, socket } from "../../services/api";
 import api from "../../services/api";
 import newMessageIcon from "../../assets/icons/new_message.svg";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import ChatSearch from "./ChatSearch";
 import ChatListItems from "./ChatListItems";
-import UserSearchResults from "../UserSearchResults";
+import UserSearchResults from "./UserSearchResults";
 
 interface ChatListProps {
   chats: any[];
@@ -20,7 +20,7 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
   const [usersLoading, setUsersLoading] = useState(false);
   const theme = useTheme();
   const colors = theme.palette.background;
-  const myIdRef = useRef(localStorage.getItem("user_id"));
+  const myIdRef = useRef(getMyId());
   const isSearching = searchQuery.trim().length > 0;
 
   useEffect(() => {
