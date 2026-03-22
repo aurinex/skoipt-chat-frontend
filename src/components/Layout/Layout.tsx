@@ -4,21 +4,17 @@ import { useEffect, useRef } from "react";
 import { socket, getMyId } from "../../services/api";
 import Navbar from "./Navbar";
 import ChatList from "../Chat/ChatList";
-import { useChatsStore } from "../../stores/useChatsStore";
+import { chatSelectors, useChatsStore } from "../../stores/useChatsStore";
 
 const Layout = () => {
   const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
-  const loadChats = useChatsStore((state) => state.loadChats);
-  const updateChatFromMessage = useChatsStore(
-    (state) => state.updateChatFromMessage,
-  );
-  const setChatTyping = useChatsStore((state) => state.setChatTyping);
-  const markChatLastMessageRead = useChatsStore(
-    (state) => state.markChatLastMessageRead,
-  );
-  const syncUnreadCount = useChatsStore((state) => state.syncUnreadCount);
-  const prependChat = useChatsStore((state) => state.prependChat);
-  const removeChat = useChatsStore((state) => state.removeChat);
+  const loadChats = useChatsStore(chatSelectors.loadChats);
+  const updateChatFromMessage = useChatsStore(chatSelectors.updateChatFromMessage);
+  const setChatTyping = useChatsStore(chatSelectors.setChatTyping);
+  const markChatLastMessageRead = useChatsStore(chatSelectors.markChatLastMessageRead);
+  const syncUnreadCount = useChatsStore(chatSelectors.syncUnreadCount);
+  const prependChat = useChatsStore(chatSelectors.prependChat);
+  const removeChat = useChatsStore(chatSelectors.removeChat);
 
   useEffect(() => {
     const sound = new Audio("/sounds/message.mp3");

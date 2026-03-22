@@ -6,13 +6,13 @@ import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import ChatSearch from "./ChatSearch";
 import ChatListItems from "./ChatListItems";
 import UserSearchResults from "./UserSearchResults";
-import { useChatsStore } from "../../stores/useChatsStore";
+import { chatSelectors, useChatsStore } from "../../stores/useChatsStore";
 import type { User } from "../../types";
 import NewChatModal from "../Ui/NewChatModal";
 
 const ChatList = () => {
-  const chats = useChatsStore((state) => state.chats);
-  const isLoading = useChatsStore((state) => state.isLoading);
+  const chats = useChatsStore(chatSelectors.chats);
+  const isLoading = useChatsStore(chatSelectors.isLoading);
   const [searchQuery, setSearchQuery] = useState("");
   const [userResults, setUserResults] = useState<User[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);

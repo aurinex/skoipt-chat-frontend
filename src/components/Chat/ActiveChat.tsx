@@ -5,17 +5,17 @@ import { useComposer } from "../../hooks/useComposer";
 import { useMessageSender } from "../../hooks/useMessageSender";
 import { getMyId } from "../../services/api";
 import { useChatsStore } from "../../stores/useChatsStore";
-import { useActiveChatStore } from "../../stores/useActiveChatStore";
+import {
+  activeChatSelectors,
+  useActiveChatStore,
+} from "../../stores/useActiveChatStore";
 import ChatShell from "./ChatShell";
 import ChatHeader from "./ChatHeader";
 import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
 import ReplyPreview from "./ReplyPreview";
 import ImageViewer from "../Ui/ImageViewer";
-import type { Message, TypingUser } from "../../types";
-
-const EMPTY_MESSAGES: Message[] = [];
-const EMPTY_TYPING_USERS: TypingUser[] = [];
+import type { Message } from "../../types";
 
 const ActiveChat = () => {
   const { chatId } = useParams<{ chatId: string }>();
@@ -27,26 +27,20 @@ const ActiveChat = () => {
 
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
   const initializeRealtime = useActiveChatStore(
-    (state) => state.initializeRealtime,
+    activeChatSelectors.initializeRealtime,
   );
-  const setCurrentChat = useActiveChatStore((state) => state.setCurrentChat);
-  const loadChat = useActiveChatStore((state) => state.loadChat);
+  const setCurrentChat = useActiveChatStore(activeChatSelectors.setCurrentChat);
+  const loadChat = useActiveChatStore(activeChatSelectors.loadChat);
   const setMessagesForChat = useActiveChatStore(
-    (state) => state.setMessagesForChat,
+    activeChatSelectors.setMessagesForChat,
   );
-  const messages = useActiveChatStore((state) =>
-    chatId ? (state.messagesByChatId[chatId] ?? EMPTY_MESSAGES) : EMPTY_MESSAGES,
+  const messages = useActiveChatStore(activeChatSelectors.messages(chatId));
+  const isMsgsLoading = useActiveChatStore(
+    activeChatSelectors.isLoading(chatId),
   );
-  const isMsgsLoading = useActiveChatStore((state) =>
-    chatId ? (state.loadingByChatId[chatId] ?? false) : false,
-  );
-  const chatData = useActiveChatStore((state) =>
-    chatId ? (state.chatDataByChatId[chatId] ?? null) : null,
-  );
-  const typingUsers = useActiveChatStore((state) =>
-    chatId
-      ? (state.typingUsersByChatId[chatId] ?? EMPTY_TYPING_USERS)
-      : EMPTY_TYPING_USERS,
+  const chatData = useActiveChatStore(activeChatSelectors.chatData(chatId));
+  const typingUsers = useActiveChatStore(
+    activeChatSelectors.typingUsers(chatId),
   );
 
   const {

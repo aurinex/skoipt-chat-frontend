@@ -2,7 +2,7 @@ import { create } from "zustand";
 import api, { getMyId } from "../services/api";
 import type { Chat, Message } from "../types";
 
-interface ChatsState {
+export interface ChatsState {
   chats: Chat[];
   isLoading: boolean;
   loadChats: () => Promise<void>;
@@ -30,6 +30,39 @@ const normalizeChat = (chat: Chat): Chat => ({
     : chat.last_message,
 });
 
+const moveChatToTop = (chats: Chat[], chatId: string, updater: (chat: Chat) => Chat) => {
+  const chatIndex = chats.findIndex((chat) => String(chat.id) === String(chatId));
+  if (chatIndex === -1) return chats;
+
+  const updatedChats = [...chats];
+  const targetChat = updatedChats[chatIndex];
+  updatedChats.splice(chatIndex, 1);
+  updatedChats.unshift(updater(targetChat));
+
+  return updatedChats;
+};
+
+const updateChatById = (
+  chats: Chat[],
+  chatId: string,
+  updater: (chat: Chat) => Chat,
+) =>
+  chats.map((chat) =>
+    String(chat.id) === String(chatId) ? updater(chat) : chat,
+  );
+
+export const chatSelectors = {
+  chats: (state: ChatsState) => state.chats,
+  isLoading: (state: ChatsState) => state.isLoading,
+  loadChats: (state: ChatsState) => state.loadChats,
+  updateChatFromMessage: (state: ChatsState) => state.updateChatFromMessage,
+  setChatTyping: (state: ChatsState) => state.setChatTyping,
+  markChatLastMessageRead: (state: ChatsState) => state.markChatLastMessageRead,
+  syncUnreadCount: (state: ChatsState) => state.syncUnreadCount,
+  prependChat: (state: ChatsState) => state.prependChat,
+  removeChat: (state: ChatsState) => state.removeChat,
+};
+
 export const useChatsStore = create<ChatsState>((set) => ({
   chats: [],
   isLoading: true,
@@ -51,35 +84,30 @@ export const useChatsStore = create<ChatsState>((set) => ({
 
   updateChatFromMessage: (message) =>
     set((state) => {
-      const chatIndex = state.chats.findIndex(
-        (chat) => String(chat.id) === String(message.chat_id),
+      const nextChats = moveChatToTop(
+        state.chats,
+        String(message.chat_id),
+        (chat) => ({
+          ...chat,
+          last_message: normalizeLastMessage(message),
+        }),
       );
 
-      if (chatIndex === -1) return state;
-
-      const updatedChats = [...state.chats];
-      const targetChat = updatedChats[chatIndex];
-
-      updatedChats.splice(chatIndex, 1);
-      updatedChats.unshift({
-        ...targetChat,
-        last_message: normalizeLastMessage(message),
-      });
-
-      return { chats: updatedChats };
+      return nextChats === state.chats ? state : { chats: nextChats };
     }),
 
   setChatTyping: (chatId, isTyping) =>
     set((state) => ({
-      chats: state.chats.map((chat) =>
-        String(chat.id) === String(chatId) ? { ...chat, is_typing: isTyping } : chat,
-      ),
+      chats: updateChatById(state.chats, chatId, (chat) => ({
+        ...chat,
+        is_typing: isTyping,
+      })),
     })),
 
   markChatLastMessageRead: (chatId, messageIds) =>
     set((state) => ({
-      chats: state.chats.map((chat) => {
-        if (String(chat.id) !== String(chatId) || !chat.last_message) return chat;
+      chats: updateChatById(state.chats, chatId, (chat) => {
+        if (!chat.last_message) return chat;
         if (!messageIds.includes(chat.last_message.id)) return chat;
 
         return {
@@ -91,8 +119,8 @@ export const useChatsStore = create<ChatsState>((set) => ({
 
   syncUnreadCount: (chatId, unreadCount) =>
     set((state) => ({
-      chats: state.chats.map((chat) => {
-        if (String(chat.id) !== String(chatId) || unreadCount !== 0) return chat;
+      chats: updateChatById(state.chats, chatId, (chat) => {
+        if (unreadCount !== 0) return chat;
 
         return {
           ...chat,

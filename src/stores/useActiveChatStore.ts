@@ -5,7 +5,7 @@ import type { ChatData, Message, TypingUser } from "../types";
 const EMPTY_MESSAGES: Message[] = [];
 const EMPTY_TYPING_USERS: TypingUser[] = [];
 
-interface ActiveChatState {
+export interface ActiveChatState {
   currentChatId: string | null;
   currentUserId: string | null;
   messagesByChatId: Record<string, Message[]>;
@@ -31,6 +31,72 @@ let realtimeInitialized = false;
 
 const getTypingTimerKey = (chatId: string, userId: string) => `${chatId}:${userId}`;
 
+const getMessagesForChat = (state: ActiveChatState, chatId: string) =>
+  state.messagesByChatId[chatId] ?? EMPTY_MESSAGES;
+
+const getTypingUsersForChat = (state: ActiveChatState, chatId: string) =>
+  state.typingUsersByChatId[chatId] ?? EMPTY_TYPING_USERS;
+
+const updateMessagesForChatState = (
+  state: ActiveChatState,
+  chatId: string,
+  updater: Message[] | ((prev: Message[]) => Message[]),
+) => {
+  const currentMessages = getMessagesForChat(state, chatId);
+  const nextMessages =
+    typeof updater === "function" ? updater(currentMessages) : updater;
+
+  return {
+    messagesByChatId: { ...state.messagesByChatId, [chatId]: nextMessages },
+  };
+};
+
+const updateChatDataForChatState = (
+  state: ActiveChatState,
+  chatId: string,
+  updater: ChatData | null | ((prev: ChatData | null) => ChatData | null),
+) => {
+  const currentChatData = state.chatDataByChatId[chatId] ?? null;
+  const nextChatData =
+    typeof updater === "function" ? updater(currentChatData) : updater;
+
+  return {
+    chatDataByChatId: { ...state.chatDataByChatId, [chatId]: nextChatData },
+  };
+};
+
+const addTypingUserToState = (
+  state: ActiveChatState,
+  chatId: string,
+  userId: string,
+  user: TypingUser,
+) => {
+  const currentUsers = getTypingUsersForChat(state, chatId);
+  const nextUsers = currentUsers.some((item) => item.user_id === userId)
+    ? currentUsers
+    : [...currentUsers, user];
+
+  return {
+    typingUsersByChatId: {
+      ...state.typingUsersByChatId,
+      [chatId]: nextUsers,
+    },
+  };
+};
+
+const removeTypingUserFromState = (
+  state: ActiveChatState,
+  chatId: string,
+  userId: string,
+) => ({
+  typingUsersByChatId: {
+    ...state.typingUsersByChatId,
+    [chatId]: getTypingUsersForChat(state, chatId).filter(
+      (user) => user.user_id !== userId,
+    ),
+  },
+});
+
 const scheduleReadEvent = (chatId: string, messageId: string | number) => {
   if (readTimer) clearTimeout(readTimer);
 
@@ -51,6 +117,22 @@ const syncReadStateIfNeeded = (
   if (lastIncoming) {
     scheduleReadEvent(chatId, lastIncoming.id);
   }
+};
+
+export const activeChatSelectors = {
+  currentChatId: (state: ActiveChatState) => state.currentChatId,
+  initializeRealtime: (state: ActiveChatState) => state.initializeRealtime,
+  setCurrentChat: (state: ActiveChatState) => state.setCurrentChat,
+  loadChat: (state: ActiveChatState) => state.loadChat,
+  setMessagesForChat: (state: ActiveChatState) => state.setMessagesForChat,
+  messages: (chatId: string | undefined) => (state: ActiveChatState) =>
+    chatId ? getMessagesForChat(state, chatId) : EMPTY_MESSAGES,
+  isLoading: (chatId: string | undefined) => (state: ActiveChatState) =>
+    chatId ? (state.loadingByChatId[chatId] ?? false) : false,
+  chatData: (chatId: string | undefined) => (state: ActiveChatState) =>
+    chatId ? (state.chatDataByChatId[chatId] ?? null) : null,
+  typingUsers: (chatId: string | undefined) => (state: ActiveChatState) =>
+    chatId ? getTypingUsersForChat(state, chatId) : EMPTY_TYPING_USERS,
 };
 
 export const useActiveChatStore = create<ActiveChatState>((set, get) => ({
@@ -79,7 +161,7 @@ export const useActiveChatStore = create<ActiveChatState>((set, get) => ({
     } else {
       set((prev) => ({
         loadingByChatId: { ...prev.loadingByChatId, [chatId]: true },
-        messagesByChatId: { ...prev.messagesByChatId, [chatId]: [] },
+        messagesByChatId: { ...prev.messagesByChatId, [chatId]: EMPTY_MESSAGES },
       }));
 
       try {
@@ -111,33 +193,17 @@ export const useActiveChatStore = create<ActiveChatState>((set, get) => ({
   },
 
   setMessagesForChat: (chatId, updater) => {
-    set((prev) => {
-      const currentMessages = prev.messagesByChatId[chatId] ?? EMPTY_MESSAGES;
-      const nextMessages =
-        typeof updater === "function" ? updater(currentMessages) : updater;
-
-      return {
-        messagesByChatId: { ...prev.messagesByChatId, [chatId]: nextMessages },
-      };
-    });
+    set((prev) => updateMessagesForChatState(prev, chatId, updater));
 
     syncReadStateIfNeeded(
       chatId,
-      get().messagesByChatId[chatId] ?? EMPTY_MESSAGES,
+      getMessagesForChat(get(), chatId),
       get().currentUserId,
     );
   },
 
   setChatDataForChat: (chatId, updater) => {
-    set((prev) => {
-      const currentChatData = prev.chatDataByChatId[chatId] ?? null;
-      const nextChatData =
-        typeof updater === "function" ? updater(currentChatData) : updater;
-
-      return {
-        chatDataByChatId: { ...prev.chatDataByChatId, [chatId]: nextChatData },
-      };
-    });
+    set((prev) => updateChatDataForChatState(prev, chatId, updater));
   },
 
   initializeRealtime: () => {
@@ -183,19 +249,7 @@ export const useActiveChatStore = create<ActiveChatState>((set, get) => ({
       const timerKey = getTypingTimerKey(chatId, userId);
 
       if (data.is_typing) {
-        set((prev) => {
-          const currentUsers = prev.typingUsersByChatId[chatId] ?? EMPTY_TYPING_USERS;
-          const nextUsers = currentUsers.some((user) => user.user_id === userId)
-            ? currentUsers
-            : [...currentUsers, data];
-
-          return {
-            typingUsersByChatId: {
-              ...prev.typingUsersByChatId,
-              [chatId]: nextUsers,
-            },
-          };
-        });
+        set((prev) => addTypingUserToState(prev, chatId, userId, data));
 
         const currentTimer = typingTimers.get(timerKey);
         if (currentTimer) clearTimeout(currentTimer);
@@ -203,26 +257,12 @@ export const useActiveChatStore = create<ActiveChatState>((set, get) => ({
         typingTimers.set(
           timerKey,
           setTimeout(() => {
-            set((prev) => ({
-              typingUsersByChatId: {
-                ...prev.typingUsersByChatId,
-                [chatId]: (prev.typingUsersByChatId[chatId] ?? EMPTY_TYPING_USERS).filter(
-                  (user) => user.user_id !== userId,
-                ),
-              },
-            }));
+            set((prev) => removeTypingUserFromState(prev, chatId, userId));
             typingTimers.delete(timerKey);
           }, 5000),
         );
       } else {
-        set((prev) => ({
-          typingUsersByChatId: {
-            ...prev.typingUsersByChatId,
-            [chatId]: (prev.typingUsersByChatId[chatId] ?? EMPTY_TYPING_USERS).filter(
-              (user) => user.user_id !== userId,
-            ),
-          },
-        }));
+        set((prev) => removeTypingUserFromState(prev, chatId, userId));
 
         const currentTimer = typingTimers.get(timerKey);
         if (currentTimer) {
