@@ -1,9 +1,9 @@
 import { Box } from "@mui/material";
 import { Outlet } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
-import api, { getMyId, socket } from "../services/api";
+import api, { getMyId, socket } from "../../services/api";
 import Navbar from "./Navbar";
-import ChatList from "./Chat/ChatList";
+import ChatList from "../Chat/ChatList";
 import { useTheme } from "@mui/material";
 
 const Layout = () => {

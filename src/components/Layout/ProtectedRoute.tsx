@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
-import { socket } from '../services/api';
+import { useEffect } from "react";
+import { Navigate, Outlet } from "react-router-dom";
+import { socket } from "../../services/api";
 
 const ProtectedRoute = () => {
-  const token = localStorage.getItem('access_token');
+  const token = localStorage.getItem("access_token");
 
   useEffect(() => {
     if (token) {

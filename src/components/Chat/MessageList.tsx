@@ -5,14 +5,13 @@ import {
   Avatar,
   Skeleton,
   Tooltip,
-  CircularProgress,
   LinearProgress,
 } from "@mui/material";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
-import FilePreview from "./FilePreview";
-import { formatLocalTime, formatDateLabel } from "../utils/chatFormatters";
+import FilePreview from "../Ui/FilePreview";
+import { formatLocalTime, formatDateLabel } from "../../utils/chatFormatters";
 
 interface MessageListProps {
   messages: any[];

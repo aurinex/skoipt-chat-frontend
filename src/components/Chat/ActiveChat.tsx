@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { useParams, useOutletContext } from "react-router-dom";
 import { Box, Typography, useTheme } from "@mui/material";
-import { useChat } from "../hooks/useChat";
-import { useFileUpload } from "../hooks/useFileUpload";
-import { useMessageSender } from "../hooks/useMessageSender";
+import { useChat } from "../../hooks/useChat";
+import { useFileUpload } from "../../hooks/useFileUpload";
+import { useMessageSender } from "../../hooks/useMessageSender";
 import ChatShell from "./ChatShell";
-import ChatHeader from "./Chat/ChatHeader";
+import ChatHeader from "./ChatHeader";
 import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
 import ReplyPreview from "./ReplyPreview";
-import ImageViewer from "./ImageViewer";
+import ImageViewer from "../Ui/ImageViewer";
 
 interface ContextType {
   handleUpdateChat: (msg: any) => void;

@@ -2,7 +2,7 @@ import { Box, IconButton, Tooltip, useTheme } from "@mui/material";
 import SunIcon from "@mui/icons-material/LightModeRounded";
 import MoonIcon from "@mui/icons-material/DarkModeRounded";
 import ComputerIcon from "@mui/icons-material/SettingsBrightnessRounded";
-import { useThemeContext } from "../theme/ThemeContext";
+import { useThemeContext } from "../../theme/ThemeContext";
 
 interface ThemeSwitcherProps {
   orientation?: "vertical" | "horizontal";

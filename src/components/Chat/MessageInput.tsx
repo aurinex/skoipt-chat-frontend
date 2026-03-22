@@ -1,13 +1,10 @@
 import { useRef, useState } from "react";
 import { Box, TextField, IconButton } from "@mui/material";
-import AttachFileIcon from "@mui/icons-material/AttachFile";
-import MicIcon from "@mui/icons-material/Mic";
-import SendIcon from "@mui/icons-material/Send";
-import { socket } from "../services/api";
+import { socket } from "../../services/api";
 
-import fileIcon from "../assets/icons/file.svg";
-import micIcon from "../assets/icons/micro.svg";
-import sendIcon from "../assets/icons/send.svg";
+import fileIcon from "../../assets/icons/file.svg";
+import micIcon from "../../assets/icons/micro.svg";
+import sendIcon from "../../assets/icons/send.svg";
 
 interface MessageInputProps {
   chatId: string | undefined;

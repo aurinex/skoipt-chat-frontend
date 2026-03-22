@@ -1,12 +1,12 @@
 import { Box, IconButton, Avatar, useTheme, Skeleton } from "@mui/material";
 import ThemeSwitcher from "./ThemeSwitcher";
-import api from "../services/api";
+import api from "../../services/api";
 import { useState, useEffect } from "react";
 
-import homeIcon from "../assets/icons/home.svg";
-import messageIcon from "../assets/icons/message.svg";
-import friendsIcon from "../assets/icons/friends.svg";
-import settingsIcon from "../assets/icons/settings.svg";
+import homeIcon from "../../assets/icons/home.svg";
+import messageIcon from "../../assets/icons/message.svg";
+import friendsIcon from "../../assets/icons/friends.svg";
+import settingsIcon from "../../assets/icons/settings.svg";
 
 interface NavbarProps {
   orientation?: "vertical" | "horizontal";

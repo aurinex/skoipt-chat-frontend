@@ -5,10 +5,10 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { Box, Typography, useTheme } from "@mui/material";
-import api from "../services/api";
-import { useFileUpload } from "../hooks/useFileUpload";
+import api from "../../services/api";
+import { useFileUpload } from "../../hooks/useFileUpload";
 import ChatShell from "./ChatShell";
-import ChatHeader from "./Chat/ChatHeader";
+import ChatHeader from "./ChatHeader";
 import MessageInput from "./MessageInput";
 import ReplyPreview from "./ReplyPreview";
 

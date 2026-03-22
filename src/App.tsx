@@ -1,10 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "./theme/ThemeContext";
-import Layout from "./components/Layout";
-import ProtectedRoute from "./components/ProtectedRoute";
+import Layout from "./components/Layout/Layout";
+import ProtectedRoute from "./components/Layout/ProtectedRoute";
 import LoginPage from "./pages/LoginPage";
-import ActiveChat from "./components/ActiveChat";
-import NewChat from "./components/NewChat";
+import ActiveChat from "./components/Chat/ActiveChat";
+import NewChat from "./components/Chat/NewChat";
 
 function App() {
   return (

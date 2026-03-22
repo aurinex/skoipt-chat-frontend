@@ -1,6 +1,6 @@
 import { Box, useTheme } from "@mui/material";
-import DropZoneOverlay from "./DropZoneOverlay";
-import FileUploadModal from "./FileUploadModal";
+import DropZoneOverlay from "../Ui/DropZoneOverlay";
+import FileUploadModal from "../Ui/FileUploadModal";
 
 interface ChatShellProps {
   children: React.ReactNode;
