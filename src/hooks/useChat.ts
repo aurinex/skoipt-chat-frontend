@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import api, { socket } from "../services/api";
-import { useMessagesCache } from "./useMessagesCache";
+import { useMessagesCache } from "./UseMessagesCache";
 import type { Message, ChatData, TypingUser } from "../types";
 
 export const useChat = (
@@ -19,8 +19,10 @@ export const useChat = (
   const [chatData, setChatData] = useState<ChatData | null>(null);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
 
-  const typingTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
-  const readTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>(
+    {},
+  );
+  const readTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const chatIdRef = useRef(chatId);
   const myIdRef = useRef(myId);

@@ -1,19 +1,39 @@
 import { memo } from "react";
 import { Box, Typography, Avatar, IconButton, Skeleton } from "@mui/material";
 import { getParticipantString } from "../../utils/chatFormatters";
+import type { ChatData, ChatPreview, TypingUser } from "../../types";
 
 import FindCustomIcon from "../../assets/icons/find.svg?react";
 import SettingsCustomIcon from "../../assets/icons/settings.svg?react";
 
 interface ChatHeaderProps {
-  chatData: any;
-  typingUsers: any[];
+  chatData: ChatData | ChatPreview | null;
+  typingUsers: TypingUser[];
   isMsgsLoading: boolean;
   colors: any;
 }
 
+const getDisplayName = (chatData: ChatData | ChatPreview | null) => {
+  if (!chatData) return null;
+  if ("name" in chatData && chatData.name) return chatData.name;
+
+  const interlocutor = chatData.interlocutor;
+  if (!interlocutor) return null;
+
+  if (interlocutor.full_name?.trim()) return interlocutor.full_name;
+
+  const fullName = [interlocutor.first_name, interlocutor.last_name]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  return fullName || interlocutor.username || null;
+};
+
 const ChatHeader = memo(
   ({ chatData, typingUsers, isMsgsLoading, colors }: ChatHeaderProps) => {
+    const chatTitle = getDisplayName(chatData);
+
     const getStatusContent = () => {
       if (typingUsers.length > 0) {
         const hasNames = typingUsers.every((u) => u.first_name);
@@ -37,16 +57,13 @@ const ChatHeader = memo(
         if (chatData.interlocutor) {
           return chatData.interlocutor.is_online ? "В сети" : "был(а) недавно";
         }
-        if (chatData.member_count !== undefined) {
+        if ("member_count" in chatData && chatData.member_count !== undefined) {
           return getParticipantString(chatData.member_count);
         }
       }
 
       return "Загрузка данных...";
     };
-
-    const isTyping = typingUsers.length > 0;
-
     if (isMsgsLoading && !chatData) {
       return (
         <Box
@@ -119,7 +136,7 @@ const ChatHeader = memo(
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <Avatar
-            src={chatData?.interlocutor?.avatar_url}
+            src={chatData?.interlocutor?.avatar_url ?? undefined}
             sx={{ width: 60, height: 60 }}
           />
           {/* chatData?.interlocutor?.avatar_url */}
@@ -127,9 +144,7 @@ const ChatHeader = memo(
             <Typography
               sx={{ color: colors.sixth, fontWeight: 600, fontSize: 24 }}
             >
-              {chatData?.name ||
-                chatData?.interlocutor?.full_name ||
-                "Загрузка..."}
+              {chatTitle || "Загрузка..."}
             </Typography>
             <Typography
               sx={{

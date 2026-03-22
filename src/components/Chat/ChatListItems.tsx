@@ -10,16 +10,29 @@ import {
 import { Link, useLocation } from "react-router-dom";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import { Skeleton } from "@mui/material";
+import type { Chat, Message } from "../../types";
 
 interface ChatListItemsProps {
-  chats: any[];
+  chats: Chat[];
   isLoading?: boolean;
   searchQuery?: string;
 }
 
-const getLastMessagePreview = (msg: any) => {
+const getChatDisplayName = (chat: Chat) => {
+  if (chat.name) return chat.name;
+  if (chat.interlocutor?.full_name?.trim()) return chat.interlocutor.full_name;
+
+  const fullName = [chat.interlocutor?.first_name, chat.interlocutor?.last_name]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  return fullName || chat.interlocutor?.username || "Пользователь";
+};
+
+const getLastMessagePreview = (msg?: Message | null) => {
   if (!msg) return "Нет сообщений";
-  if (msg.is_system) return msg.text;
+  if (msg.is_system) return msg.text ?? "Системное сообщение";
 
   const files = msg.file_urls || (msg.file_url ? [msg.file_url] : []);
   const hasFiles = files.length > 0;
@@ -65,11 +78,7 @@ const ChatListItems = ({
   const filtered = searchQuery.trim()
     ? chats.filter((chat) => {
         const q = searchQuery.toLowerCase();
-        const name = (
-          chat.name ||
-          chat.interlocutor?.full_name ||
-          ""
-        ).toLowerCase();
+        const name = getChatDisplayName(chat).toLowerCase();
         const username = (chat.interlocutor?.username || "").toLowerCase();
         return name.includes(q) || username.includes(q);
       })
@@ -147,7 +156,7 @@ const ChatListItems = ({
               }}
             >
               <Avatar
-                src={chat.interlocutor?.avatar_url}
+                src={chat.interlocutor?.avatar_url ?? undefined}
                 sx={{ width: 50, height: 50, mr: 2 }}
               />
 
@@ -160,7 +169,7 @@ const ChatListItems = ({
                   }}
                   noWrap
                 >
-                  {chat.name || chat.interlocutor?.full_name || "Пользователь"}
+                  {getChatDisplayName(chat)}
                 </Typography>
 
                 <Typography

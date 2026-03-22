@@ -1,23 +1,15 @@
 import { useState, useCallback, useEffect } from "react";
-import {
-  useSearchParams,
-  useOutletContext,
-  useNavigate,
-} from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Box, Typography, useTheme } from "@mui/material";
 import api from "../../services/api";
 import { useFileUpload } from "../../hooks/useFileUpload";
+import type { ChatPreview, Message } from "../../types";
 import ChatShell from "./ChatShell";
 import ChatHeader from "./ChatHeader";
 import MessageInput from "./MessageInput";
 import ReplyPreview from "./ReplyPreview";
 
-interface ContextType {
-  handleUpdateChat: (msg: any) => void;
-}
-
 const NewChat = () => {
-  const { handleUpdateChat } = useOutletContext<ContextType>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -25,10 +17,10 @@ const NewChat = () => {
 
   const userId = searchParams.get("userId");
 
-  const [preview, setPreview] = useState<any | null>(null);
+  const [preview, setPreview] = useState<ChatPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [draftText, setDraftText] = useState("");
-  const [replyTo, setReplyTo] = useState<any | null>(null);
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
 
   const {
     modalFiles,

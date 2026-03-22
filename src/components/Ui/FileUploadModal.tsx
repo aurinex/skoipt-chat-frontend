@@ -592,7 +592,7 @@ const FileUploadModal = ({
           >
             <TextField
               inputRef={inputRef}
-              onPaste={(e) => {
+              onPaste={() => {
                 inputRef.current?.focus();
               }}
               fullWidth

@@ -62,36 +62,6 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
     alignItems: "center",
   };
 
-  const NavIconButton = ({
-    children,
-    active = false,
-  }: {
-    children: React.ReactNode;
-    active?: boolean;
-  }) =>
-    isLoading ? (
-      <Skeleton
-        variant="circular"
-        width={40}
-        height={40}
-        sx={{ bgcolor: colors.fourth, opacity: 0.5 }}
-      />
-    ) : (
-      <IconButton
-        sx={{
-          color: active ? colors.sixth : colors.fiveth,
-          bgcolor: active ? colors.eighth : "transparent",
-          borderRadius: "12px",
-          "&:hover": {
-            bgcolor: active ? colors.eighth : "rgba(255,255,255,0.05)",
-            opacity: 0.9,
-          },
-        }}
-      >
-        {children}
-      </IconButton>
-    );
-
   return (
     <Box sx={containerStyles}>
       {/* Верхняя/Левая группа иконок */}

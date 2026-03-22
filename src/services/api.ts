@@ -1,3 +1,5 @@
+import type { Chat, ChatData, ChatPreview, Message, User } from "../types";
+
 // const BASE_URL = "http://localhost:8000";
 // const BASE_WS = "localhost:8000";
 const BASE_URL = "http://10.10.10.5:8000";
@@ -10,7 +12,7 @@ const tokens = {
   get refresh() {
     return localStorage.getItem("refresh_token");
   },
-  set(access, refresh) {
+  set(access: string, refresh: string) {
     localStorage.setItem("access_token", access);
     localStorage.setItem("refresh_token", refresh);
   },
@@ -31,8 +33,11 @@ export function getMyId(): string | null {
   }
 }
 
-async function request(path, options = {}) {
-  const headers = { "Content-Type": "application/json", ...options.headers };
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options.headers as Record<string, string> | undefined),
+  };
   if (tokens.access) headers["Authorization"] = `Bearer ${tokens.access}`;
 
   let response = await fetch(`${BASE_URL}${path}`, { ...options, headers });
@@ -45,7 +50,7 @@ async function request(path, options = {}) {
     } else {
       tokens.clear();
       window.location.href = "/login";
-      return;
+      return Promise.reject(new Error("Не удалось обновить токен"));
     }
   }
 
@@ -56,11 +61,14 @@ async function request(path, options = {}) {
     throw new Error(error.detail || "Ошибка запроса");
   }
 
-  if (response.status === 204) return null;
-  return response.json();
+  if (response.status === 204) return null as T;
+  return response.json() as Promise<T>;
 }
 
-async function requestFormData(path, formData) {
+async function requestFormData<T>(
+  path: string,
+  formData: FormData,
+): Promise<T> {
   const headers: Record<string, string> = {};
   if (tokens.access) headers["Authorization"] = `Bearer ${tokens.access}`;
 
@@ -82,7 +90,7 @@ async function requestFormData(path, formData) {
     } else {
       tokens.clear();
       window.location.href = "/login";
-      return;
+      return Promise.reject(new Error("Не удалось обновить токен"));
     }
   }
 
@@ -93,7 +101,7 @@ async function requestFormData(path, formData) {
     throw new Error(error.detail || "Ошибка загрузки файла");
   }
 
-  return response.json();
+  return response.json() as Promise<T>;
 }
 
 async function tryRefresh() {
@@ -116,19 +124,32 @@ async function tryRefresh() {
 
 const auth = {
   async getMe() {
-    return request("/auth/me");
+    return request<User>("/auth/me");
   },
 
-  async register({ username, email, password, invite_code }) {
-    const data = await request("/auth/register", {
-      method: "POST",
-      body: JSON.stringify({ username, email, password, invite_code }),
-    });
+  async register({
+    username,
+    email,
+    password,
+    invite_code,
+  }: {
+    username: string;
+    email: string;
+    password: string;
+    invite_code?: string;
+  }) {
+    const data = await request<{ access_token: string; refresh_token: string }>(
+      "/auth/register",
+      {
+        method: "POST",
+        body: JSON.stringify({ username, email, password, invite_code }),
+      },
+    );
     tokens.set(data.access_token, data.refresh_token);
     return data;
   },
 
-  async login({ username, password }) {
+  async login({ username, password }: { username: string; password: string }) {
     const form = new URLSearchParams({ username, password });
     const res = await fetch(`${BASE_URL}/auth/login`, {
       method: "POST",
@@ -149,7 +170,7 @@ const auth = {
     tokens.clear();
   },
 
-  async checkInvite(code) {
+  async checkInvite(code: string) {
     return request(`/auth/invite/${code}/info`);
   },
 
@@ -158,6 +179,11 @@ const auth = {
     expires_in_hours = 72,
     role = "student",
     label = null,
+  }: {
+    max_uses?: number | null;
+    expires_in_hours?: number;
+    role?: string;
+    label?: string | null;
   }) {
     return request("/auth/invite/create", {
       method: "POST",
@@ -168,7 +194,7 @@ const auth = {
   async listInvites() {
     return request("/auth/invites");
   },
-  async deactivateInvite(code) {
+  async deactivateInvite(code: string) {
     return request(`/auth/invite/${code}`, { method: "DELETE" });
   },
 };
@@ -177,13 +203,13 @@ const auth = {
 
 const users = {
   async search(q: string) {
-    return request(`/users/search?q=${encodeURIComponent(q)}`);
+    return request<User[]>(`/users/search?q=${encodeURIComponent(q)}`);
   },
 
   // Возвращает { chat_id, type, interlocutor }
   // chat_id === null если чата ещё нет — чат в БД НЕ создаётся
   async chatPreview(userId: string) {
-    return request(`/users/${userId}/chat-preview`);
+    return request<ChatPreview>(`/users/${userId}/chat-preview`);
   },
 };
 
@@ -191,13 +217,13 @@ const users = {
 
 const chats = {
   async list() {
-    return request("/chats/");
+    return request<Chat[]>("/chats/");
   },
-  async get(chatId) {
-    return request(`/chats/${chatId}`);
+  async get(chatId: string) {
+    return request<ChatData>(`/chats/${chatId}`);
   },
-  async openDirect(targetUserId) {
-    return request(`/chats/direct/${targetUserId}`, { method: "POST" });
+  async openDirect(targetUserId: string) {
+    return request<Chat>(`/chats/direct/${targetUserId}`, { method: "POST" });
   },
 
   // Создаёт чат если нет + отправляет первое сообщение за один запрос
@@ -206,39 +232,54 @@ const chats = {
     targetUserId: string,
     data: { text?: string | null; file_urls?: string[] },
   ) {
-    return request(`/chats/direct/${targetUserId}/message`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
+    return request<{ chat_id: string; message: Message; is_new_chat: boolean }>(
+      `/chats/direct/${targetUserId}/message`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+    );
   },
 
-  async createGroup({ name, member_ids = [] }) {
+  async createGroup({
+    name,
+    member_ids = [],
+  }: {
+    name: string;
+    member_ids?: string[];
+  }) {
     return request("/chats/group", {
       method: "POST",
       body: JSON.stringify({ name, member_ids }),
     });
   },
 
-  async createChannel({ name, description = null }) {
+  async createChannel({
+    name,
+    description = null,
+  }: {
+    name: string;
+    description?: string | null;
+  }) {
     return request("/chats/channel", {
       method: "POST",
       body: JSON.stringify({ name, description }),
     });
   },
 
-  async addMember(chatId, targetUserId) {
+  async addMember(chatId: string, targetUserId: string) {
     return request(`/chats/${chatId}/members/${targetUserId}`, {
       method: "POST",
     });
   },
 
-  async kickMember(chatId, targetUserId) {
+  async kickMember(chatId: string, targetUserId: string) {
     return request(`/chats/${chatId}/members/${targetUserId}`, {
       method: "DELETE",
     });
   },
 
-  async leave(chatId) {
+  async leave(chatId: string) {
     return request(`/chats/${chatId}/leave`, { method: "DELETE" });
   },
 };
@@ -246,35 +287,42 @@ const chats = {
 // ─── Messages ────────────────────────────────────────────────────────────────
 
 const messages = {
-  async list(chatId) {
-    return request(`/chats/${chatId}/messages/`);
+  async list(chatId: string) {
+    return request<Message[]>(`/chats/${chatId}/messages/`);
   },
-  async loadMore(chatId, beforeId) {
-    return request(`/chats/${chatId}/messages/?before_id=${beforeId}`);
+  async loadMore(chatId: string, beforeId: string) {
+    return request<Message[]>(`/chats/${chatId}/messages/?before_id=${beforeId}`);
   },
 
-  async send(chatId, { text = null, file_urls = [], reply_to = null }) {
-    return request(`/chats/${chatId}/messages/`, {
+  async send(
+    chatId: string,
+    {
+      text = null,
+      file_urls = [],
+      reply_to = null,
+    }: { text?: string | null; file_urls?: string[]; reply_to?: string | null },
+  ) {
+    return request<Message>(`/chats/${chatId}/messages/`, {
       method: "POST",
       body: JSON.stringify({ text, file_urls, reply_to }),
     });
   },
 
-  async forward(chatId, messageId, targetChatId) {
+  async forward(chatId: string, messageId: string, targetChatId: string) {
     return request(`/chats/${chatId}/messages/${messageId}/forward`, {
       method: "POST",
       body: JSON.stringify({ target_chat_id: targetChatId }),
     });
   },
 
-  async edit(chatId, messageId, text) {
+  async edit(chatId: string, messageId: string, text: string) {
     return request(`/chats/${chatId}/messages/${messageId}`, {
       method: "PATCH",
       body: JSON.stringify({ text }),
     });
   },
 
-  async delete(chatId, messageId) {
+  async delete(chatId: string, messageId: string) {
     return request(`/chats/${chatId}/messages/${messageId}`, {
       method: "DELETE",
     });
@@ -287,23 +335,35 @@ const files = {
   async uploadAvatar(file: File) {
     const formData = new FormData();
     formData.append("file", file);
-    return requestFormData("/files/avatar", formData);
+    return requestFormData<{ url: string; object_name: string; is_public: boolean }>(
+      "/files/avatar",
+      formData,
+    );
   },
 
   async uploadChatFile(chatId: string, file: File) {
     const formData = new FormData();
     formData.append("file", file);
-    return requestFormData(`/files/chat/${chatId}`, formData);
+    return requestFormData<{ url: string; object_name: string; is_public: boolean }>(
+      `/files/chat/${chatId}`,
+      formData,
+    );
   },
 
   async getPrivateUrl(chatId: string, objectName: string) {
-    return request(`/files/chat/${chatId}/${objectName}`);
+    return request<{ url: string }>(`/files/chat/${chatId}/${objectName}`);
   },
 };
 
 // ─── WebSocket ───────────────────────────────────────────────────────────────
 
 class MessengerSocket {
+  ws: WebSocket | null;
+  listeners: Record<string, Array<(data: any) => void>>;
+  reconnectDelay: number;
+  shouldReconnect: boolean;
+  _pingInterval: ReturnType<typeof setInterval> | null;
+
   constructor() {
     this.ws = null;
     this.listeners = {};
@@ -323,8 +383,8 @@ class MessengerSocket {
       this._startPing();
     };
 
-    this.ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+    this.ws.onmessage = (event: MessageEvent<string>) => {
+      const data = JSON.parse(event.data) as { event: string };
       console.log("WS Получено событие:", data.event, data);
       this._emit(data.event, data);
     };
@@ -340,7 +400,7 @@ class MessengerSocket {
       }
     };
 
-    this.ws.onerror = (err) => {
+    this.ws.onerror = (err: Event) => {
       console.error("WS ошибка:", err);
     };
   }
@@ -354,7 +414,9 @@ class MessengerSocket {
   }
 
   _stopPing() {
-    clearInterval(this._pingInterval);
+    if (this._pingInterval !== null) {
+      clearInterval(this._pingInterval);
+    }
   }
 
   disconnect() {
@@ -362,27 +424,27 @@ class MessengerSocket {
     this.ws?.close();
   }
 
-  on(event, handler) {
+  on<T = unknown>(event: string, handler: (data: T) => void) {
     if (!this.listeners[event]) this.listeners[event] = [];
     this.listeners[event].push(handler);
     return () => {
       this.listeners[event] = this.listeners[event].filter(
-        (h) => h !== handler,
+          (h) => h !== handler,
       );
     };
   }
 
-  _emit(event, data) {
+  _emit(event: string, data: unknown) {
     this.listeners[event]?.forEach((handler) => handler(data));
   }
-  sendTyping(chatId, isTyping) {
+  sendTyping(chatId: string, isTyping: boolean) {
     this._send({ event: "typing", chat_id: chatId, is_typing: isTyping });
   }
-  sendRead(chatId, messageId) {
+  sendRead(chatId: string, messageId: string | number) {
     this._send({ event: "read", chat_id: chatId, last_message_id: messageId });
   }
 
-  _send(data) {
+  _send(data: unknown) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(typeof data === "string" ? data : JSON.stringify(data));
     } else {

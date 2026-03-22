@@ -1,91 +1,98 @@
 import { Box } from "@mui/material";
 import { Outlet } from "react-router-dom";
-import { useEffect, useState, useCallback } from "react";
-import api, { getMyId, socket } from "../../services/api";
+import { useEffect, useRef } from "react";
+import { socket, getMyId } from "../../services/api";
 import Navbar from "./Navbar";
 import ChatList from "../Chat/ChatList";
-import { useTheme } from "@mui/material";
-import type { Chat } from "../../types";
+import type { Message, Chat } from "../../types";
+import { useChatsStore } from "../../stores/useChatsStore";
 
 const Layout = () => {
-  const [chats, setChats] = useState<Chat[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const notificationSound = new Audio("/sounds/message.mp3");
-  notificationSound.volume = 0.5;
+  const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
+  const loadChats = useChatsStore((state) => state.loadChats);
+  const updateChatFromMessage = useChatsStore(
+    (state) => state.updateChatFromMessage,
+  );
+  const setChatTyping = useChatsStore((state) => state.setChatTyping);
+  const markChatLastMessageRead = useChatsStore(
+    (state) => state.markChatLastMessageRead,
+  );
+  const syncUnreadCount = useChatsStore((state) => state.syncUnreadCount);
+  const prependChat = useChatsStore((state) => state.prependChat);
+  const removeChat = useChatsStore((state) => state.removeChat);
 
-  const theme = useTheme();
-  const colors = theme.palette.background;
-
-  const handleUpdateChat = useCallback((msg: any) => {
-    const myId = getMyId();
-
-    setChats((prevChats) => {
-      const chatIndex = prevChats.findIndex(
-        (c) => String(c.id) === String(msg.chat_id),
-      );
-
-      if (chatIndex === -1) return prevChats;
-
-      const updatedChats = [...prevChats];
-
-      const lastMessage = {
-        ...msg,
-        is_mine: msg.is_mine ?? String(msg.sender_id) === String(myId),
-      };
-
-      const targetChat = {
-        ...updatedChats[chatIndex],
-        last_message: lastMessage,
-      };
-
-      updatedChats.splice(chatIndex, 1);
-      return [targetChat, ...updatedChats];
-    });
+  useEffect(() => {
+    const sound = new Audio("/sounds/message.mp3");
+    sound.volume = 0.5;
+    notificationSoundRef.current = sound;
   }, []);
 
   useEffect(() => {
-    setIsLoading(true);
-    api.chats
-      .list()
-      .then((data) => {
-        const myId = getMyId();
-        const processedData = data.map((chat: any) => ({
-          ...chat,
-          last_message: chat.last_message
-            ? {
-                ...chat.last_message,
-                is_mine:
-                  chat.last_message.is_mine ??
-                  String(chat.last_message.sender_id) === String(myId),
-              }
-            : null,
-        }));
+    loadChats();
+  }, [loadChats]);
 
-        setChats(processedData);
-        setIsLoading(false);
-      })
-      .catch((err) => {
-        console.error("Ошибка загрузки чатов:", err);
-        setIsLoading(true);
-      });
+  useEffect(() => {
+    const unsubTyping = socket.on("typing", (data: { chat_id: string; is_typing: boolean }) => {
+      setChatTyping(data.chat_id, data.is_typing);
+    });
 
-    const handleSocketMessage = (data: any) => {
+    const unsubMsg = socket.on("new_message", (data: { message?: Message } & Message) => {
       const msg = data.message || data;
-      handleUpdateChat(msg);
+      updateChatFromMessage(msg);
       const myId = getMyId();
-      if (String(msg.sender_id) !== String(myId)) {
-        notificationSound.currentTime = 0;
-        notificationSound.play().catch(() => {});
-      }
-    };
 
-    const unsubscribe = socket.on("new_message", handleSocketMessage);
-    return () => {
-      if (typeof unsubscribe === "function") {
-        unsubscribe();
+      if (String(msg.sender_id) !== String(myId)) {
+        const sound = notificationSoundRef.current;
+        if (sound) {
+          sound.currentTime = 0;
+          sound.play().catch(() => {});
+        }
       }
+    });
+
+    const unsubRead = socket.on(
+      "read",
+      (data: { chat_id: string; message_ids: string[] }) => {
+        markChatLastMessageRead(data.chat_id, data.message_ids);
+      },
+    );
+
+    const unsubUnread = socket.on(
+      "unread_count",
+      (data: { chat_id: string; unread_count: number }) => {
+        syncUnreadCount(data.chat_id, data.unread_count);
+      },
+    );
+
+    const unsubNewChat = socket.on("new_chat", (data: { chat: Chat }) => {
+      prependChat(data.chat);
+    });
+
+    const unsubKicked = socket.on("kicked", (data: { chat_id: string }) => {
+      removeChat(data.chat_id);
+    });
+
+    const unsubLeft = socket.on("left_chat", (data: { chat_id: string }) => {
+      removeChat(data.chat_id);
+    });
+
+    return () => {
+      unsubTyping();
+      unsubMsg();
+      unsubRead();
+      unsubUnread();
+      unsubNewChat();
+      unsubKicked();
+      unsubLeft();
     };
-  }, [handleUpdateChat]);
+  }, [
+    markChatLastMessageRead,
+    prependChat,
+    removeChat,
+    setChatTyping,
+    syncUnreadCount,
+    updateChatFromMessage,
+  ]);
 
   return (
     <Box sx={{ display: "flex", height: "100vh", overflow: "hidden" }}>
@@ -94,11 +101,11 @@ const Layout = () => {
       </Box>
 
       <Box sx={{ padding: "30px 36px 0px 36px" }}>
-        <ChatList chats={chats} isLoading={isLoading} />
+        <ChatList />
       </Box>
 
       <Box sx={{ flexGrow: 1 }}>
-        <Outlet context={{ handleUpdateChat }} />
+        <Outlet />
       </Box>
     </Box>
   );

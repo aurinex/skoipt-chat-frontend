@@ -9,18 +9,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-
-interface User {
-  id: string;
-  username: string;
-  first_name: string;
-  last_name: string;
-  avatar_url: string | null;
-  is_online: boolean;
-  role: string;
-  group?: string;
-  course?: number;
-}
+import type { User } from "../../types";
 
 interface UserSearchResultsProps {
   users: User[];

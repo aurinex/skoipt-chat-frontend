@@ -2,10 +2,8 @@ import { useState } from "react";
 import {
   TextField,
   Button,
-  FormControl,
   Typography,
   Box,
-  OutlinedInput,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
@@ -15,7 +13,6 @@ const LoginPage = () => {
   const theme = useTheme();
 
   const [form, setForm] = useState({ username: "", password: "" });
-  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -23,8 +20,8 @@ const LoginPage = () => {
     try {
       await api.auth.login(form);
       navigate("/");
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      console.error("Ошибка входа:", err);
     }
   };
 

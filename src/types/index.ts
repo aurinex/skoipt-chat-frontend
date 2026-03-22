@@ -15,6 +15,7 @@ export interface User {
 export interface ReplyToMessage {
   id: string;
   sender_id: string;
+  sender?: User | null;
   text: string | null;
 }
 
@@ -32,11 +33,13 @@ export interface Message {
   sender?: User | null;
   text: string | null;
   file_urls: string[];
+  file_url?: string | null;
   reply_to: string | null;
   reply_to_message?: ReplyToMessage | null;
   forwarded_from?: ForwardedFrom | null;
   is_edited: boolean;
   is_mine: boolean;
+  is_read?: boolean;
   is_system?: boolean;
   created_at: string;
   edited_at: string | null;

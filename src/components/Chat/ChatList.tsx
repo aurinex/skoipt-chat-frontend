@@ -1,31 +1,23 @@
 import { Box, Typography, useTheme, IconButton } from "@mui/material";
-import { useState, useEffect, useRef } from "react";
-import { getMyId, socket } from "../../services/api";
+import { useState, useEffect } from "react";
 import api from "../../services/api";
 import NewMessageCustomIcon from "../../assets/icons/new_message.svg?react";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import ChatSearch from "./ChatSearch";
 import ChatListItems from "./ChatListItems";
 import UserSearchResults from "./UserSearchResults";
+import { useChatsStore } from "../../stores/useChatsStore";
+import type { User } from "../../types";
 
-interface ChatListProps {
-  chats: any[];
-  isLoading?: boolean;
-}
-
-const ChatList = ({ chats, isLoading }: ChatListProps) => {
-  const [localChats, setLocalChats] = useState(chats);
+const ChatList = () => {
+  const chats = useChatsStore((state) => state.chats);
+  const isLoading = useChatsStore((state) => state.isLoading);
   const [searchQuery, setSearchQuery] = useState("");
-  const [userResults, setUserResults] = useState([]);
+  const [userResults, setUserResults] = useState<User[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const theme = useTheme();
   const colors = theme.palette.background;
-  const myIdRef = useRef(getMyId());
   const isSearching = searchQuery.trim().length > 0;
-
-  useEffect(() => {
-    setLocalChats(chats);
-  }, [chats]);
 
   // Поиск пользователей по беку при изменении query
   useEffect(() => {
@@ -40,99 +32,6 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
       .catch(() => setUserResults([]))
       .finally(() => setUsersLoading(false));
   }, [searchQuery]);
-
-  // WebSocket события
-  useEffect(() => {
-    const unsubTyping = socket.on("typing", (data: any) => {
-      setLocalChats((prev) =>
-        prev.map((chat) =>
-          String(chat.id) === String(data.chat_id)
-            ? { ...chat, is_typing: data.is_typing }
-            : chat,
-        ),
-      );
-    });
-
-    const unsubMsg = socket.on("new_message", (data: any) => {
-      const msg = data.message || data;
-      setLocalChats((prev) => {
-        const chatIndex = prev.findIndex(
-          (c) => String(c.id) === String(msg.chat_id),
-        );
-        if (chatIndex === -1) return prev;
-        const updatedChats = [...prev];
-        const targetChat = {
-          ...updatedChats[chatIndex],
-          last_message: { ...msg, is_read: msg.is_mine ? true : false },
-        };
-        updatedChats.splice(chatIndex, 1);
-        return [targetChat, ...updatedChats];
-      });
-    });
-
-    const unsubRead = socket.on("read", (data: any) => {
-      setLocalChats((prev) =>
-        prev.map((chat) => {
-          if (String(chat.id) === String(data.chat_id) && chat.last_message) {
-            if (data.message_ids.includes(chat.last_message.id)) {
-              return {
-                ...chat,
-                last_message: { ...chat.last_message, is_read: true },
-              };
-            }
-          }
-          return chat;
-        }),
-      );
-    });
-
-    const unsubUnread = socket.on("unread_count", (data: any) => {
-      if (data.unread_count === 0) {
-        setLocalChats((prev) =>
-          prev.map((chat) =>
-            String(chat.id) === String(data.chat_id)
-              ? {
-                  ...chat,
-                  last_message: chat.last_message
-                    ? { ...chat.last_message, is_read: true }
-                    : chat.last_message,
-                }
-              : chat,
-          ),
-        );
-      }
-    });
-
-    const unsubNewChat = socket.on("new_chat", (data: any) => {
-      const newChat = data.chat;
-      setLocalChats((prev) => {
-        if (prev.find((c) => String(c.id) === String(newChat.id))) return prev;
-        return [newChat, ...prev];
-      });
-    });
-
-    const unsubKicked = socket.on("kicked", (data: any) => {
-      setLocalChats((prev) =>
-        prev.filter((c) => String(c.id) !== String(data.chat_id)),
-      );
-    });
-
-    const unsubLeft = socket.on("left_chat", (data: any) => {
-      setLocalChats((prev) =>
-        prev.filter((c) => String(c.id) !== String(data.chat_id)),
-      );
-    });
-
-    return () => {
-      unsubTyping();
-      unsubMsg();
-      unsubRead();
-      unsubUnread();
-      unsubNewChat();
-      unsubKicked();
-      unsubLeft();
-    };
-  }, []);
 
   return (
     <Box
@@ -184,7 +83,7 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
             >
               Чаты
             </Typography>
-            <ChatListItems chats={localChats} searchQuery={searchQuery} />
+            <ChatListItems chats={chats} searchQuery={searchQuery} />
 
             <Typography
               sx={{
@@ -209,7 +108,7 @@ const ChatList = ({ chats, isLoading }: ChatListProps) => {
         )}
 
         {!isSearching && (
-          <ChatListItems chats={localChats} isLoading={isLoading} />
+          <ChatListItems chats={chats} isLoading={isLoading} />
         )}
       </Box>
     </Box>

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { Box, TextField, IconButton } from "@mui/material";
 import { socket } from "../../services/api";
 
@@ -26,7 +26,7 @@ const MessageInput = ({
   replyTo,
 }: MessageInputProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const myTypingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const myTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,

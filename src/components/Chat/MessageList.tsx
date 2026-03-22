@@ -18,7 +18,6 @@ interface MessageListProps {
   messages: Message[];
   isMsgsLoading: boolean;
   chatData: ChatData | null;
-  myId: string | null;
   chatId: string | undefined;
   colors: any;
   onImageClick?: (url: string) => void;
@@ -239,10 +238,8 @@ const UploadingImageThumb = ({
 // Плейсхолдер для загружаемых файлов (не изображений)
 const UploadingFilePlaceholder = ({
   count,
-  colors,
 }: {
   count: number;
-  colors: any;
 }) => (
   <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mt: 1 }}>
     {Array.from({ length: count }).map((_, i) => (
@@ -276,7 +273,6 @@ const MessageList = memo(
     messages,
     isMsgsLoading,
     chatData,
-    myId,
     chatId,
     colors,
     onImageClick,
@@ -383,14 +379,6 @@ const MessageList = memo(
 
             const isPureMedia = hasImages && !hasText && otherUrls.length === 0;
 
-            const hasOnlyOneImage =
-              imageUrls.length === 1 && !msg.text && otherUrls.length === 0;
-            const hasGrid =
-              imageUrls.length >= 2 && !msg.text && otherUrls.length === 0;
-
-            // Пузырь без паддинга если только одна картинка или сетка
-            const noPadding = hasOnlyOneImage || hasGrid;
-
             return (
               <Box key={msg.id} sx={{ display: "contents" }}>
                 {showDateLabel && (
@@ -434,7 +422,7 @@ const MessageList = memo(
                     >
                       {isLastInGroup ? (
                         <Avatar
-                          src={msg.sender?.avatar_url}
+                          src={msg.sender?.avatar_url ?? undefined}
                           sx={{
                             width: 45,
                             height: 45,
@@ -459,7 +447,7 @@ const MessageList = memo(
                     }}
                   >
                     {!isMessageFromMe &&
-                      chatData?.member_count > 2 &&
+                      (chatData?.member_count ?? 0) > 2 &&
                       isFirstInGroup && (
                         <Typography
                           sx={{
@@ -622,7 +610,6 @@ const MessageList = memo(
                       {isUploading && uploadingNonImageCount > 0 && (
                         <UploadingFilePlaceholder
                           count={uploadingNonImageCount}
-                          colors={colors}
                         />
                       )}
 

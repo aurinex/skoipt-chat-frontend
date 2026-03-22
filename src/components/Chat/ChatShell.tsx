@@ -1,4 +1,4 @@
-import { Box, useTheme } from "@mui/material";
+import { useTheme } from "@mui/material";
 import DropZoneOverlay from "../Ui/DropZoneOverlay";
 import FileUploadModal from "../Ui/FileUploadModal";
 

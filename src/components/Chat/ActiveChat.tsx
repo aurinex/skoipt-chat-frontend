@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useParams, useOutletContext } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { Box, Typography, useTheme } from "@mui/material";
 import { useChat } from "../../hooks/useChat";
 import { useFileUpload } from "../../hooks/useFileUpload";
 import { useMessageSender } from "../../hooks/useMessageSender";
 import type { Message } from "../../types";
+import { useChatsStore } from "../../stores/useChatsStore";
 import ChatShell from "./ChatShell";
 import ChatHeader from "./ChatHeader";
 import MessageList from "./MessageList";
@@ -12,15 +13,11 @@ import MessageInput from "./MessageInput";
 import ReplyPreview from "./ReplyPreview";
 import ImageViewer from "../Ui/ImageViewer";
 
-interface ContextType {
-  handleUpdateChat: (msg: Message) => void;
-}
-
 const ActiveChat = () => {
-  const { handleUpdateChat } = useOutletContext<ContextType>();
   const { chatId } = useParams<{ chatId: string }>();
   const theme = useTheme();
   const colors = theme.palette.background;
+  const handleUpdateChat = useChatsStore((state) => state.updateChatFromMessage);
 
   const [draftText, setDraftText] = useState("");
   const [replyTo, setReplyTo] = useState<Message | null>(null);
@@ -103,7 +100,6 @@ const ActiveChat = () => {
             messages={messages}
             isMsgsLoading={isMsgsLoading}
             chatData={chatData}
-            myId={null}
             chatId={chatId}
             colors={colors}
             onImageClick={setFullScreenImage}

@@ -1,12 +1,13 @@
 import { useCallback } from "react";
 import api, { getMyId } from "../services/api";
+import type { Message } from "../types";
 
 interface UseMessageSenderParams {
   chatId: string;
-  replyTo: any | null;
+  replyTo: Message | null;
   onReplyReset: () => void;
-  setMessages: (updater: (prev: any[]) => any[]) => void;
-  handleUpdateChat: (msg: any) => void;
+  setMessages: (updater: (prev: Message[]) => Message[]) => void;
+  handleUpdateChat: (msg: Message) => void;
   closeModal: () => void;
 }
 
@@ -22,7 +23,7 @@ export const useMessageSender = ({
   handleUpdateChat,
   closeModal,
 }: UseMessageSenderParams) => {
-  const myId = getMyId();
+  const myId = getMyId() ?? "";
 
   const handleSend = useCallback(
     async (text: string, replyToId?: string) => {
@@ -39,6 +40,9 @@ export const useMessageSender = ({
           sender_id: myId,
           created_at: new Date().toISOString(),
           read_by: [],
+          file_urls: [],
+          is_edited: false,
+          edited_at: null,
           _pending: true,
           reply_to: replyToId || null,
           reply_to_message: replyTo || null,
@@ -88,6 +92,8 @@ export const useMessageSender = ({
           created_at: new Date().toISOString(),
           read_by: [],
           file_urls: blobUrls,
+          is_edited: false,
+          edited_at: null,
           _uploading: true,
           _nonImageCount: nonImageFiles.length,
           reply_to: replyTo?.id || null,
