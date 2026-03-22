@@ -3,7 +3,7 @@ import { Outlet } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
 import api, { socket } from "../services/api";
 import Navbar from "./Navbar";
-import ChatList from "./ChatList";
+import ChatList from "./Chat/ChatList";
 import { useTheme } from "@mui/material";
 
 const Layout = () => {

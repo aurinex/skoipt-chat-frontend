@@ -1,11 +1,9 @@
 import { memo } from "react";
 import { Box, Typography, Avatar, IconButton, Skeleton } from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
-import SettingsIcon from "@mui/icons-material/Settings";
-import { getParticipantString } from "../utils/chatFormatters";
+import { getParticipantString } from "../../utils/chatFormatters";
 
-import findIcon from "../assets/icons/find.svg";
-import settingsIcon from "../assets/icons/settings.svg";
+import findIcon from "../../assets/icons/find.svg";
+import settingsIcon from "../../assets/icons/settings.svg";
 
 interface ChatHeaderProps {
   chatData: any;

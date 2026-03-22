@@ -3,7 +3,7 @@ import { useParams, useOutletContext } from "react-router-dom";
 import { Box, Typography, useTheme } from "@mui/material";
 import api from "../services/api";
 import { useChat } from "../hooks/useChat";
-import ChatHeader from "./ChatHeader";
+import ChatHeader from "./Chat/ChatHeader";
 import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
 import DropZoneOverlay from "./DropZoneOverlay";

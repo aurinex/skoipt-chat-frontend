@@ -383,5 +383,5 @@ export const socket = new MessengerSocket();
 
 // ─── Экспорт ─────────────────────────────────────────────────────────────────
 
-const api = { auth, chats, messages, files };
+const api = { auth, chats, messages, files, users };
 export default api;
