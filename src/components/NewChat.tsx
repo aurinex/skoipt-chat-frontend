@@ -1,15 +1,15 @@
-import { useCallback, useState, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   useSearchParams,
   useOutletContext,
   useNavigate,
 } from "react-router-dom";
 import { Box, Typography, useTheme } from "@mui/material";
-import api, { getMyId } from "../services/api";
+import api from "../services/api";
+import { useFileUpload } from "../hooks/useFileUpload";
+import ChatShell from "./ChatShell";
 import ChatHeader from "./Chat/ChatHeader";
 import MessageInput from "./MessageInput";
-import DropZoneOverlay from "./DropZoneOverlay";
-import FileUploadModal from "./FileUploadModal";
 import ReplyPreview from "./ReplyPreview";
 
 interface ContextType {
@@ -24,20 +24,25 @@ const NewChat = () => {
   const colors = theme.palette.background;
 
   const userId = searchParams.get("userId");
-  const myId = getMyId();
 
   const [preview, setPreview] = useState<any | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-
   const [draftText, setDraftText] = useState("");
   const [replyTo, setReplyTo] = useState<any | null>(null);
-  const [modalFiles, setModalFiles] = useState<File[]>([]);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalInitialCaption, setModalInitialCaption] = useState("");
+
+  const {
+    modalFiles,
+    modalOpen,
+    modalInitialCaption,
+    openModal,
+    closeModal,
+    addFiles,
+    removeFile,
+    handleFileInputChange,
+  } = useFileUpload(draftText, () => setDraftText(""));
 
   useEffect(() => {
     if (!userId) return;
-
     setPreviewLoading(true);
     api.users
       .chatPreview(userId)
@@ -52,59 +57,30 @@ const NewChat = () => {
       .finally(() => setPreviewLoading(false));
   }, [userId]);
 
-  const openModal = useCallback(
-    (files: File[]) => {
-      setModalFiles((prev) => [...prev, ...files].slice(0, 10));
-      if (draftText.trim()) {
-        setModalInitialCaption(draftText);
-        setDraftText("");
-      }
-      setModalOpen(true);
-    },
-    [draftText],
-  );
-
-  const closeModal = useCallback(() => {
-    setModalOpen(false);
-    setModalFiles([]);
-    setModalInitialCaption("");
-  }, []);
-
-  // Отправка текстового сообщения
   const handleSend = useCallback(
     async (text: string) => {
       if (!text.trim() || !userId) return;
-
       try {
         const result = await api.chats.sendFirstMessage(userId, { text });
-        console.log("result.message:", result.message);
-        console.log("myId:", getMyId());
-        handleUpdateChat(result.message);
         navigate(`/chat/${result.chat_id}`, { replace: true });
       } catch (err) {
         console.error("Ошибка отправки:", err);
       }
     },
-    [userId, navigate, handleUpdateChat],
+    [userId, navigate],
   );
 
-  // Отправка файлов: сначала создаём чат через openDirect,
-  // потом загружаем файлы в него, потом отправляем сообщение
   const handleModalSend = useCallback(
     async (files: File[], caption: string): Promise<void> => {
       if (!userId) return;
       closeModal();
-
       try {
-        // Шаг 1 — создаём чат (или получаем существующий)
         const chat = await api.chats.openDirect(userId);
         const chatId = chat.id;
 
-        // Шаг 2 — загружаем файлы
         const uploadResults = await Promise.allSettled(
           files.map((file) => api.files.uploadChatFile(chatId, file)),
         );
-
         const fileUrls: string[] = [];
         uploadResults.forEach((r) => {
           if (r.status === "fulfilled") {
@@ -116,28 +92,16 @@ const NewChat = () => {
 
         if (fileUrls.length === 0 && !caption.trim()) return;
 
-        // Шаг 3 — отправляем сообщение с файлами
-        const msg = await api.messages.send(chatId, {
+        await api.messages.send(chatId, {
           text: caption || null,
           file_urls: fileUrls,
         });
-
-        handleUpdateChat(msg);
         navigate(`/chat/${chatId}`, { replace: true });
       } catch (err) {
         console.error("Ошибка отправки файлов:", err);
       }
     },
-    [userId, navigate, handleUpdateChat, closeModal],
-  );
-
-  const handleFileInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(e.target.files || []);
-      if (files.length) openModal(files);
-      e.target.value = "";
-    },
-    [openModal],
+    [userId, navigate, closeModal],
   );
 
   if (!userId) {
@@ -159,23 +123,16 @@ const NewChat = () => {
   }
 
   return (
-    <DropZoneOverlay onFilesDrop={openModal} colors={colors}>
-      <FileUploadModal
-        open={modalOpen}
-        files={modalFiles}
-        onClose={closeModal}
-        onSend={handleModalSend}
-        onAddMore={(f) => setModalFiles((prev) => [...prev, ...f].slice(0, 10))}
-        onRemove={(i) =>
-          setModalFiles((prev) => {
-            const updated = prev.filter((_, idx) => idx !== i);
-            if (updated.length === 0) setModalOpen(false);
-            return updated;
-          })
-        }
-        initialCaption={modalInitialCaption}
-        colors={colors}
-      />
+    <ChatShell
+      modalOpen={modalOpen}
+      modalFiles={modalFiles}
+      modalInitialCaption={modalInitialCaption}
+      onModalClose={closeModal}
+      onModalSend={handleModalSend}
+      onAddMoreFiles={addFiles}
+      onRemoveFile={removeFile}
+      onFilesDrop={openModal}
+    >
       <Box
         sx={{
           display: "flex",
@@ -191,7 +148,6 @@ const NewChat = () => {
           isMsgsLoading={previewLoading}
           colors={colors}
         />
-
         <Box
           sx={{
             flexGrow: 1,
@@ -204,7 +160,6 @@ const NewChat = () => {
             Напишите первое сообщение
           </Typography>
         </Box>
-
         <ReplyPreview
           replyTo={replyTo}
           onCancel={() => setReplyTo(null)}
@@ -220,7 +175,7 @@ const NewChat = () => {
           replyTo={replyTo}
         />
       </Box>
-    </DropZoneOverlay>
+    </ChatShell>
   );
 };
 

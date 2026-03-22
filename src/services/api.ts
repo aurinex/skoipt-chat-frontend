@@ -309,15 +309,18 @@ class MessengerSocket {
     this.listeners = {};
     this.reconnectDelay = 1000;
     this.shouldReconnect = true;
+    this._pingInterval = null;
   }
 
   connect() {
+    this.ws?.close();
     if (!tokens.access) return;
     this.ws = new WebSocket(`ws://${BASE_WS}/ws?token=${tokens.access}`);
 
     this.ws.onopen = () => {
       console.log("WS подключён");
       this.reconnectDelay = 1000;
+      this._startPing();
     };
 
     this.ws.onmessage = (event) => {
@@ -327,6 +330,7 @@ class MessengerSocket {
     };
 
     this.ws.onclose = () => {
+      this._stopPing();
       if (this.shouldReconnect) {
         console.log(
           `WS отключён, переподключение через ${this.reconnectDelay}мс...`,
@@ -339,6 +343,18 @@ class MessengerSocket {
     this.ws.onerror = (err) => {
       console.error("WS ошибка:", err);
     };
+  }
+
+  _startPing() {
+    this._pingInterval = setInterval(() => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this._send({ event: "ping" });
+      }
+    }, 30000); // каждые 30 секунд
+  }
+
+  _stopPing() {
+    clearInterval(this._pingInterval);
   }
 
   disconnect() {
