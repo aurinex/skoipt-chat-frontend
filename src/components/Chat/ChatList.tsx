@@ -6,7 +6,7 @@ import newMessageIcon from "../../assets/icons/new_message.svg";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import ChatSearch from "./ChatSearch";
 import ChatListItems from "./ChatListItems";
-import UserSearchResults from "./UserSearchResults";
+import UserSearchResults from "../UserSearchResults";
 
 interface ChatListProps {
   chats: any[];

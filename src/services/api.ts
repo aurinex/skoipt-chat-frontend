@@ -1,8 +1,12 @@
 // api.js — единый API-клиент для мессенджера
+// Использование: import api from './api'
+
 const BASE_URL = "http://localhost:8000";
 const BASE_WS = "localhost:8000";
 // const BASE_URL = "http://10.10.10.5:8000";
 // const BASE_WS = "10.10.10.5:8000";
+
+// ─── Хранение токенов ────────────────────────────────────────────────────────
 
 const tokens = {
   get access() {
@@ -21,12 +25,21 @@ const tokens = {
   },
 };
 
+// ─── Базовый fetch с авто-рефрешем токена ───────────────────────────────────
+
 async function request(path, options = {}) {
-  const headers = { "Content-Type": "application/json", ...options.headers };
-  if (tokens.access) headers["Authorization"] = `Bearer ${tokens.access}`;
+  const headers = {
+    "Content-Type": "application/json",
+    ...options.headers,
+  };
+
+  if (tokens.access) {
+    headers["Authorization"] = `Bearer ${tokens.access}`;
+  }
 
   let response = await fetch(`${BASE_URL}${path}`, { ...options, headers });
 
+  // Токен истёк — пробуем обновить и повторить запрос
   if (response.status === 401 && tokens.refresh) {
     const refreshed = await tryRefresh();
     if (refreshed) {
@@ -46,13 +59,20 @@ async function request(path, options = {}) {
     throw new Error(error.detail || "Ошибка запроса");
   }
 
+  // 204 No Content — возвращаем null
   if (response.status === 204) return null;
+
   return response.json();
 }
 
+// Отдельная функция для multipart/form-data запросов (загрузка файлов)
+// НЕ устанавливаем Content-Type — браузер сам проставит с boundary
 async function requestFormData(path, formData) {
   const headers: Record<string, string> = {};
-  if (tokens.access) headers["Authorization"] = `Bearer ${tokens.access}`;
+
+  if (tokens.access) {
+    headers["Authorization"] = `Bearer ${tokens.access}`;
+  }
 
   let response = await fetch(`${BASE_URL}${path}`, {
     method: "POST",
@@ -158,6 +178,7 @@ const auth = {
   async listInvites() {
     return request("/auth/invites");
   },
+
   async deactivateInvite(code) {
     return request(`/auth/invite/${code}`, { method: "DELETE" });
   },
@@ -169,15 +190,6 @@ const users = {
   async search(q: string) {
     return request(`/users/search?q=${encodeURIComponent(q)}`);
   },
-
-  /**
-   * Возвращает { chat_id, type, interlocutor }.
-   * chat_id === null если личного чата с этим пользователем ещё нет.
-   * Чат в БД НЕ создаётся.
-   */
-  async chatPreview(userId: string) {
-    return request(`/users/${userId}/chat-preview`);
-  },
 };
 
 // ─── Chats ───────────────────────────────────────────────────────────────────
@@ -186,6 +198,7 @@ const chats = {
   async list() {
     return request("/chats/");
   },
+
   async get(chatId) {
     return request(`/chats/${chatId}`);
   },
@@ -231,6 +244,7 @@ const messages = {
   async list(chatId) {
     return request(`/chats/${chatId}/messages/`);
   },
+
   async loadMore(chatId, beforeId) {
     return request(`/chats/${chatId}/messages/?before_id=${beforeId}`);
   },
@@ -239,13 +253,6 @@ const messages = {
     return request(`/chats/${chatId}/messages/`, {
       method: "POST",
       body: JSON.stringify({ text, file_urls, reply_to }),
-    });
-  },
-
-  async forward(chatId, messageId, targetChatId) {
-    return request(`/chats/${chatId}/messages/${messageId}/forward`, {
-      method: "POST",
-      body: JSON.stringify({ target_chat_id: targetChatId }),
     });
   },
 
@@ -266,18 +273,25 @@ const messages = {
 // ─── Files ───────────────────────────────────────────────────────────────────
 
 const files = {
+  // Загрузить аватар текущего пользователя
+  // Возвращает { avatar_url: "http://..." }
   async uploadAvatar(file: File) {
     const formData = new FormData();
     formData.append("file", file);
     return requestFormData("/files/avatar", formData);
   },
 
+  // Загрузить файл в чат
+  // Канал → { url, is_public: true }
+  // Личка/группа → { object_name, is_public: false }
   async uploadChatFile(chatId: string, file: File) {
     const formData = new FormData();
     formData.append("file", file);
     return requestFormData(`/files/chat/${chatId}`, formData);
   },
 
+  // Получить временную ссылку на приватный файл (живёт 1 час)
+  // Возвращает { url, expires_in: 3600 }
   async getPrivateUrl(chatId: string, objectName: string) {
     return request(`/files/chat/${chatId}/${objectName}`);
   },
@@ -295,6 +309,7 @@ class MessengerSocket {
 
   connect() {
     if (!tokens.access) return;
+
     this.ws = new WebSocket(`ws://${BASE_WS}/ws?token=${tokens.access}`);
 
     this.ws.onopen = () => {
@@ -341,16 +356,23 @@ class MessengerSocket {
   _emit(event, data) {
     this.listeners[event]?.forEach((handler) => handler(data));
   }
+
   sendTyping(chatId, isTyping) {
     this._send({ event: "typing", chat_id: chatId, is_typing: isTyping });
   }
+
   sendRead(chatId, messageId) {
-    this._send({ event: "read", chat_id: chatId, last_message_id: messageId });
+    this._send({
+      event: "read",
+      chat_id: chatId,
+      last_message_id: messageId,
+    });
   }
 
   _send(data) {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(typeof data === "string" ? data : JSON.stringify(data));
+      const message = typeof data === "string" ? data : JSON.stringify(data);
+      this.ws.send(message);
     } else {
       console.warn("Попытка отправки сообщения в закрытый сокет", data);
     }
@@ -358,6 +380,8 @@ class MessengerSocket {
 }
 
 export const socket = new MessengerSocket();
+
+// ─── Экспорт ─────────────────────────────────────────────────────────────────
 
 const api = { auth, chats, messages, files, users };
 export default api;

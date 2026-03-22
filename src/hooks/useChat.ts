@@ -1,25 +1,22 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import api, { socket } from "../services/api";
 
-export const useChat = (
-  chatId: string | null | undefined,
-  myId: string | null,
-) => {
+export const useChat = (chatId: string | undefined, myId: string | null) => {
   const [messages, setMessages] = useState<any[]>([]);
-  const [isMsgsLoading, setIsMsgsLoading] = useState(false);
+  const [isMsgsLoading, setIsMsgsLoading] = useState(true);
   const [chatData, setChatData] = useState<any>(null);
   const [typingUsers, setTypingUsers] = useState<any[]>([]);
 
   const typingTimersRef = useRef<{ [key: number]: NodeJS.Timeout }>({});
   const readTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Храним актуальные chatId и myId в ref — чтобы замыкания в колбэках
+  // всегда читали свежее значение, а не то что было при создании эффекта
   const chatIdRef = useRef(chatId);
   const myIdRef = useRef(myId);
-
   useEffect(() => {
     chatIdRef.current = chatId;
   }, [chatId]);
-
   useEffect(() => {
     myIdRef.current = myId;
   }, [myId]);
@@ -29,29 +26,26 @@ export const useChat = (
     readTimerRef.current = setTimeout(() => {
       const currentChatId = chatIdRef.current;
       if (!currentChatId) return;
+      console.log("[READ] Отправляю read:", currentChatId, messageId);
       socket.sendRead(currentChatId, messageId);
     }, 500);
-  }, []);
+  }, []); // нет зависимостей — функция стабильна, читает из ref
 
+  // Авто-прочтение при открытии чата или новых сообщениях
   useEffect(() => {
-    if (!chatId || messages.length === 0) return;
-    const lastIncoming = [...messages]
-      .reverse()
-      .find((m) => String(m.sender_id) !== String(myIdRef.current));
-    if (lastIncoming) {
-      sendReadEvent(lastIncoming.id);
+    if (messages.length > 0) {
+      const lastIncoming = [...messages]
+        .reverse()
+        .find((m) => String(m.sender_id) !== String(myIdRef.current));
+      if (lastIncoming) {
+        sendReadEvent(lastIncoming.id);
+      }
     }
   }, [messages.length, chatId, sendReadEvent]);
 
   // Загрузка данных чата и сообщений
   useEffect(() => {
-    if (!chatId) {
-      // Новый чат — сбрасываем состояние, ничего не грузим
-      setMessages([]);
-      setChatData(null);
-      setIsMsgsLoading(false);
-      return;
-    }
+    if (!chatId) return;
 
     setIsMsgsLoading(true);
     setMessages([]);
@@ -63,7 +57,7 @@ export const useChat = (
         setMessages(msgs);
         setIsMsgsLoading(false);
       })
-      .catch(() => setIsMsgsLoading(false));
+      .catch(() => setIsMsgsLoading(true));
 
     api.chats
       .get(chatId)
@@ -114,13 +108,16 @@ export const useChat = (
     const unsubTyping = socket.on("typing", (data: any) => {
       if (String(data.chat_id) === String(chatIdRef.current)) {
         const userId = data.user_id;
+
         if (data.is_typing) {
           setTypingUsers((prev) =>
             prev.some((u) => u.user_id === userId) ? prev : [...prev, data],
           );
+
           if (typingTimersRef.current[userId]) {
             clearTimeout(typingTimersRef.current[userId]);
           }
+
           typingTimersRef.current[userId] = setTimeout(() => {
             setTypingUsers((prev) => prev.filter((u) => u.user_id !== userId));
             delete typingTimersRef.current[userId];
