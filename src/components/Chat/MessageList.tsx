@@ -286,7 +286,8 @@ const MessageList = memo(
     isLoadingMore = false,
   }: MessageListProps) => {
     const scrollRef = useRef<HTMLDivElement>(null);
-    const prevChatIdRef = useRef(chatId);
+    const contentRef = useRef<HTMLDivElement>(null);
+    const prevChatIdRef = useRef<string | undefined>(chatId);
     const prevFirstMessageIdRef = useRef<string | null>(messages[0]?.id ?? null);
     const prevLastMessageIdRef = useRef<string | null>(
       messages[messages.length - 1]?.id ?? null,
@@ -294,10 +295,37 @@ const MessageList = memo(
     const prevScrollHeightRef = useRef(0);
     const prevScrollTopRef = useRef(0);
     const shouldRestoreScrollRef = useRef(false);
-    const isChangingChat = prevChatIdRef.current !== chatId;
-    if (isChangingChat) prevChatIdRef.current = chatId;
+    const shouldScrollToBottomOnChatOpenRef = useRef(true);
+    const stickToBottomRef = useRef(true);
 
     const [highlightedId, setHighlightedId] = useState<string | null>(null);
+
+    useEffect(() => {
+      if (prevChatIdRef.current !== chatId) {
+        prevChatIdRef.current = chatId;
+        shouldScrollToBottomOnChatOpenRef.current = true;
+        shouldRestoreScrollRef.current = false;
+        stickToBottomRef.current = true;
+      }
+    }, [chatId]);
+
+    useEffect(() => {
+      const container = scrollRef.current;
+      const content = contentRef.current;
+      if (!container || !content) return;
+
+      const observer = new ResizeObserver(() => {
+        if (
+          shouldScrollToBottomOnChatOpenRef.current ||
+          stickToBottomRef.current
+        ) {
+          container.scrollTop = container.scrollHeight;
+        }
+      });
+
+      observer.observe(content);
+      return () => observer.disconnect();
+    }, []);
 
     useLayoutEffect(() => {
       const container = scrollRef.current;
@@ -314,7 +342,17 @@ const MessageList = memo(
         lastMessageId === prevLastMessageId;
       const appendedNewMessages = lastMessageId !== prevLastMessageId;
 
-      if (isChangingChat || isInitialRender) {
+      if (
+        shouldScrollToBottomOnChatOpenRef.current &&
+        !isMsgsLoading &&
+        messages.length > 0
+      ) {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: "auto",
+        });
+        shouldScrollToBottomOnChatOpenRef.current = false;
+      } else if (isInitialRender) {
         container.scrollTo({
           top: container.scrollHeight,
           behavior: "auto",
@@ -331,7 +369,7 @@ const MessageList = memo(
         if (wasNearBottom) {
           container.scrollTo({
             top: container.scrollHeight,
-            behavior: "smooth",
+            behavior: "auto",
           });
         }
       }
@@ -340,7 +378,7 @@ const MessageList = memo(
       prevLastMessageIdRef.current = lastMessageId;
       prevScrollHeightRef.current = container.scrollHeight;
       prevScrollTopRef.current = container.scrollTop;
-    }, [messages]);
+    }, [isMsgsLoading, messages]);
 
     useEffect(() => {
       const container = scrollRef.current;
@@ -349,6 +387,9 @@ const MessageList = memo(
       const handleScroll = () => {
         prevScrollHeightRef.current = container.scrollHeight;
         prevScrollTopRef.current = container.scrollTop;
+        const distanceFromBottom =
+          container.scrollHeight - container.scrollTop - container.clientHeight;
+        stickToBottomRef.current = distanceFromBottom <= 120;
 
         if (container.scrollTop <= 80) {
           shouldRestoreScrollRef.current = true;
@@ -360,7 +401,7 @@ const MessageList = memo(
       return () => container.removeEventListener("scroll", handleScroll);
     }, [canLoadMore, isLoadingMore, onLoadMore]);
 
-    const showSkeleton = isMsgsLoading || isChangingChat;
+    const showSkeleton = isMsgsLoading && messages.length === 0;
 
     return (
       <Box
@@ -374,6 +415,7 @@ const MessageList = memo(
           gap: 0.5,
         }}
       >
+        <Box ref={contentRef}>
         {showSkeleton && messages.length === 0 ? (
           <MessageSkeleton colors={colors} />
         ) : (
@@ -782,6 +824,7 @@ const MessageList = memo(
             })}
           </>
         )}
+        </Box>
       </Box>
     );
   },

@@ -18,6 +18,9 @@ import { useChatDetailsQuery } from "../../queries/useChatDetailsQuery";
 import { useChatMessagesQuery } from "../../queries/useChatMessagesQuery";
 import { flattenMessagePages, useMessageCacheActions } from "../../queries/messageCache";
 
+const EMPTY_FILES: File[] = [];
+const EMPTY_MESSAGE_PAGES: never[] = [];
+
 const ActiveChat = () => {
   const { chatId } = useParams<{ chatId: string }>();
   const theme = useTheme();
@@ -44,14 +47,20 @@ const ActiveChat = () => {
   } = useChatMessagesQuery(chatId);
   const { data: chatData } = useChatDetailsQuery(chatId);
   const messages = useMemo(
-    () => flattenMessagePages(messagesData?.pages ?? []),
+    () => flattenMessagePages(messagesData?.pages ?? EMPTY_MESSAGE_PAGES),
     [messagesData?.pages],
   );
+  const canSendMessages = useMemo(() => {
+    if (!chatData || !myId) return true;
+    if (chatData.type !== "channel") return true;
+
+    return chatData.admins?.includes(myId) ?? false;
+  }, [chatData, myId]);
   const handleLoadMore = useCallback(() => {
     void fetchNextPage();
   }, [fetchNextPage]);
   const modalFiles = useComposerStore(
-    (state) => state.composers[composerScopeId]?.modalFiles ?? [],
+    (state) => state.composers[composerScopeId]?.modalFiles ?? EMPTY_FILES,
   );
   const modalOpen = useComposerStore(
     (state) => state.composers[composerScopeId]?.modalOpen ?? false,
@@ -168,13 +177,15 @@ const ActiveChat = () => {
             canLoadMore={Boolean(hasNextPage)}
             isLoadingMore={isFetchingNextPage}
           />
-          <ActiveChatComposer
-            chatId={chatId}
-            composerScopeId={composerScopeId}
-            colors={colors}
-            setMessages={setMessages}
-            handleUpdateChat={updateChatFromMessage}
-          />
+          {canSendMessages && (
+            <ActiveChatComposer
+              chatId={chatId}
+              composerScopeId={composerScopeId}
+              colors={colors}
+              setMessages={setMessages}
+              handleUpdateChat={updateChatFromMessage}
+            />
+          )}
         </Box>
       </ChatShell>
     </>
