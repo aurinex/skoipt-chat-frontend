@@ -1,13 +1,9 @@
 import { useState } from "react";
-import {
-  TextField,
-  Button,
-  Typography,
-  Box,
-} from "@mui/material";
+import { TextField, Button, Typography, Box } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useTheme } from "@mui/material";
+import AppTextField from "../components/Ui/AppTextField";
 
 const LoginPage = () => {
   const theme = useTheme();
@@ -77,7 +73,14 @@ const LoginPage = () => {
                 >
                   Логин<span style={{ color: "#FA3B3B" }}>*</span>
                 </Typography>
-                <TextField
+                <AppTextField
+                  label="Логин"
+                  required
+                  placeholder="aurinex"
+                  value={form.username}
+                  onChange={(value) => setForm({ ...form, username: value })}
+                />
+                {/* <TextField
                   placeholder="aurinex"
                   fullWidth
                   onChange={(e) =>
@@ -86,7 +89,7 @@ const LoginPage = () => {
                   sx={{
                     ...input,
                   }}
-                />
+                /> */}
               </Box>
 
               <Box>
@@ -99,7 +102,15 @@ const LoginPage = () => {
                 >
                   Пароль<span style={{ color: "#FA3B3B" }}>*</span>
                 </Typography>
-                <TextField
+                <AppTextField
+                  label="Пароль"
+                  required
+                  type="password"
+                  placeholder="******"
+                  value={form.password}
+                  onChange={(value) => setForm({ ...form, password: value })}
+                />
+                {/* <TextField
                   type="password"
                   placeholder="******"
                   fullWidth
@@ -115,7 +126,7 @@ const LoginPage = () => {
                       height: "49px",
                     },
                   }}
-                />
+                /> */}
               </Box>
               <Box>
                 <Button
