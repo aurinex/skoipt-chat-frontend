@@ -6,6 +6,7 @@ import FileCustomIcon from "../../assets/icons/file.svg?react";
 import MicCustomIcon from "../../assets/icons/micro.svg?react";
 import SendCustomIcon from "../../assets/icons/send.svg?react";
 import type { Message } from "../../types";
+import type { AppColors } from "../../types/theme";
 
 interface MessageInputProps {
   chatId: string | undefined;
@@ -14,7 +15,7 @@ interface MessageInputProps {
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   value: string;
   onChange: (text: string) => void;
-  colors: any;
+  colors: AppColors;
 }
 
 const MessageInput = ({

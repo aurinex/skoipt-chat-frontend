@@ -144,7 +144,7 @@ export const useActiveChatStore = create<ActiveChatState>((set, get) => ({
     if (realtimeInitialized) return;
     realtimeInitialized = true;
 
-    socket.on<{ message?: Message } & Message>("new_message", (data) => {
+    socket.on("new_message", (data) => {
       const message = data.message || data;
       const chatId = String(message.chat_id);
 
@@ -154,12 +154,7 @@ export const useActiveChatStore = create<ActiveChatState>((set, get) => ({
       });
     });
 
-    socket.on<{
-      chat_id: string;
-      message_ids: string[];
-      user_id: string;
-      read_at: string;
-    }>("read", (data) => {
+    socket.on("read", (data) => {
       const chatId = String(data.chat_id);
 
       get().setMessagesForChat(chatId, (prev) =>
@@ -182,13 +177,7 @@ export const useActiveChatStore = create<ActiveChatState>((set, get) => ({
       );
     });
 
-    socket.on<{
-      chat_id: string;
-      user_id: string;
-      is_typing: boolean;
-      first_name?: string;
-      last_name?: string;
-    }>("typing", (data) => {
+    socket.on("typing", (data) => {
       const chatId = String(data.chat_id);
       const userId = String(data.user_id);
       const timerKey = getTypingTimerKey(chatId, userId);
@@ -243,12 +232,7 @@ export const useActiveChatStore = create<ActiveChatState>((set, get) => ({
       }
     });
 
-    socket.on<{
-      chat_id: string;
-      message_id: string;
-      text: string | null;
-      edited_at: string | null;
-    }>("message_edited", (data) => {
+    socket.on("message_edited", (data) => {
       const chatId = String(data.chat_id);
 
       get().setMessagesForChat(chatId, (prev) =>
@@ -265,7 +249,7 @@ export const useActiveChatStore = create<ActiveChatState>((set, get) => ({
       );
     });
 
-    socket.on<{ chat_id: string; message_id: string }>("message_deleted", (data) => {
+    socket.on("message_deleted", (data) => {
       const chatId = String(data.chat_id);
 
       get().setMessagesForChat(chatId, (prev) =>
@@ -273,12 +257,7 @@ export const useActiveChatStore = create<ActiveChatState>((set, get) => ({
       );
     });
 
-    socket.on<{
-      chat_id: string;
-      member_count?: number;
-      members?: string[];
-      admins?: string[];
-    }>("chat_updated", (data) => {
+    socket.on("chat_updated", (data) => {
       const chatId = String(data.chat_id);
 
       get().setChatDataForChat(chatId, (prev) =>

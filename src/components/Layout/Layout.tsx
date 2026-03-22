@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import { socket, getMyId } from "../../services/api";
 import Navbar from "./Navbar";
 import ChatList from "../Chat/ChatList";
-import type { Message, Chat } from "../../types";
 import { useChatsStore } from "../../stores/useChatsStore";
 
 const Layout = () => {
@@ -32,11 +31,11 @@ const Layout = () => {
   }, [loadChats]);
 
   useEffect(() => {
-    const unsubTyping = socket.on("typing", (data: { chat_id: string; is_typing: boolean }) => {
+    const unsubTyping = socket.on("typing", (data) => {
       setChatTyping(data.chat_id, data.is_typing);
     });
 
-    const unsubMsg = socket.on("new_message", (data: { message?: Message } & Message) => {
+    const unsubMsg = socket.on("new_message", (data) => {
       const msg = data.message || data;
       updateChatFromMessage(msg);
       const myId = getMyId();
@@ -50,29 +49,23 @@ const Layout = () => {
       }
     });
 
-    const unsubRead = socket.on(
-      "read",
-      (data: { chat_id: string; message_ids: string[] }) => {
-        markChatLastMessageRead(data.chat_id, data.message_ids);
-      },
-    );
+    const unsubRead = socket.on("read", (data) => {
+      markChatLastMessageRead(data.chat_id, data.message_ids);
+    });
 
-    const unsubUnread = socket.on(
-      "unread_count",
-      (data: { chat_id: string; unread_count: number }) => {
-        syncUnreadCount(data.chat_id, data.unread_count);
-      },
-    );
+    const unsubUnread = socket.on("unread_count", (data) => {
+      syncUnreadCount(data.chat_id, data.unread_count);
+    });
 
-    const unsubNewChat = socket.on("new_chat", (data: { chat: Chat }) => {
+    const unsubNewChat = socket.on("new_chat", (data) => {
       prependChat(data.chat);
     });
 
-    const unsubKicked = socket.on("kicked", (data: { chat_id: string }) => {
+    const unsubKicked = socket.on("kicked", (data) => {
       removeChat(data.chat_id);
     });
 
-    const unsubLeft = socket.on("left_chat", (data: { chat_id: string }) => {
+    const unsubLeft = socket.on("left_chat", (data) => {
       removeChat(data.chat_id);
     });
 

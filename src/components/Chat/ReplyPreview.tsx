@@ -1,10 +1,11 @@
 import { Box, Typography, IconButton } from "@mui/material";
 import type { Message } from "../../types";
+import type { AppColors } from "../../types/theme";
 
 interface ReplyPreviewProps {
   replyTo: Message | null;
   onCancel?: () => void;
-  colors: any;
+  colors: AppColors;
 }
 
 const ReplyPreview = ({ replyTo, onCancel, colors }: ReplyPreviewProps) => {

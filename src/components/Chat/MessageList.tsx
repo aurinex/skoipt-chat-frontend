@@ -13,13 +13,14 @@ import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import FilePreview from "../Ui/FilePreview";
 import { formatLocalTime, formatDateLabel } from "../../utils/chatFormatters";
 import type { Message, ChatData } from "../../types";
+import type { AppColors } from "../../types/theme";
 
 interface MessageListProps {
   messages: Message[];
   isMsgsLoading: boolean;
   chatData: ChatData | null;
   chatId: string | undefined;
-  colors: any;
+  colors: AppColors;
   onImageClick?: (url: string) => void;
   onReply?: (msg: Message) => void;
 }
@@ -45,7 +46,7 @@ const SKELETON_ITEMS = (() => {
   return items;
 })();
 
-const MessageSkeleton = memo(({ colors }: { colors: any }) => (
+const MessageSkeleton = memo(({ colors }: { colors: AppColors }) => (
   <Box
     sx={{
       display: "flex",

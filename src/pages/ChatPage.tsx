@@ -14,13 +14,14 @@ import AttachFileIcon from "@mui/icons-material/AttachFile";
 import MicIcon from "@mui/icons-material/Mic";
 import SendIcon from "@mui/icons-material/Send";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
+import type { Message } from "../types";
 import api, { socket } from "../services/api";
 
 const ChatPage = () => {
   const { chatId } = useParams<{ chatId: string }>();
   const theme = useTheme();
   const colors = theme.palette.background;
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -28,7 +29,7 @@ const ChatPage = () => {
   useEffect(() => {
     if (chatId) api.messages.list(chatId).then(setMessages);
 
-    const unsubMsg = socket.on("new_message", (data: any) => {
+    const unsubMsg = socket.on("new_message", (data) => {
       const msg = data.message || data;
       if (String(msg.chat_id) === String(chatId)) {
         setMessages((prev) =>
@@ -37,7 +38,7 @@ const ChatPage = () => {
       }
     });
 
-    const unsubTyping = socket.on("typing", (data: any) => {
+    const unsubTyping = socket.on("typing", (data) => {
       if (String(data.chat_id) === String(chatId)) setIsTyping(data.is_typing);
     });
 
