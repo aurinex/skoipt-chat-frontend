@@ -1,11 +1,12 @@
 import React, { useState, useCallback } from "react";
 import { Box, Typography, Fade } from "@mui/material";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import type { AppColors } from "../../types/theme";
 
 interface DropZoneOverlayProps {
   children: React.ReactNode;
   onFilesDrop: (files: File[]) => void;
-  colors: any;
+  colors: AppColors;
 }
 
 const DropZoneOverlay = ({

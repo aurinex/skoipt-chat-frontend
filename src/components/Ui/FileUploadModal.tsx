@@ -15,6 +15,7 @@ import AddIcon from "@mui/icons-material/Add";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import AudioFileIcon from "@mui/icons-material/AudioFile";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import type { AppColors } from "../../types/theme";
 
 interface FileUploadModalProps {
   open: boolean;
@@ -23,7 +24,7 @@ interface FileUploadModalProps {
   onSend: (files: File[], caption: string) => Promise<void>;
   onAddMore: (newFiles: File[]) => void;
   onRemove: (index: number) => void;
-  colors: any;
+  colors: AppColors;
   initialCaption?: string;
 }
 
@@ -110,7 +111,7 @@ const FileThumb = ({
   onSelect: () => void;
   onRemove: () => void;
   disabled: boolean;
-  colors: any;
+  colors: AppColors;
 }) => {
   const preview = useBlobUrl(file);
   const isImage = file.type.startsWith("image/");
@@ -235,7 +236,7 @@ const SelectedFilePreview = ({
   colors,
 }: {
   file: File | null;
-  colors: any;
+  colors: AppColors;
 }) => {
   const preview = useBlobUrl(file);
   const isImage = file?.type.startsWith("image/");

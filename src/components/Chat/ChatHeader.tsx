@@ -2,6 +2,7 @@ import { memo } from "react";
 import { Box, Typography, Avatar, IconButton, Skeleton } from "@mui/material";
 import { getParticipantString } from "../../utils/chatFormatters";
 import type { ChatData, ChatPreview, TypingUser } from "../../types";
+import type { AppColors } from "../../types/theme";
 
 import FindCustomIcon from "../../assets/icons/find.svg?react";
 import SettingsCustomIcon from "../../assets/icons/settings.svg?react";
@@ -10,7 +11,7 @@ interface ChatHeaderProps {
   chatData: ChatData | ChatPreview | null;
   typingUsers: TypingUser[];
   isMsgsLoading: boolean;
-  colors: any;
+  colors: AppColors;
 }
 
 const getDisplayName = (chatData: ChatData | ChatPreview | null) => {

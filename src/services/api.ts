@@ -5,6 +5,52 @@ import type { Chat, ChatData, ChatPreview, Message, User } from "../types";
 const BASE_URL = "http://10.10.10.5:8000";
 const BASE_WS = "10.10.10.5:8000";
 
+export interface SocketEventMap {
+  new_message: Message & { message?: Message };
+  typing: {
+    chat_id: string;
+    user_id: string;
+    is_typing: boolean;
+    first_name?: string;
+    last_name?: string;
+  };
+  read: {
+    chat_id: string;
+    message_ids: string[];
+    user_id: string;
+    read_at: string;
+  };
+  unread_count: {
+    chat_id: string;
+    unread_count: number;
+  };
+  new_chat: {
+    chat: Chat;
+  };
+  kicked: {
+    chat_id: string;
+  };
+  left_chat: {
+    chat_id: string;
+  };
+  message_edited: {
+    chat_id: string;
+    message_id: string;
+    text: string | null;
+    edited_at: string | null;
+  };
+  message_deleted: {
+    chat_id: string;
+    message_id: string;
+  };
+  chat_updated: {
+    chat_id: string;
+    member_count?: number;
+    members?: string[];
+    admins?: string[];
+  };
+}
+
 const tokens = {
   get access() {
     return localStorage.getItem("access_token");
@@ -359,7 +405,7 @@ const files = {
 
 class MessengerSocket {
   ws: WebSocket | null;
-  listeners: Record<string, Array<(data: any) => void>>;
+  listeners: Partial<Record<keyof SocketEventMap, Array<(data: unknown) => void>>>;
   reconnectDelay: number;
   shouldReconnect: boolean;
   _pingInterval: ReturnType<typeof setInterval> | null;
@@ -384,9 +430,16 @@ class MessengerSocket {
     };
 
     this.ws.onmessage = (event: MessageEvent<string>) => {
-      const data = JSON.parse(event.data) as { event: string };
+      const data = JSON.parse(event.data) as
+        | ({ event: keyof SocketEventMap } & SocketEventMap[keyof SocketEventMap])
+        | { event: string };
       console.log("WS Получено событие:", data.event, data);
-      this._emit(data.event, data);
+      if (data.event in this.listeners) {
+        this._emit(
+          data.event as keyof SocketEventMap,
+          data as SocketEventMap[keyof SocketEventMap],
+        );
+      }
     };
 
     this.ws.onclose = () => {
@@ -424,17 +477,20 @@ class MessengerSocket {
     this.ws?.close();
   }
 
-  on<T = unknown>(event: string, handler: (data: T) => void) {
+  on<K extends keyof SocketEventMap>(
+    event: K,
+    handler: (data: SocketEventMap[K]) => void,
+  ) {
     if (!this.listeners[event]) this.listeners[event] = [];
-    this.listeners[event].push(handler);
+    this.listeners[event]!.push(handler as (data: unknown) => void);
     return () => {
-      this.listeners[event] = this.listeners[event].filter(
-          (h) => h !== handler,
+      this.listeners[event] = this.listeners[event]?.filter(
+        (h) => h !== (handler as (data: unknown) => void),
       );
     };
   }
 
-  _emit(event: string, data: unknown) {
+  _emit<K extends keyof SocketEventMap>(event: K, data: SocketEventMap[K]) {
     this.listeners[event]?.forEach((handler) => handler(data));
   }
   sendTyping(chatId: string, isTyping: boolean) {
