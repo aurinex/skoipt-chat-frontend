@@ -8,6 +8,7 @@ import ChatListItems from "./ChatListItems";
 import UserSearchResults from "./UserSearchResults";
 import { useChatsStore } from "../../stores/useChatsStore";
 import type { User } from "../../types";
+import NewChatModal from "../Ui/NewChatModal";
 
 const ChatList = () => {
   const chats = useChatsStore((state) => state.chats);
@@ -18,6 +19,8 @@ const ChatList = () => {
   const theme = useTheme();
   const colors = theme.palette.background;
   const isSearching = searchQuery.trim().length > 0;
+
+  const [openNewChatModal, setOpenNewChatModal] = useState(false);
 
   // Поиск пользователей по беку при изменении query
   useEffect(() => {
@@ -60,7 +63,10 @@ const ChatList = () => {
           </Typography>
           <KeyboardArrowDownIcon />
         </Box>
-        <IconButton sx={{ color: colors.wb }}>
+        <IconButton
+          sx={{ color: colors.wb }}
+          onClick={() => setOpenNewChatModal(true)}
+        >
           <NewMessageCustomIcon width={24} height={24} />
         </IconButton>
       </Box>
@@ -107,10 +113,12 @@ const ChatList = () => {
           </>
         )}
 
-        {!isSearching && (
-          <ChatListItems chats={chats} isLoading={isLoading} />
-        )}
+        {!isSearching && <ChatListItems chats={chats} isLoading={isLoading} />}
       </Box>
+      <NewChatModal
+        open={openNewChatModal}
+        onClose={() => setOpenNewChatModal(false)}
+      />
     </Box>
   );
 };
