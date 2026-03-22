@@ -41,14 +41,14 @@ const NewChatModal: React.FC<{
   const [name, setName] = useState("");
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
   const [search, setSearch] = useState("");
-  // const [results, setResults] = useState<User[]>([]);
-  // const [loading, setLoading] = useState(false);
 
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   const [height, setHeight] = useState<number | "auto">("auto");
+  const isSearching = search.trim().length > 0;
 
-  const { data: results = [], isPending: loading } =
+  const { data: results = [], isFetching } =
     useUsersSearchQuery(search);
+  const loading = isSearching && isFetching;
   const createGroupMutation = useCreateGroupMutation();
   const createChannelMutation = useCreateChannelMutation();
 
@@ -62,34 +62,15 @@ const NewChatModal: React.FC<{
       const endHeight = contentRef.current.scrollHeight;
       setHeight(endHeight);
     });
-  }, [mode, selectedUsers.length, results.length]);
+  }, [loading, mode, selectedUsers.length, results.length]);
 
-  // 🔍 поиск
-  // useEffect(() => {
-  //   if (!search.trim()) {
-  //     setResults([]);
-  //     return;
-  //   }
-
-  //   const t = setTimeout(() => {
-  //     setLoading(true);
-  //     api.users
-  //       .search(search)
-  //       .then(setResults)
-  //       .catch(() => setResults([]))
-  //       .finally(() => setLoading(false));
-  //   }, 300);
-
-  //   return () => clearTimeout(t);
-  // }, [search]);
-
-  // 🧹 очистка
   useEffect(() => {
     if (!open) {
       setMode("direct");
       setName("");
       setSelectedUsers([]);
       setSearch("");
+      setHeight("auto");
     }
   }, [open]);
 
