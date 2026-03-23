@@ -2,7 +2,6 @@ import { useRef, useEffect, useLayoutEffect, memo, useState } from "react";
 import {
   Box,
   Typography,
-  Avatar,
   Skeleton,
   Tooltip,
   LinearProgress,
@@ -15,12 +14,9 @@ import { formatLocalTime, formatDateLabel } from "../../utils/chatFormatters";
 import type { Message, ChatData } from "../../types";
 import type { AppColors } from "../../types/theme";
 import { useUserStore } from "../../stores/useUserStore";
-import {
-  getUserAvatarUrl,
-  getUserInitial,
-  getUserShortName,
-  resolveUser,
-} from "../../utils/user";
+import { resolveUser } from "../../utils/user";
+import UserAvatar from "../Ui/UserAvatar";
+import UserName from "../Ui/UserName";
 
 interface MessageListProps {
   messages: Message[];
@@ -575,17 +571,15 @@ const MessageList = memo(
                           }}
                         >
                           {isLastInGroup ? (
-                            <Avatar
-                              src={getUserAvatarUrl(sender)}
+                            <UserAvatar
+                              user={sender}
                               sx={{
                                 width: 45,
                                 height: 45,
                                 fontSize: "1.2rem",
                                 bgcolor: colors.eighth,
                               }}
-                            >
-                              {getUserInitial(sender)}
-                            </Avatar>
+                            />
                           ) : (
                             <Box sx={{ width: 34 }} />
                           )}
@@ -605,7 +599,10 @@ const MessageList = memo(
                         {!isMessageFromMe &&
                           (chatData?.member_count ?? 0) > 2 &&
                           isFirstInGroup && (
-                            <Typography
+                            <UserName
+                              user={sender}
+                              short
+                              fallback="Пользователь"
                               sx={{
                                 fontSize: "0.8rem",
                                 color: colors.eighth,
@@ -613,9 +610,7 @@ const MessageList = memo(
                                 mb: 0.3,
                                 ml: 1.5,
                               }}
-                            >
-                              {getUserShortName(sender, "Пользователь")}
-                            </Typography>
+                            />
                           )}
                         {highlightedId === msg.id && (
                           <Box
@@ -727,11 +722,12 @@ const MessageList = memo(
                                 cursor: "pointer",
                               }}
                             >
-                              <Typography
+                              <UserName
+                                user={replySender}
+                                short
+                                fallback="Ответ"
                                 sx={{ fontSize: "0.75rem", color: "#fff" }}
-                              >
-                                {getUserShortName(replySender, "Ответ")}
-                              </Typography>
+                              />
                               <Typography
                                 sx={{
                                   fontSize: "0.8rem",

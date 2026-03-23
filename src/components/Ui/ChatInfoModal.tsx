@@ -29,6 +29,8 @@ import {
   getUserDisplayName,
   resolveUser,
 } from "../../utils/user";
+import UserAvatar from "./UserAvatar";
+import UserName from "./UserName";
 
 import StarRoundedIcon from "@mui/icons-material/StarRounded";
 import StarOutlineRoundedIcon from "@mui/icons-material/StarOutlineRounded";
@@ -270,20 +272,37 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
           }}
         >
           {/* 🔹 AVATAR */}
-          <Avatar
-            src={avatar ?? undefined}
-            sx={{
-              width: 90,
-              height: 90,
-              cursor: isAdmin ? "pointer" : "default",
-              "&:hover": isAdmin
-                ? {
-                    opacity: 0.8,
-                  }
-                : undefined,
-            }}
-            onClick={() => isAdmin && fileInputRef.current?.click()}
-          />
+          {type === "direct" ? (
+            <UserAvatar
+              user={interlocutor}
+              sx={{
+                width: 90,
+                height: 90,
+                cursor: isAdmin ? "pointer" : "default",
+                "&:hover": isAdmin
+                  ? {
+                      opacity: 0.8,
+                    }
+                  : undefined,
+              }}
+              onClick={() => isAdmin && fileInputRef.current?.click()}
+            />
+          ) : (
+            <Avatar
+              src={avatar ?? undefined}
+              sx={{
+                width: 90,
+                height: 90,
+                cursor: isAdmin ? "pointer" : "default",
+                "&:hover": isAdmin
+                  ? {
+                      opacity: 0.8,
+                    }
+                  : undefined,
+              }}
+              onClick={() => isAdmin && fileInputRef.current?.click()}
+            />
+          )}
           <input
             type="file"
             accept="image/*"
@@ -386,7 +405,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                       {resolvedSelectedUsers.map((user) => (
                         <Chip
                           key={user.id}
-                          avatar={<Avatar src={getUserAvatarUrl(user)} />}
+                          avatar={<UserAvatar user={user} />}
                           label={getUserDisplayName(user)}
                           onDelete={() =>
                             setSelectedUsers((prev) =>
@@ -462,14 +481,9 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                               "&:hover": { bgcolor: colors.third },
                             }}
                           >
-                            <Avatar
-                              src={getUserAvatarUrl(resolvedUser)}
-                              sx={{ mr: 2 }}
-                            />
+                            <UserAvatar user={resolvedUser} sx={{ mr: 2 }} />
                             <Box>
-                              <Typography sx={{ color: colors.sixth }}>
-                                {getUserDisplayName(resolvedUser)}
-                              </Typography>
+                              <UserName user={resolvedUser} sx={{ color: colors.sixth }} />
                               <Typography
                                 sx={{
                                   fontSize: 12,
@@ -626,22 +640,21 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                             ) : null}
                           </Box>
 
-                          <Avatar
-                            src={getUserAvatarUrl(resolvedMember)}
+                          <UserAvatar
+                            user={resolvedMember}
                             sx={{ width: 32, height: 32 }}
                           />
 
                           <Box
                             sx={{ display: "flex", flexDirection: "column" }}
                           >
-                            <Typography
+                            <UserName
+                              user={resolvedMember}
                               sx={{
                                 color: colors.sixth,
                                 fontSize: 14,
                               }}
-                            >
-                              {getUserDisplayName(resolvedMember)}
-                            </Typography>
+                            />
 
                             <Typography
                               sx={{

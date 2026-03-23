@@ -8,7 +8,8 @@ import FindCustomIcon from "../../assets/icons/find.svg?react";
 import SettingsCustomIcon from "../../assets/icons/settings.svg?react";
 import ChatInfoModal from "../Ui/ChatInfoModal";
 import { useCachedUser } from "../../stores/useUserStore";
-import { getUserAvatarUrl, getUserDisplayName } from "../../utils/user";
+import { getUserDisplayName } from "../../utils/user";
+import UserAvatar from "../Ui/UserAvatar";
 
 interface ChatHeaderProps {
   chatData: ChatData | ChatPreview | null;
@@ -121,22 +122,6 @@ const ChatHeader = memo(
       );
     }
 
-    const getChatAvatar = (chatData: ChatData | ChatPreview | null) => {
-      if (!chatData) return undefined;
-
-      // direct чат
-      if (chatData.type === "direct") {
-        return getUserAvatarUrl(interlocutor);
-      }
-
-      // group / channel (только если это ChatData)
-      if ("avatar_url" in chatData) {
-        return chatData.avatar_url ?? undefined;
-      }
-
-      return undefined;
-    };
-
     return (
       <Box
         sx={{
@@ -162,11 +147,14 @@ const ChatHeader = memo(
             transition: "background 0.2s",
           }}
         >
-          <Avatar
-            src={getChatAvatar(chatData)}
-            sx={{ width: 60, height: 60 }}
-          />
-          {/* chatData?.interlocutor?.avatar_url */}
+          {chatData?.type === "direct" ? (
+            <UserAvatar user={interlocutor} sx={{ width: 60, height: 60 }} />
+          ) : (
+            <Avatar
+              src={chatData && "avatar_url" in chatData ? chatData.avatar_url ?? undefined : undefined}
+              sx={{ width: 60, height: 60 }}
+            />
+          )}
           <Box>
             <Typography
               sx={{ color: colors.sixth, fontWeight: 600, fontSize: 20 }}

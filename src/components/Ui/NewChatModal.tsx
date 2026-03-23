@@ -8,7 +8,6 @@ import {
   List,
   ListItem,
   ListItemButton,
-  Avatar,
   Chip,
   CircularProgress,
   Fade,
@@ -27,7 +26,9 @@ import {
   useCreateChannelMutation,
   useCreateGroupMutation,
 } from "../../queries/useChatMutations";
-import { getUserAvatarUrl, getUserDisplayName } from "../../utils/user";
+import { getUserDisplayName } from "../../utils/user";
+import UserAvatar from "./UserAvatar";
+import UserName from "./UserName";
 
 type Mode = "direct" | "group" | "channel";
 
@@ -313,14 +314,9 @@ const NewChatModal: React.FC<{
                                 "&:hover": { bgcolor: colors.third },
                               }}
                             >
-                              <Avatar
-                                src={getUserAvatarUrl(user)}
-                                sx={{ mr: 2 }}
-                              />
+                              <UserAvatar user={user} sx={{ mr: 2 }} />
                               <Box>
-                                <Typography sx={{ color: colors.sixth }}>
-                                  {getUserDisplayName(user)}
-                                </Typography>
+                                <UserName user={user} sx={{ color: colors.sixth }} />
                                 <Typography
                                   sx={{
                                     fontSize: 12,

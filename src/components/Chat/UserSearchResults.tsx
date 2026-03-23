@@ -2,7 +2,6 @@ import {
   List,
   ListItem,
   ListItemButton,
-  Avatar,
   Typography,
   Box,
   useTheme,
@@ -10,7 +9,8 @@ import {
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import type { User } from "../../types";
-import { getUserAvatarUrl, getUserDisplayName } from "../../utils/user";
+import UserAvatar from "../Ui/UserAvatar";
+import UserName from "../Ui/UserName";
 
 interface UserSearchResultsProps {
   users: User[];
@@ -57,10 +57,7 @@ const UserSearchResults = ({
             }}
           >
             <Box sx={{ position: "relative", mr: 2 }}>
-              <Avatar
-                src={getUserAvatarUrl(user)}
-                sx={{ width: 50, height: 50 }}
-              />
+              <UserAvatar user={user} sx={{ width: 50, height: 50 }} />
               {user.is_online && (
                 <Box
                   sx={{
@@ -78,16 +75,15 @@ const UserSearchResults = ({
               )}
             </Box>
             <Box sx={{ flexGrow: 1, overflow: "hidden" }}>
-              <Typography
+              <UserName
+                user={user}
                 sx={{
                   color: colors.sixth,
                   fontWeight: 600,
                   fontSize: "0.95rem",
                 }}
                 noWrap
-              >
-                {getUserDisplayName(user)}
-              </Typography>
+              />
               <Typography
                 sx={{ color: colors.fiveth, fontSize: "0.85rem" }}
                 noWrap
