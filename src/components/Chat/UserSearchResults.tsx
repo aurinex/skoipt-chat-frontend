@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import type { User } from "../../types";
 import UserAvatar from "../Ui/UserAvatar";
 import UserName from "../Ui/UserName";
+import UserStatus from "../Ui/UserStatus";
 
 interface UserSearchResultsProps {
   users: User[];
@@ -58,21 +59,17 @@ const UserSearchResults = ({
           >
             <Box sx={{ position: "relative", mr: 2 }}>
               <UserAvatar user={user} sx={{ width: 50, height: 50 }} />
-              {user.is_online && (
-                <Box
-                  sx={{
-                    position: "absolute",
-                    bottom: 2,
-                    right: 2,
-                    width: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    bgcolor: "#4caf50",
-                    border: "2px solid",
-                    borderColor: colors.second,
-                  }}
-                />
-              )}
+              <UserStatus
+                user={user}
+                indicatorOnly
+                indicatorSx={{
+                  position: "absolute",
+                  bottom: 2,
+                  right: 2,
+                  border: "2px solid",
+                  borderColor: colors.second,
+                }}
+              />
             </Box>
             <Box sx={{ flexGrow: 1, overflow: "hidden" }}>
               <UserName

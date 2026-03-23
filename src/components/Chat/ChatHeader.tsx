@@ -10,6 +10,7 @@ import ChatInfoModal from "../Ui/ChatInfoModal";
 import { useCachedUser } from "../../stores/useUserStore";
 import { getUserDisplayName } from "../../utils/user";
 import UserAvatar from "../Ui/UserAvatar";
+import UserStatus from "../Ui/UserStatus";
 
 interface ChatHeaderProps {
   chatData: ChatData | ChatPreview | null;
@@ -34,36 +35,6 @@ const ChatHeader = memo(
     const interlocutorName = getUserDisplayName(interlocutor, "");
     const chatTitle = getDisplayName(chatData, interlocutorName);
 
-    const getStatusContent = () => {
-      if (typingUsers.length > 0) {
-        const hasNames = typingUsers.every((u) => u.first_name);
-        if (!hasNames) {
-          return typingUsers.length > 1
-            ? "Несколько человек печатают..."
-            : "Печатает...";
-        }
-
-        const names = typingUsers.map(
-          (u) =>
-            `${u.first_name}${u.last_name ? " " + u.last_name[0] + "." : ""}`,
-        );
-
-        if (names.length === 1) return `${names[0]} печатает...`;
-        if (names.length === 2) return `${names[0]} и ${names[1]} печатают...`;
-        return `${names[0]}, ${names[1]} и еще ${names.length - 2} печатают...`;
-      }
-
-      if (chatData) {
-        if (chatData.interlocutor) {
-          return chatData.interlocutor.is_online ? "В сети" : "был(а) недавно";
-        }
-        if ("member_count" in chatData && chatData.member_count !== undefined) {
-          return getParticipantString(chatData.member_count);
-        }
-      }
-
-      return "Загрузка данных...";
-    };
     if (isMsgsLoading && !chatData) {
       return (
         <Box
@@ -161,15 +132,31 @@ const ChatHeader = memo(
             >
               {chatTitle || "Загрузка..."}
             </Typography>
-            <Typography
+            {chatData?.interlocutor ? (
+              <UserStatus
+                user={interlocutor}
+                typingUsers={typingUsers}
+                sx={{
+                  color: colors.fiveth,
+                  fontSize: 16,
+                  mt: "-6px",
+                }}
+              />
+            ) : (
+              <Typography
               sx={{
                 color: colors.fiveth,
                 fontSize: 16,
                 mt: "-6px",
               }}
             >
-              {getStatusContent()}
-            </Typography>
+              {chatData && "member_count" in chatData && chatData.member_count !== undefined ? (
+                getParticipantString(chatData.member_count)
+              ) : (
+                "Загрузка данных..."
+              )}
+              </Typography>
+            )}
           </Box>
         </Box>
         <Box>

@@ -1,4 +1,4 @@
-import type { Chat, User } from "../types";
+import type { Chat, TypingUser, User } from "../types";
 import type { UserSnapshot } from "../stores/useUserStore";
 
 type UserRecord = Record<string, UserSnapshot>;
@@ -54,4 +54,33 @@ export const getChatDisplayName = (
 ) => {
   if (chat.name) return chat.name;
   return getUserDisplayName(resolveUser(chat.interlocutor, usersById), fallback);
+};
+
+export const getTypingStatusText = (typingUsers: TypingUser[] = []) => {
+  if (typingUsers.length === 0) return null;
+
+  const hasNames = typingUsers.every((user) => user.first_name);
+  if (!hasNames) {
+    return typingUsers.length > 1
+      ? "Несколько человек печатают..."
+      : "Печатает...";
+  }
+
+  const names = typingUsers.map(
+    (user) =>
+      `${user.first_name}${user.last_name ? ` ${user.last_name[0]}.` : ""}`,
+  );
+
+  if (names.length === 1) return `${names[0]} печатает...`;
+  if (names.length === 2) return `${names[0]} и ${names[1]} печатают...`;
+  return `${names[0]}, ${names[1]} и еще ${names.length - 2} печатают...`;
+};
+
+export const getUserPresenceText = (
+  user: ResolvableUser,
+  fallback = "был(а) недавно",
+  onlineLabel = "В сети",
+) => {
+  if (!user) return "Загрузка данных...";
+  return user.is_online ? onlineLabel : fallback;
 };
