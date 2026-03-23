@@ -11,8 +11,6 @@ import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import FilePreview from "../Ui/FilePreview";
 import {
-  formatLocalTime,
-  formatDateLabel,
   getChatDateKey,
 } from "../../utils/chatFormatters";
 import type { Message, ChatData } from "../../types";
@@ -21,6 +19,8 @@ import { useUserStore } from "../../stores/useUserStore";
 import { resolveUser } from "../../utils/user";
 import UserAvatar from "../Ui/UserAvatar";
 import UserName from "../Ui/UserName";
+import DateLabel from "../Ui/DateLabel";
+import TimeText from "../Ui/TimeText";
 
 interface MessageListProps {
   messages: Message[];
@@ -535,7 +535,8 @@ const MessageList = memo(
                             padding: "2px", // это ширина границы
                           }}
                         >
-                          <Typography
+                          <DateLabel
+                            value={msg.created_at}
                             sx={{
                               color: colors.sixth,
                               fontSize: "14px",
@@ -543,9 +544,7 @@ const MessageList = memo(
                               borderRadius: "19px", // чуть меньше, чтобы не перекрывать
                               bgcolor: colors.second,
                             }}
-                          >
-                            {formatDateLabel(msg.created_at)}
-                          </Typography>
+                          />
                         </Box>
                       </Box>
                     )}
@@ -830,14 +829,13 @@ const MessageList = memo(
                                   }),
                             }}
                           >
-                            <Typography
+                            <TimeText
+                              value={msg.created_at}
                               sx={{
                                 fontSize: "0.7rem",
                                 opacity: isPureMedia ? 0.9 : 0.5,
                               }}
-                            >
-                              {formatLocalTime(msg.created_at)}
-                            </Typography>
+                            />
 
                             {isMessageFromMe && (
                               <>
