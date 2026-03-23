@@ -19,7 +19,7 @@ const Layout = () => {
 
   useEffect(() => {
     const sound = new Audio("/sounds/icq.mp3");
-    sound.volume = 0.5;
+    sound.volume = 0.3;
     notificationSoundRef.current = sound;
   }, []);
 

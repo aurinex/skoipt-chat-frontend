@@ -49,11 +49,12 @@ const AppTextField = ({
         onChange={(e) => onChange?.(e.target.value)}
         InputProps={InputProps}
         sx={{
+          borderRadius: "20px",
           ...styles,
           ".MuiOutlinedInput-root": {
             color: colors.fiveth,
-            borderRadius: "20px",
-            fontSize: type === "password" ? "16px" : "20px",
+            // borderRadius: "20px",
+            fontSize: type === "password" ? "16px" : "18px",
             height: "49px",
           },
           ".MuiOutlinedInput-input": {
@@ -63,7 +64,6 @@ const AppTextField = ({
             border: "none",
           },
           bgcolor: colors.fourth,
-          borderRadius: "20px",
         }}
       />
     </Box>

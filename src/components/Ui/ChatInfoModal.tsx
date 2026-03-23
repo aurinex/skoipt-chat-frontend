@@ -6,6 +6,14 @@ import {
   Fade,
   Backdrop,
   Button,
+  Icon,
+  IconButton,
+  List,
+  ListItem,
+  ListItemButton,
+  CircularProgress,
+  Chip,
+  InputAdornment,
 } from "@mui/material";
 import type { ChatData, ChatPreview } from "../../types";
 import type { AppColors } from "../../types/theme";
@@ -14,7 +22,13 @@ import { getMyId } from "../../services/api";
 import api from "../../services/api";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useUsersSearchQuery } from "../../queries/useUsersSearchQuery";
+import type { User } from "../../types";
+
+import StarRoundedIcon from "@mui/icons-material/StarRounded";
+import StarOutlineRoundedIcon from "@mui/icons-material/StarOutlineRounded";
+import AppTextField from "./AppTextField";
 
 interface Props {
   open: boolean;
@@ -27,6 +41,20 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
   if (!chatData) return null;
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [showAddInput, setShowAddInput] = useState(false);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const [height, setHeight] = useState<number | "auto">("auto");
+  const [search, setSearch] = useState("");
+  const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
+  const { data: users = [], isFetching } = useUsersSearchQuery(search);
+
+  const handleSelectUser = (user: User) => {
+    setSelectedUsers((prev) =>
+      prev.find((u) => u.id === user.id)
+        ? prev.filter((u) => u.id !== user.id)
+        : [...prev, user],
+    );
+  };
 
   const navigate = useNavigate();
 
@@ -35,7 +63,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
   // 🔹 NAME
   let name = "";
 
-  const chatId = "id" in chatData ? chatData.id : chatData.chat_id ?? null;
+  const chatId = "id" in chatData ? chatData.id : (chatData.chat_id ?? null);
 
   if (type === "direct") {
     name = chatData.interlocutor
@@ -50,7 +78,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
   // 🔹 MEMBERS QUERY (только для group/channel)
   const { data, isLoading } = useChatMembersQuery(
     chatId ?? "",
-    Boolean(open && chatId && (type === "group" || type === "channel"))
+    Boolean(open && chatId && (type === "group" || type === "channel")),
   );
 
   // 🔹 ADMIN CHECK
@@ -71,23 +99,42 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
     status = isAdmin ? `${count} участников` : `${count} подписчиков`;
   }
 
-  // 🔹 AVATAR
+  useEffect(() => {
+    if (!contentRef.current) return;
+
+    const el = contentRef.current;
+    const startHeight = el.offsetHeight;
+    setHeight(startHeight);
+
+    requestAnimationFrame(() => {
+      if (!contentRef.current) return;
+      const endHeight = contentRef.current.scrollHeight;
+      setHeight(endHeight);
+    });
+  }, [showAddInput, data?.members?.length]);
+
   const avatar =
     type === "direct"
       ? chatData.interlocutor?.avatar_url
       : "avatar_url" in chatData
-      ? chatData.avatar_url
-      : undefined;
+        ? chatData.avatar_url
+        : undefined;
+
+  const filteredUsers = users.filter(
+    (u) => !(data?.members ?? []).some((m) => m.id === u.id),
+  );
 
   const handleAddMember = async () => {
-    if (!chatId) return;
-
-    const userId = prompt("Введите ID пользователя");
-    if (!userId) return;
+    if (!chatId || selectedUsers.length === 0) return;
 
     try {
-      await api.chats.addMember(chatId, userId);
-      console.log("Участник добавлен");
+      await Promise.all(
+        selectedUsers.map((user) => api.chats.addMember(chatId, user.id)),
+      );
+
+      setSelectedUsers([]);
+      setSearch("");
+      setShowAddInput(false);
 
       queryClient.invalidateQueries({ queryKey: ["chat-members", chatId] });
       queryClient.invalidateQueries({ queryKey: ["chat-details", chatId] });
@@ -168,6 +215,20 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
     }
   };
 
+  // const handleMakeAdmin = async (userId: string) => {
+  //   if (!chatId) return;
+
+  //   try {
+  //     await api.chats.makeAdmin(chatId, userId);
+
+  //     queryClient.invalidateQueries({ queryKey: ["chat-members", chatId] });
+
+  //     console.log("Пользователь повышен до администратора");
+  //   } catch (e) {
+  //     console.error(e);
+  //   }
+  // };
+
   return (
     <Modal
       open={open}
@@ -185,7 +246,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            width: 360,
+            width: 380,
             bgcolor: colors.second,
             borderRadius: "20px",
             p: 3,
@@ -193,6 +254,10 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
             flexDirection: "column",
             alignItems: "center",
             gap: 2,
+
+            overflow: "hidden",
+            height,
+            transition: "height 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
           }}
         >
           {/* 🔹 AVATAR */}
@@ -266,7 +331,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
               {isAdmin && (
                 <Button
                   fullWidth
-                  onClick={type === "group" ? handleAddMember : handleInvite}
+                  onClick={() => setShowAddInput((prev) => !prev)}
                   sx={{
                     borderRadius: "12px",
                     textTransform: "none",
@@ -276,6 +341,161 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                 >
                   {type === "group" ? "Добавить участника" : "Пригласить"}
                 </Button>
+              )}
+              {showAddInput && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 1,
+                  }}
+                >
+                  {/* 🔍 INPUT */}
+                  <AppTextField
+                    value={search}
+                    onChange={setSearch}
+                    placeholder="Введите username"
+                    autoFocus
+                    styles={{
+                      borderRadius: "12px",
+                      ".MuiOutlinedInput-input ": {
+                        padding: "19px 22px 19px 10px !important",
+                      },
+                    }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start" sx={{ mr: "0px" }}>
+                          <Typography sx={{ fontSize: 20 }}>@</Typography>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+
+                  {/* 👤 SELECTED USER */}
+                  {selectedUsers.length > 0 && (
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                      {selectedUsers.map((u) => (
+                        <Chip
+                          key={u.id}
+                          avatar={<Avatar src={u.avatar_url ?? undefined} />}
+                          label={`${u.first_name} ${u.last_name}`}
+                          onDelete={() =>
+                            setSelectedUsers((prev) =>
+                              prev.filter((x) => x.id !== u.id),
+                            )
+                          }
+                          sx={{
+                            bgcolor: colors.fourth,
+                            color: colors.sixth,
+                          }}
+                        />
+                      ))}
+                    </Box>
+                  )}
+
+                  {/* 📜 RESULTS */}
+                  <Box
+                    sx={{
+                      maxHeight: 500,
+                      overflowY: "auto",
+                      display: "flex",
+                      flexDirection: "column",
+                      // gap: 0.5,
+                    }}
+                  >
+                    {isFetching && <CircularProgress size={20} />}
+
+                    {/* {users.map((user: User) => (
+                      <ListItem key={user.id} disablePadding>
+                        <ListItemButton
+                          onClick={() => handleSelectUser(user)}
+                          sx={{
+                            borderRadius: "12px",
+                            "&:hover": { bgcolor: colors.third },
+                          }}
+                        >
+                          <Avatar
+                            src={user.avatar_url ?? undefined}
+                            sx={{ mr: 2 }}
+                          />
+                          <Box>
+                            <Typography sx={{ color: colors.sixth }}>
+                              {user.first_name} {user.last_name}
+                            </Typography>
+                            <Typography
+                              sx={{
+                                fontSize: 12,
+                                color: colors.fiveth,
+                              }}
+                            >
+                              @{user.username}
+                            </Typography>
+                          </Box>
+                        </ListItemButton>
+                      </ListItem>
+                    ))}
+                  </Box> */}
+
+                    {filteredUsers.map((user: User) => {
+                      const isSelected = selectedUsers.some(
+                        (u) => u.id === user.id,
+                      );
+
+                      return (
+                        <ListItem key={user.id} disablePadding>
+                          <ListItemButton
+                            onClick={() => handleSelectUser(user)}
+                            sx={{
+                              borderRadius: "12px",
+                              mb: "8px",
+                              bgcolor: isSelected
+                                ? colors.third
+                                : "transparent",
+                              "&:hover": { bgcolor: colors.third },
+                            }}
+                          >
+                            <Avatar
+                              src={user.avatar_url ?? undefined}
+                              sx={{ mr: 2 }}
+                            />
+                            <Box>
+                              <Typography sx={{ color: colors.sixth }}>
+                                {user.first_name} {user.last_name}
+                              </Typography>
+                              <Typography
+                                sx={{
+                                  fontSize: 12,
+                                  color: colors.fiveth,
+                                }}
+                              >
+                                @{user.username}
+                              </Typography>
+                            </Box>
+                          </ListItemButton>
+                        </ListItem>
+                      );
+                    })}
+
+                    {/* ✅ APPLY BUTTON */}
+                    <Button
+                      disabled={selectedUsers.length === 0}
+                      onClick={handleAddMember}
+                      sx={{
+                        borderRadius: "12px",
+                        textTransform: "none",
+                        bgcolor: colors.eighth,
+                        color: "#fff",
+                        "&:hover": { opacity: 0.9 },
+                        "&.Mui-disabled": {
+                          opacity: 0.4,
+                          color: "#fff",
+                        },
+                      }}
+                    >
+                      Добавить ({selectedUsers.length})
+                    </Button>
+                  </Box>
+                </Box>
               )}
 
               <Button
@@ -290,103 +510,157 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
               >
                 Выйти
               </Button>
-            </Box>
-          )}
 
-          {/* 🔹 MEMBERS LIST */}
-          {(type === "group" || type === "channel") && (
-            <Box
-              sx={{
-                width: "100%",
-                maxHeight: 220,
-                overflowY: "auto",
-                px: 1,
-                display: "flex",
-                flexDirection: "column",
-                gap: "4px",
-              }}
-            >
-              {isLoading && (
-                <Typography sx={{ color: colors.fiveth, fontSize: 14 }}>
-                  Загрузка участников...
-                </Typography>
-              )}
-
-              {!isLoading && data?.members?.length === 0 && (
-                <Typography sx={{ color: colors.fiveth, fontSize: 14 }}>
-                  Нет участников
-                </Typography>
-              )}
-
-              {data?.members?.map((member) => (
+              {/* 🔹 MEMBERS LIST */}
+              {(type === "group" || type === "channel") && (
                 <Box
-                  key={member.id}
                   sx={{
+                    width: "100%",
+                    maxHeight: 220,
+                    overflowY: "auto",
+                    px: 1,
                     display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
+                    flexDirection: "column",
+                    gap: "4px",
                   }}
                 >
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      py: 0.5,
-                    }}
-                  >
-                    <Avatar
-                      src={member.avatar_url ?? undefined}
-                      sx={{ width: 32, height: 32 }}
-                    />
+                  {isLoading && (
+                    <Typography sx={{ color: colors.fiveth, fontSize: 14 }}>
+                      Загрузка участников...
+                    </Typography>
+                  )}
 
-                    <Box sx={{ display: "flex", flexDirection: "column" }}>
-                      <Typography
+                  {!isLoading && data?.members?.length === 0 && (
+                    <Typography sx={{ color: colors.fiveth, fontSize: 14 }}>
+                      Нет участников
+                    </Typography>
+                  )}
+
+                  {data?.members?.map((member) => (
+                    <Box
+                      key={member.id}
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Box
                         sx={{
-                          color: colors.sixth,
-                          fontSize: 14,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 1,
+                          py: 0.5,
                         }}
                       >
-                        {member.first_name} {member.last_name}
+                        {/* {member.is_admin && (
+                      <Typography sx={{ fontSize: 12, color: colors.fiveth }}>
+                        а
                       </Typography>
+                    )} */}
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            py: 0.5,
+                          }}
+                        >
+                          {/* ⭐ STAR */}
+                          <Box
+                            sx={{
+                              width: 18,
+                              display: "flex",
+                              justifyContent: "center",
+                              alignItems: "center",
+                            }}
+                          >
+                            {/* c59300ff */}
+                            {member.is_admin ? (
+                              <StarRoundedIcon
+                                sx={{ fontSize: 20, color: "#ffae00ff" }}
+                              />
+                            ) : isAdmin && member.id !== myId ? (
+                              <IconButton
+                                size="small"
+                                sx={{
+                                  p: 0.5,
+                                  border: "none",
+                                }}
+                              >
+                                <StarOutlineRoundedIcon
+                                  sx={{
+                                    fontSize: 20,
+                                    color: colors.fiveth,
+                                    transition: "color 0.2s ease",
+                                    ":hover": {
+                                      color: colors.wb,
+                                    },
+                                  }}
+                                />
+                              </IconButton>
+                            ) : null}
+                          </Box>
 
-                      <Typography
-                        sx={{
-                          color: colors.fiveth,
-                          fontSize: 12,
-                        }}
+                          <Avatar
+                            src={member.avatar_url ?? undefined}
+                            sx={{ width: 32, height: 32 }}
+                          />
+
+                          <Box
+                            sx={{ display: "flex", flexDirection: "column" }}
+                          >
+                            <Typography
+                              sx={{
+                                color: colors.sixth,
+                                fontSize: 14,
+                              }}
+                            >
+                              {member.first_name} {member.last_name}
+                            </Typography>
+
+                            <Typography
+                              sx={{
+                                color: colors.fiveth,
+                                fontSize: 12,
+                              }}
+                            >
+                              @{member.username}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Box>
+
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
                       >
-                        @{member.username}
-                      </Typography>
-                    </Box>
-                  </Box>
-
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    {member.is_admin && (
+                        {/* {member.is_admin && (
                       <Typography sx={{ fontSize: 12, color: colors.fiveth }}>
                         админ
                       </Typography>
-                    )}
+                    )} */}
 
-                    {/* 🔴 KICK BUTTON */}
-                    {isAdmin && member.id !== myId && (
-                      <Button
-                        size="small"
-                        onClick={() => handleKick(member.id)}
-                        sx={{
-                          minWidth: "unset",
-                          px: 1,
-                          py: 0.5,
-                          fontSize: 12,
-                          color: "#ff4d4f",
-                        }}
-                      >
-                        ✕
-                      </Button>
-                    )}
-                  </Box>
+                        {/* 🔴 KICK BUTTON */}
+                        {isAdmin && member.id !== myId && (
+                          <Button
+                            size="small"
+                            onClick={() => handleKick(member.id)}
+                            sx={{
+                              minWidth: "unset",
+                              px: 1,
+                              py: 0.5,
+                              fontSize: 12,
+                              color: "#ff4d4f",
+                            }}
+                          >
+                            ✕
+                          </Button>
+                        )}
+                      </Box>
+                    </Box>
+                  ))}
                 </Box>
-              ))}
+              )}
             </Box>
           )}
         </Box>

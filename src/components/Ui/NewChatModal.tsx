@@ -102,7 +102,7 @@ const NewChatModal: React.FC<{
     }
 
     setSelectedUsers((prev) =>
-      prev.find((u) => u.id === user.id) ? prev : [...prev, user]
+      prev.find((u) => u.id === user.id) ? prev : [...prev, user],
     );
   };
 
