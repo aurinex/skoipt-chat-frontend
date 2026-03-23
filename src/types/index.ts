@@ -57,6 +57,7 @@ export interface Chat {
   member_count?: number;
   members?: string[];
   admins?: string[];
+  avatar_url?: string;
   unread_count?: number;
   last_message?: Message | null;
   interlocutor?: User | null;
@@ -66,6 +67,7 @@ export interface Chat {
 export interface ChatPreview {
   chat_id: string | null;
   type: "direct";
+  avatar_url: string;
   interlocutor: User;
 }
 
@@ -80,6 +82,7 @@ export interface ChatData {
   type: "direct" | "group" | "channel";
   name?: string | null;
   member_count?: number;
+  avatar_url?: string;
   members?: string[];
   admins?: string[];
   interlocutor?: User | null;

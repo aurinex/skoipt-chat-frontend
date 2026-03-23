@@ -18,7 +18,7 @@ const Layout = () => {
   } = useChatListCacheActions();
 
   useEffect(() => {
-    const sound = new Audio("/sounds/message.mp3");
+    const sound = new Audio("/sounds/icq.mp3");
     sound.volume = 0.5;
     notificationSoundRef.current = sound;
   }, []);

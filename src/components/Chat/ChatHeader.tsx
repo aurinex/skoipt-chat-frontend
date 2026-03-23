@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Box, Typography, Avatar, IconButton, Skeleton } from "@mui/material";
 import { getParticipantString } from "../../utils/chatFormatters";
 import type { ChatData, ChatPreview, TypingUser } from "../../types";
@@ -6,6 +6,7 @@ import type { AppColors } from "../../types/theme";
 
 import FindCustomIcon from "../../assets/icons/find.svg?react";
 import SettingsCustomIcon from "../../assets/icons/settings.svg?react";
+import ChatInfoModal from "../Ui/ChatInfoModal";
 
 interface ChatHeaderProps {
   chatData: ChatData | ChatPreview | null;
@@ -34,6 +35,7 @@ const getDisplayName = (chatData: ChatData | ChatPreview | null) => {
 const ChatHeader = memo(
   ({ chatData, typingUsers, isMsgsLoading, colors }: ChatHeaderProps) => {
     const chatTitle = getDisplayName(chatData);
+    const [openInfo, setOpenInfo] = useState(false);
 
     const getStatusContent = () => {
       if (typingUsers.length > 0) {
@@ -46,7 +48,7 @@ const ChatHeader = memo(
 
         const names = typingUsers.map(
           (u) =>
-            `${u.first_name}${u.last_name ? " " + u.last_name[0] + "." : ""}`,
+            `${u.first_name}${u.last_name ? " " + u.last_name[0] + "." : ""}`
         );
 
         if (names.length === 1) return `${names[0]} печатает...`;
@@ -123,6 +125,22 @@ const ChatHeader = memo(
       );
     }
 
+    const getChatAvatar = (chatData: ChatData | ChatPreview | null) => {
+      if (!chatData) return undefined;
+
+      // direct чат
+      if (chatData.type === "direct") {
+        return chatData.interlocutor?.avatar_url ?? undefined;
+      }
+
+      // group / channel (только если это ChatData)
+      if ("avatar_url" in chatData) {
+        return chatData.avatar_url ?? undefined;
+      }
+
+      return undefined;
+    };
+
     return (
       <Box
         sx={{
@@ -135,22 +153,34 @@ const ChatHeader = memo(
           mb: 2,
         }}
       >
-        <Box sx={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <Box
+          onClick={() => setOpenInfo(true)}
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            cursor: "pointer",
+            borderRadius: "20px",
+            px: 1,
+            py: 0.5,
+            transition: "background 0.2s",
+          }}
+        >
           <Avatar
-            src={chatData?.interlocutor?.avatar_url ?? undefined}
+            src={getChatAvatar(chatData)}
             sx={{ width: 60, height: 60 }}
           />
           {/* chatData?.interlocutor?.avatar_url */}
           <Box>
             <Typography
-              sx={{ color: colors.sixth, fontWeight: 600, fontSize: 24 }}
+              sx={{ color: colors.sixth, fontWeight: 600, fontSize: 20 }}
             >
               {chatTitle || "Загрузка..."}
             </Typography>
             <Typography
               sx={{
                 color: colors.fiveth,
-                fontSize: 18,
+                fontSize: 16,
                 mt: "-6px",
               }}
             >
@@ -166,9 +196,15 @@ const ChatHeader = memo(
             <SettingsCustomIcon width={24} height={24} />
           </IconButton>
         </Box>
+        <ChatInfoModal
+          open={openInfo}
+          onClose={() => setOpenInfo(false)}
+          chatData={chatData}
+          colors={colors}
+        />
       </Box>
     );
-  },
+  }
 );
 
 export default ChatHeader;

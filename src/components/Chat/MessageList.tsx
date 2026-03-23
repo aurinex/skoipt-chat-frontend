@@ -240,11 +240,7 @@ const UploadingImageThumb = ({
 );
 
 // Плейсхолдер для загружаемых файлов (не изображений)
-const UploadingFilePlaceholder = ({
-  count,
-}: {
-  count: number;
-}) => (
+const UploadingFilePlaceholder = ({ count }: { count: number }) => (
   <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mt: 1 }}>
     {Array.from({ length: count }).map((_, i) => (
       <Box
@@ -288,9 +284,11 @@ const MessageList = memo(
     const scrollRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const prevChatIdRef = useRef<string | undefined>(chatId);
-    const prevFirstMessageIdRef = useRef<string | null>(messages[0]?.id ?? null);
+    const prevFirstMessageIdRef = useRef<string | null>(
+      messages[0]?.id ?? null
+    );
     const prevLastMessageIdRef = useRef<string | null>(
-      messages[messages.length - 1]?.id ?? null,
+      messages[messages.length - 1]?.id ?? null
     );
     const prevScrollHeightRef = useRef(0);
     const prevScrollTopRef = useRef(0);
@@ -358,12 +356,15 @@ const MessageList = memo(
           behavior: "auto",
         });
       } else if (prependedOlderMessages) {
-        const scrollDelta = container.scrollHeight - prevScrollHeightRef.current;
+        const scrollDelta =
+          container.scrollHeight - prevScrollHeightRef.current;
         container.scrollTop = prevScrollTopRef.current + scrollDelta;
         shouldRestoreScrollRef.current = false;
       } else if (appendedNewMessages) {
         const distanceFromBottom =
-          prevScrollHeightRef.current - prevScrollTopRef.current - container.clientHeight;
+          prevScrollHeightRef.current -
+          prevScrollTopRef.current -
+          container.clientHeight;
         const wasNearBottom = distanceFromBottom <= 120;
 
         if (wasNearBottom) {
@@ -415,322 +416,360 @@ const MessageList = memo(
           gap: 0.5,
         }}
       >
-        <Box ref={contentRef}>
-        {showSkeleton && messages.length === 0 ? (
-          <MessageSkeleton colors={colors} />
-        ) : (
-          <>
-            {isLoadingMore && (
-              <Box sx={{ display: "flex", justifyContent: "center", py: 1 }}>
-                <LinearProgress sx={{ width: 120, borderRadius: 2 }} />
-              </Box>
-            )}
-            {messages.map((msg, index) => {
-            if (msg.is_system) {
-              return (
-                <Box
-                  key={msg.id}
-                  sx={{
-                    alignSelf: "center",
-                    my: 1,
-                    px: 2,
-                    py: 0.5,
-                    bgcolor: colors.fourth,
-                    borderRadius: "20px",
-                  }}
-                >
-                  <Typography
-                    sx={{
-                      color: colors.fiveth,
-                      fontSize: "0.75rem",
-                      textAlign: "center",
-                      whiteSpace: "pre-wrap",
-                    }}
-                  >
-                    {msg.text}
-                  </Typography>
+        <Box ref={contentRef} sx={{ display: "flex", flexDirection: "column" }}>
+          {showSkeleton && messages.length === 0 ? (
+            <MessageSkeleton colors={colors} />
+          ) : (
+            <>
+              {isLoadingMore && (
+                <Box sx={{ display: "flex", justifyContent: "center", py: 1 }}>
+                  <LinearProgress sx={{ width: 120, borderRadius: 2 }} />
                 </Box>
-              );
-            }
-
-            const isMessageFromMe = msg.is_mine;
-            const prevMsg = messages[index - 1];
-            const nextMsg = messages[index + 1];
-            const isFirstInGroup =
-              !prevMsg || prevMsg.sender_id !== msg.sender_id;
-            const isLastInGroup =
-              !nextMsg || nextMsg.sender_id !== msg.sender_id;
-            const currentDate = new Date(msg.created_at).toDateString();
-            const prevDate = prevMsg
-              ? new Date(prevMsg.created_at).toDateString()
-              : null;
-            const showDateLabel = currentDate !== prevDate;
-
-            const fileUrls: string[] = msg.file_urls?.length
-              ? msg.file_urls
-              : msg.file_url
-                ? [msg.file_url]
-                : [];
-
-            const isUploading = !!msg._uploading;
-
-            // Разделяем на изображения и остальные файлы
-            const imageUrls = fileUrls.filter(
-              (u) =>
-                u.match(/\.(jpg|jpeg|png|gif|webp)/i) || u.startsWith("blob:"),
-            );
-            const otherUrls = fileUrls.filter(
-              (u) =>
-                !u.match(/\.(jpg|jpeg|png|gif|webp)/i) &&
-                !u.startsWith("blob:"),
-            );
-
-            // Для плейсхолдера не-изображений считаем количество
-            const uploadingNonImageCount = isUploading
-              ? (msg._nonImageCount ?? 0)
-              : 0;
-
-            const hasImages = imageUrls.length > 0;
-            const hasText = !!msg.text;
-
-            const isPureMedia = hasImages && !hasText && otherUrls.length === 0;
-
-            return (
-              <Box key={msg.id} sx={{ display: "contents" }}>
-                {showDateLabel && (
-                  <Box sx={{ alignSelf: "center", my: 2 }}>
-                    <Typography
-                      sx={{
-                        color: colors.sixth,
-                        fontSize: "14px",
-                        p: "6px 25px",
-                        borderRadius: "19px",
-                        bgcolor: colors.second,
-                        border: "1px solid rgba(255,255,255,0.1)",
-                      }}
-                    >
-                      {formatDateLabel(msg.created_at)}
-                    </Typography>
-                  </Box>
-                )}
-
-                <Box
-                  id={`msg-${msg.id}`}
-                  onDoubleClick={() => onReply?.(msg)}
-                  sx={{
-                    position: "relative",
-                    display: "flex",
-                    flexDirection: "row",
-                    alignItems: "flex-end",
-                    justifyContent: isMessageFromMe ? "flex-end" : "flex-start",
-                    gap: 1,
-                    mb: isLastInGroup ? 2 : 0.4,
-                  }}
-                >
-                  {!isMessageFromMe && (
+              )}
+              {messages.map((msg, index) => {
+                if (msg.is_system) {
+                  return (
                     <Box
+                      key={msg.id}
                       sx={{
-                        width: 45,
-                        flexShrink: 0,
-                        display: "flex",
-                        justifyContent: "center",
+                        alignSelf: "center",
+                        my: 1,
+                        px: 2,
+                        py: 0.5,
+                        bgcolor: colors.fourth,
+                        borderRadius: "20px",
                       }}
                     >
-                      {isLastInGroup ? (
-                        <Avatar
-                          src={msg.sender?.avatar_url ?? undefined}
-                          sx={{
-                            width: 45,
-                            height: 45,
-                            fontSize: "1.2rem",
-                            bgcolor: colors.eighth,
-                          }}
-                        >
-                          {msg.sender?.first_name?.[0]}
-                        </Avatar>
-                      ) : (
-                        <Box sx={{ width: 34 }} />
-                      )}
+                      <Typography
+                        sx={{
+                          color: colors.fiveth,
+                          fontSize: "0.75rem",
+                          textAlign: "center",
+                          whiteSpace: "pre-wrap",
+                        }}
+                      >
+                        {msg.text}
+                      </Typography>
                     </Box>
-                  )}
+                  );
+                }
 
-                  <Box
-                    sx={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: isMessageFromMe ? "flex-end" : "flex-start",
-                      maxWidth: "75%",
-                    }}
-                  >
-                    {!isMessageFromMe &&
-                      (chatData?.member_count ?? 0) > 2 &&
-                      isFirstInGroup && (
-                        <Typography
-                          sx={{
-                            fontSize: "0.8rem",
-                            color: colors.eighth,
-                            fontWeight: 600,
-                            mb: 0.3,
-                            ml: 1.5,
-                          }}
-                        >
-                          {msg.sender?.first_name}{" "}
-                          {msg.sender?.last_name?.[0]
-                            ? `${msg.sender.last_name[0]}.`
-                            : ""}
-                        </Typography>
-                      )}
-                    {highlightedId === msg.id && (
+                const isMessageFromMe = msg.is_mine;
+                const prevMsg = messages[index - 1];
+                const nextMsg = messages[index + 1];
+                const isFirstInGroup =
+                  !prevMsg || prevMsg.sender_id !== msg.sender_id;
+                const isLastInGroup =
+                  !nextMsg || nextMsg.sender_id !== msg.sender_id;
+                const currentDate = new Date(msg.created_at).toDateString();
+                const prevDate = prevMsg
+                  ? new Date(prevMsg.created_at).toDateString()
+                  : null;
+                const showDateLabel = currentDate !== prevDate;
+
+                const fileUrls: string[] = msg.file_urls?.length
+                  ? msg.file_urls
+                  : msg.file_url
+                  ? [msg.file_url]
+                  : [];
+
+                const isUploading = !!msg._uploading;
+
+                // Разделяем на изображения и остальные файлы
+                const imageUrls = fileUrls.filter(
+                  (u) =>
+                    u.match(/\.(jpg|jpeg|png|gif|webp)/i) ||
+                    u.startsWith("blob:")
+                );
+                const otherUrls = fileUrls.filter(
+                  (u) =>
+                    !u.match(/\.(jpg|jpeg|png|gif|webp)/i) &&
+                    !u.startsWith("blob:")
+                );
+
+                // Для плейсхолдера не-изображений считаем количество
+                const uploadingNonImageCount = isUploading
+                  ? msg._nonImageCount ?? 0
+                  : 0;
+
+                const hasImages = imageUrls.length > 0;
+                const hasText = !!msg.text;
+
+                const isPureMedia =
+                  hasImages && !hasText && otherUrls.length === 0;
+
+                return (
+                  <Box key={msg.id} sx={{ display: "contents" }}>
+                    {showDateLabel && (
                       <Box
                         sx={{
-                          position: "absolute",
-                          inset: 0,
-                          borderRadius: "16px",
-                          zIndex: 0,
-                          pointerEvents: "none",
-                          ml: "54px",
-                          background: `linear-gradient(
+                          display: "flex",
+                          justifyContent: "center",
+                          my: 2,
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            borderRadius: "19px",
+                            background:
+                              "radial-gradient(circle at 50%, #636363, #CDCDCD 50%, #636363 100%)",
+                            padding: "2px", // это ширина границы
+                          }}
+                        >
+                          <Typography
+                            sx={{
+                              color: colors.sixth,
+                              fontSize: "14px",
+                              p: "6px 25px",
+                              borderRadius: "19px", // чуть меньше, чтобы не перекрывать
+                              bgcolor: colors.second,
+                            }}
+                          >
+                            {formatDateLabel(msg.created_at)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    )}
+
+                    <Box
+                      id={`msg-${msg.id}`}
+                      onDoubleClick={() => onReply?.(msg)}
+                      sx={{
+                        position: "relative",
+                        display: "flex",
+                        flexDirection: "row",
+                        alignItems: "flex-end",
+                        justifyContent: isMessageFromMe
+                          ? "flex-end"
+                          : "flex-start",
+                        gap: 1,
+                        mb: isLastInGroup ? 2 : 0.4,
+                      }}
+                    >
+                      {!isMessageFromMe && (
+                        <Box
+                          sx={{
+                            width: 45,
+                            flexShrink: 0,
+                            display: "flex",
+                            justifyContent: "center",
+                          }}
+                        >
+                          {isLastInGroup ? (
+                            <Avatar
+                              src={msg.sender?.avatar_url ?? undefined}
+                              sx={{
+                                width: 45,
+                                height: 45,
+                                fontSize: "1.2rem",
+                                bgcolor: colors.eighth,
+                              }}
+                            >
+                              {msg.sender?.first_name?.[0]}
+                            </Avatar>
+                          ) : (
+                            <Box sx={{ width: 34 }} />
+                          )}
+                        </Box>
+                      )}
+
+                      <Box
+                        sx={{
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: isMessageFromMe
+                            ? "flex-end"
+                            : "flex-start",
+                          maxWidth: "75%",
+                        }}
+                      >
+                        {!isMessageFromMe &&
+                          (chatData?.member_count ?? 0) > 2 &&
+                          isFirstInGroup && (
+                            <Typography
+                              sx={{
+                                fontSize: "0.8rem",
+                                color: colors.eighth,
+                                fontWeight: 600,
+                                mb: 0.3,
+                                ml: 1.5,
+                              }}
+                            >
+                              {msg.sender?.first_name}{" "}
+                              {msg.sender?.last_name?.[0]
+                                ? `${msg.sender.last_name[0]}.`
+                                : ""}
+                            </Typography>
+                          )}
+                        {highlightedId === msg.id && (
+                          <Box
+                            sx={{
+                              position: "absolute",
+                              inset: 0,
+                              borderRadius: "16px",
+                              zIndex: 0,
+                              pointerEvents: "none",
+                              ml: "54px",
+                              background: `linear-gradient(
                             ${isMessageFromMe ? "270deg" : "90deg"},
                             ${colors.highlight} 0%,
                             ${colors.third} 90%
                           )`,
-                          animation: "fadeHighlight 2s ease forwards",
-                        }}
-                      />
-                    )}
-                    <Box
-                      sx={{
-                        position: "relative",
-                        zIndex: 1,
-                        p: isPureMedia ? 0 : 0,
-                        borderRadius: isMessageFromMe
-                          ? isLastInGroup
-                            ? "18px 18px 4px 18px"
-                            : "18px"
-                          : isLastInGroup
-                            ? "18px 18px 18px 4px"
-                            : "18px",
-                        bgcolor: isMessageFromMe
-                          ? colors.eighth
-                          : colors.second,
-                        color: isMessageFromMe ? "#fff" : colors.sixth,
-                        overflow: "hidden", // Чтобы картинки не вылезали за скругления
-                        display: "flex",
-                        flexDirection: "column",
-                        width: "fit-content", // Добавляем это
-                        alignSelf: isMessageFromMe ? "flex-end" : "flex-start", // Важно для выравнивания
-                        maxWidth: "100%", // Чтобы не вылезало за экран
-                      }}
-                    >
-                      {/* КАРТИНКИ */}
-                      {hasImages && (
-                        <Box
-                          sx={{
-                            width: "100%",
-                            // Если сверху есть текст, убираем верхние скругления у картинок
-                            "& img, & .grid-container": {
-                              borderTopLeftRadius: hasText ? 0 : "inherit",
-                              borderTopRightRadius: hasText ? 0 : "inherit",
-                            },
-                          }}
-                        >
-                          <ImageGrid
-                            urls={imageUrls}
-                            chatId={chatId}
-                            isUploading={isUploading}
-                            onImageClick={onImageClick}
-                          />
-                        </Box>
-                      )}
-
-                      {msg.reply_to_message && (
-                        <Box
-                          onClick={(e) => {
-                            e.stopPropagation();
-
-                            const targetId = msg.reply_to;
-                            const el = document.getElementById(
-                              `msg-${targetId}`,
-                            );
-
-                            if (el) {
-                              el.scrollIntoView({
-                                behavior: "smooth",
-                                block: "center",
-                              });
-
-                              setHighlightedId(targetId);
-
-                              setTimeout(() => {
-                                setHighlightedId(null);
-                              }, 2000);
-                            }
-                          }}
-                          sx={{
-                            px: 1.5,
-                            py: 1,
-                            // borderLeft: `3px solid ${colors.eighth}`,
-                            bgcolor: "rgba(255, 255, 255, 0.12)",
-                            borderRadius: "6px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <Typography
-                            sx={{ fontSize: "0.75rem", color: "#fff" }}
-                          >
-                            {msg.reply_to_message.sender?.first_name || "Ответ"}
-                          </Typography>
-                          <Typography
-                            sx={{
-                              fontSize: "0.8rem",
-                              color: "#cdcdcdff",
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
+                              animation: "fadeHighlight 2s ease forwards",
                             }}
-                          >
-                            {msg.reply_to_message.text || "Файл"}
-                          </Typography>
-                        </Box>
-                      )}
-
-                      {/* ТЕКСТ */}
-                      {hasText && (
-                        <Typography
+                          />
+                        )}
+                        <Box
                           sx={{
-                            fontSize: "1rem",
-                            lineHeight: 1.4,
-                            wordBreak: "break-word",
-                            p: "8px 14px 6px 14px",
-                            maxWidth: hasImages ? "220px" : "100%",
-                            whiteSpace: "pre-wrap",
+                            position: "relative",
+                            zIndex: 1,
+                            p: isPureMedia ? 0 : 0,
+                            borderRadius: isMessageFromMe
+                              ? isLastInGroup
+                                ? "18px 18px 4px 18px"
+                                : "18px"
+                              : isLastInGroup
+                              ? "18px 18px 18px 4px"
+                              : "18px",
+                            bgcolor: isMessageFromMe
+                              ? colors.eighth
+                              : colors.second,
+                            color: isMessageFromMe ? "#fff" : colors.sixth,
+                            overflow: "hidden", // Чтобы картинки не вылезали за скругления
+                            display: "flex",
+                            flexDirection: "column",
+                            width: "fit-content", // Добавляем это
+                            alignSelf: isMessageFromMe
+                              ? "flex-end"
+                              : "flex-start", // Важно для выравнивания
+                            maxWidth: "100%", // Чтобы не вылезало за экран
                           }}
                         >
-                          {msg.text}
-                        </Typography>
-                      )}
+                          {/* КАРТИНКИ */}
+                          {hasImages && (
+                            <Box
+                              sx={{
+                                width: "100%",
+                                // Если сверху есть текст, убираем верхние скругления у картинок
+                                "& img, & .grid-container": {
+                                  borderTopLeftRadius: hasText ? 0 : "inherit",
+                                  borderTopRightRadius: hasText ? 0 : "inherit",
+                                },
+                              }}
+                            >
+                              <ImageGrid
+                                urls={imageUrls}
+                                chatId={chatId}
+                                isUploading={isUploading}
+                                onImageClick={onImageClick}
+                              />
+                            </Box>
+                          )}
 
-                      {/* ФАЙЛЫ */}
-                      <Box sx={{ p: otherUrls.length > 0 ? "4px 12px" : 0 }}>
-                        {!isUploading &&
-                          otherUrls.map((url, i) => (
-                            <FilePreview
-                              key={i}
-                              fileUrl={url}
-                              chatId={chatId!}
-                              onImageClick={onImageClick}
+                          {msg.reply_to_message && (
+                            <Box
+                              onClick={(e) => {
+                                e.stopPropagation();
+
+                                const targetId = msg.reply_to;
+                                const container = scrollRef.current;
+                                const el = document.getElementById(
+                                  `msg-${targetId}`
+                                );
+
+                                if (container && el) {
+                                  const containerRect =
+                                    container.getBoundingClientRect();
+                                  const elRect = el.getBoundingClientRect();
+
+                                  const offset =
+                                    elRect.top -
+                                    containerRect.top +
+                                    container.scrollTop;
+
+                                  container.scrollTo({
+                                    top:
+                                      offset -
+                                      container.clientHeight / 2 +
+                                      el.clientHeight / 2,
+                                    behavior: "smooth",
+                                  });
+
+                                  setHighlightedId(targetId);
+
+                                  setTimeout(() => {
+                                    setHighlightedId(null);
+                                  }, 2000);
+                                }
+                              }}
+                              sx={{
+                                px: 1.5,
+                                py: 1,
+                                // borderLeft: `3px solid ${colors.eighth}`,
+                                bgcolor: "rgba(255, 255, 255, 0.12)",
+                                borderRadius: "6px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <Typography
+                                sx={{ fontSize: "0.75rem", color: "#fff" }}
+                              >
+                                {msg.reply_to_message.sender?.first_name ||
+                                  "Ответ"}
+                              </Typography>
+                              <Typography
+                                sx={{
+                                  fontSize: "0.8rem",
+                                  color: "#cdcdcdff",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {msg.reply_to_message.text || "Файл"}
+                              </Typography>
+                            </Box>
+                          )}
+
+                          {/* ТЕКСТ */}
+                          {hasText && (
+                            <Typography
+                              sx={{
+                                fontSize: "1rem",
+                                lineHeight: 1.4,
+                                wordBreak: "break-word",
+                                p: "8px 14px 6px 14px",
+                                maxWidth: hasImages ? "220px" : "100%",
+                                whiteSpace: "pre-wrap",
+                              }}
+                            >
+                              {msg.text}
+                            </Typography>
+                          )}
+
+                          {/* ФАЙЛЫ */}
+                          <Box
+                            sx={{ p: otherUrls.length > 0 ? "4px 12px" : 0 }}
+                          >
+                            {!isUploading &&
+                              otherUrls.map((url, i) => (
+                                <FilePreview
+                                  key={i}
+                                  fileUrl={url}
+                                  chatId={chatId!}
+                                  onImageClick={onImageClick}
+                                />
+                              ))}
+                          </Box>
+                          {/* Плейсхолдер для загружаемых не-изображений */}
+                          {isUploading && uploadingNonImageCount > 0 && (
+                            <UploadingFilePlaceholder
+                              count={uploadingNonImageCount}
                             />
-                          ))}
-                      </Box>
-                      {/* Плейсхолдер для загружаемых не-изображений */}
-                      {isUploading && uploadingNonImageCount > 0 && (
-                        <UploadingFilePlaceholder
-                          count={uploadingNonImageCount}
-                        />
-                      )}
+                          )}
 
-                      {/* Индикатор загрузки поверх сетки */}
-                      {/* {isUploading && hasImages && (
+                          {/* Индикатор загрузки поверх сетки */}
+                          {/* {isUploading && hasImages && (
                         <Box
                           sx={{
                             position: "absolute",
@@ -745,89 +784,89 @@ const MessageList = memo(
                         </Box>
                       )} */}
 
-                      {/* МЕТАДАННЫЕ */}
-                      <Box
-                        className="image-metadata"
-                        sx={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "flex-end",
-                          gap: 0.5,
-                          pt: 0.5,
-                          ...(isPureMedia
-                            ? {
-                                position: "absolute",
-                                bottom: "6px",
-                                right: "6px",
-                                bgcolor: "rgba(0,0,0,0.4)",
-                                borderRadius: "12px",
-                                px: "8px",
-                                py: "2px",
-                                color: "#fff",
-                                zIndex: 10,
-                              }
-                            : {
-                                // Если есть текст, время идет снизу в потоке
-                                mt: -1.5, // Немного приподнимаем, если оно внизу текста/картинки
-                                alignSelf: "flex-end",
-                                px: "12px",
-                                pb: "6px",
-                                pointerEvents: "none",
-                              }),
-                        }}
-                      >
-                        <Typography
-                          sx={{
-                            fontSize: "0.7rem",
-                            opacity: isPureMedia ? 0.9 : 0.5,
-                          }}
-                        >
-                          {formatLocalTime(msg.created_at)}
-                        </Typography>
+                          {/* МЕТАДАННЫЕ */}
+                          <Box
+                            className="image-metadata"
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "flex-end",
+                              gap: 0.5,
+                              pt: 0.5,
+                              ...(isPureMedia
+                                ? {
+                                    position: "absolute",
+                                    bottom: "6px",
+                                    right: "6px",
+                                    bgcolor: "rgba(0,0,0,0.4)",
+                                    borderRadius: "12px",
+                                    px: "8px",
+                                    py: "2px",
+                                    color: "#fff",
+                                    zIndex: 10,
+                                  }
+                                : {
+                                    // Если есть текст, время идет снизу в потоке
+                                    mt: -1.5, // Немного приподнимаем, если оно внизу текста/картинки
+                                    alignSelf: "flex-end",
+                                    px: "12px",
+                                    pb: "6px",
+                                    pointerEvents: "none",
+                                  }),
+                            }}
+                          >
+                            <Typography
+                              sx={{
+                                fontSize: "0.7rem",
+                                opacity: isPureMedia ? 0.9 : 0.5,
+                              }}
+                            >
+                              {formatLocalTime(msg.created_at)}
+                            </Typography>
 
-                        {isMessageFromMe && (
-                          <>
-                            {msg._failed ? (
-                              <Tooltip
-                                title="Не отправлено. Попробуйте снова."
-                                placement="top"
-                              >
-                                <ErrorOutlineIcon
-                                  sx={{
-                                    fontSize: 14,
-                                    color: "#ff4d4f",
-                                    cursor: "pointer",
-                                  }}
-                                />
-                              </Tooltip>
-                            ) : (
-                              <DoneAllIcon
-                                sx={{
-                                  fontSize: 14,
-                                  color:
-                                    msg._pending || isUploading
-                                      ? "rgba(255,255,255,0.3)"
-                                      : msg.read_by?.length > 0
-                                        ? "rgba(255,255,255,1)"
-                                        : "rgba(255,255,255,0.5)",
-                                }}
-                              />
+                            {isMessageFromMe && (
+                              <>
+                                {msg._failed ? (
+                                  <Tooltip
+                                    title="Не отправлено. Попробуйте снова."
+                                    placement="top"
+                                  >
+                                    <ErrorOutlineIcon
+                                      sx={{
+                                        fontSize: 14,
+                                        color: "#ff4d4f",
+                                        cursor: "pointer",
+                                      }}
+                                    />
+                                  </Tooltip>
+                                ) : (
+                                  <DoneAllIcon
+                                    sx={{
+                                      fontSize: 14,
+                                      color:
+                                        msg._pending || isUploading
+                                          ? "rgba(255,255,255,0.3)"
+                                          : msg.read_by?.length > 0
+                                          ? "rgba(255,255,255,1)"
+                                          : "rgba(255,255,255,0.5)",
+                                    }}
+                                  />
+                                )}
+                              </>
                             )}
-                          </>
-                        )}
+                          </Box>
+                        </Box>
                       </Box>
                     </Box>
                   </Box>
-                </Box>
-              </Box>
-            );
-            })}
-          </>
-        )}
+                );
+              })}
+            </>
+          )}
         </Box>
       </Box>
     );
-  },
+  }
 );
 
 export default MessageList;

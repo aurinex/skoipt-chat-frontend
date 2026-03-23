@@ -1,5 +1,6 @@
 import { TextField, Typography, Box } from "@mui/material";
 import { useTheme } from "@mui/material";
+import type { TextFieldProps } from "@mui/material";
 
 interface AppTextFieldProps {
   label?: string;
@@ -8,6 +9,8 @@ interface AppTextFieldProps {
   type?: string;
   value?: string;
   onChange?: (value: string) => void;
+  InputProps?: TextFieldProps["InputProps"];
+  styles?: TextFieldProps["sx"];
 }
 
 const AppTextField = ({
@@ -17,6 +20,8 @@ const AppTextField = ({
   type = "text",
   value,
   onChange,
+  InputProps,
+  styles,
 }: AppTextFieldProps) => {
   const theme = useTheme();
   const colors = theme.palette.background;
@@ -42,7 +47,9 @@ const AppTextField = ({
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange?.(e.target.value)}
+        InputProps={InputProps}
         sx={{
+          ...styles,
           ".MuiOutlinedInput-root": {
             color: colors.fiveth,
             borderRadius: "20px",

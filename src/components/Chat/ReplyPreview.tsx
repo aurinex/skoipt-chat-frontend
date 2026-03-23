@@ -38,7 +38,7 @@ const ReplyPreview = ({ replyTo, onCancel, colors }: ReplyPreviewProps) => {
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
-            maxWidth: 200,
+            maxWidth: 1200,
           }}
         >
           {replyTo.text || "Файл"}

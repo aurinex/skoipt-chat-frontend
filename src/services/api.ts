@@ -2,8 +2,10 @@ import type { Chat, ChatData, ChatPreview, Message, User } from "../types";
 
 // const BASE_URL = "http://localhost:8000";
 // const BASE_WS = "localhost:8000";
-const BASE_URL = "http://10.10.10.5:8000";
-const BASE_WS = "10.10.10.5:8000";
+// const BASE_URL = "http://10.10.10.5:8000";
+// const BASE_WS = "10.10.10.5:8000";
+const BASE_URL = "http://192.168.51.143:8000";
+const BASE_WS = "192.168.51.143:8000";
 
 export interface SocketEventMap {
   new_message: Message & { message?: Message };
@@ -113,7 +115,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 async function requestFormData<T>(
   path: string,
-  formData: FormData,
+  formData: FormData
 ): Promise<T> {
   const headers: Record<string, string> = {};
   if (tokens.access) headers["Authorization"] = `Bearer ${tokens.access}`;
@@ -189,7 +191,7 @@ const auth = {
       {
         method: "POST",
         body: JSON.stringify({ username, email, password, invite_code }),
-      },
+      }
     );
     tokens.set(data.access_token, data.refresh_token);
     return data;
@@ -276,14 +278,14 @@ const chats = {
   // Возвращает { chat_id, message, is_new_chat }
   async sendFirstMessage(
     targetUserId: string,
-    data: { text?: string | null; file_urls?: string[] },
+    data: { text?: string | null; file_urls?: string[] }
   ) {
     return request<{ chat_id: string; message: Message; is_new_chat: boolean }>(
       `/chats/direct/${targetUserId}/message`,
       {
         method: "POST",
         body: JSON.stringify(data),
-      },
+      }
     );
   },
 
@@ -328,6 +330,15 @@ const chats = {
   async leave(chatId: string) {
     return request(`/chats/${chatId}/leave`, { method: "DELETE" });
   },
+
+  async getMembers(chatId: string, limit = 50, offset = 0) {
+    return request<{
+      members: (User & { is_admin: boolean })[];
+      total: number;
+      limit: number;
+      offset: number;
+    }>(`/chats/${chatId}/members?limit=${limit}&offset=${offset}`);
+  },
 };
 
 // ─── Messages ────────────────────────────────────────────────────────────────
@@ -337,7 +348,9 @@ const messages = {
     return request<Message[]>(`/chats/${chatId}/messages/`);
   },
   async loadMore(chatId: string, beforeId: string) {
-    return request<Message[]>(`/chats/${chatId}/messages/?before_id=${beforeId}`);
+    return request<Message[]>(
+      `/chats/${chatId}/messages/?before_id=${beforeId}`
+    );
   },
 
   async send(
@@ -346,7 +359,7 @@ const messages = {
       text = null,
       file_urls = [],
       reply_to = null,
-    }: { text?: string | null; file_urls?: string[]; reply_to?: string | null },
+    }: { text?: string | null; file_urls?: string[]; reply_to?: string | null }
   ) {
     return request<Message>(`/chats/${chatId}/messages/`, {
       method: "POST",
@@ -381,19 +394,27 @@ const files = {
   async uploadAvatar(file: File) {
     const formData = new FormData();
     formData.append("file", file);
-    return requestFormData<{ url: string; object_name: string; is_public: boolean }>(
-      "/files/avatar",
-      formData,
-    );
+    return requestFormData<{
+      url: string;
+      object_name: string;
+      is_public: boolean;
+    }>("/files/avatar", formData);
+  },
+
+  async uploadChatAvatar(chatId: string, file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return requestFormData<{
+      avatar_url: string;
+    }>(`/files/chat/${chatId}/avatar`, formData);
   },
 
   async uploadChatFile(chatId: string, file: File) {
     const formData = new FormData();
     formData.append("file", file);
-    return requestFormData<{ url: string; object_name: string; is_public: boolean }>(
-      `/files/chat/${chatId}`,
-      formData,
-    );
+    return requestFormData<{
+      avatar_url: string;
+    }>(`/files/chat/${chatId}`, formData);
   },
 
   async getPrivateUrl(chatId: string, objectName: string) {
@@ -405,7 +426,9 @@ const files = {
 
 class MessengerSocket {
   ws: WebSocket | null;
-  listeners: Partial<Record<keyof SocketEventMap, Array<(data: unknown) => void>>>;
+  listeners: Partial<
+    Record<keyof SocketEventMap, Array<(data: unknown) => void>>
+  >;
   reconnectDelay: number;
   shouldReconnect: boolean;
   _pingInterval: ReturnType<typeof setInterval> | null;
@@ -431,13 +454,15 @@ class MessengerSocket {
 
     this.ws.onmessage = (event: MessageEvent<string>) => {
       const data = JSON.parse(event.data) as
-        | ({ event: keyof SocketEventMap } & SocketEventMap[keyof SocketEventMap])
+        | ({
+            event: keyof SocketEventMap;
+          } & SocketEventMap[keyof SocketEventMap])
         | { event: string };
       console.log("WS Получено событие:", data.event, data);
       if (data.event in this.listeners) {
         this._emit(
           data.event as keyof SocketEventMap,
-          data as SocketEventMap[keyof SocketEventMap],
+          data as SocketEventMap[keyof SocketEventMap]
         );
       }
     };
@@ -446,7 +471,7 @@ class MessengerSocket {
       this._stopPing();
       if (this.shouldReconnect) {
         console.log(
-          `WS отключён, переподключение через ${this.reconnectDelay}мс...`,
+          `WS отключён, переподключение через ${this.reconnectDelay}мс...`
         );
         setTimeout(() => this.connect(), this.reconnectDelay);
         this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000);
@@ -479,13 +504,13 @@ class MessengerSocket {
 
   on<K extends keyof SocketEventMap>(
     event: K,
-    handler: (data: SocketEventMap[K]) => void,
+    handler: (data: SocketEventMap[K]) => void
   ) {
     if (!this.listeners[event]) this.listeners[event] = [];
     this.listeners[event]!.push(handler as (data: unknown) => void);
     return () => {
       this.listeners[event] = this.listeners[event]?.filter(
-        (h) => h !== (handler as (data: unknown) => void),
+        (h) => h !== (handler as (data: unknown) => void)
       );
     };
   }

@@ -13,7 +13,7 @@ const ThemeContext = createContext<any>(null);
 
 export const ThemeProvider = ({ children }: any) => {
   const [mode, setModeState] = useState<Mode>(
-    (localStorage.getItem("theme") as Mode) || "system",
+    (localStorage.getItem("theme") as Mode) || "system"
   );
 
   const setMode = (value: Mode) => {
@@ -73,12 +73,31 @@ export const ThemeProvider = ({ children }: any) => {
             default: actualMode === "dark" ? "#2C2C2C" : "#FFFFFF",
           },
         },
+
         typography: {
           fontFamily: "Montserrat, sans-serif",
           fontWeightRegular: "500",
         },
+
+        components: {
+          MuiIconButton: {
+            styleOverrides: {
+              root: ({ theme }) => ({
+                border: "2px solid transparent",
+                borderRadius: "12px",
+                transition: "all 0.2s ease",
+
+                "&:hover": {
+                  backgroundColor: "transparent", // убираем серый hover
+                  borderColor: theme.palette.background.eighth, // твой синий
+                  color: theme.palette.background.eighth,
+                },
+              }),
+            },
+          },
+        },
       }),
-    [actualMode],
+    [actualMode]
   );
 
   return (

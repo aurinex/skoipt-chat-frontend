@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Box, Typography, useTheme } from "@mui/material";
 import { getMyId } from "../../services/api";
+import { useChatMembersQuery } from "../../queries/useChatMembersQuery";
 import { useMessageSender } from "../../hooks/useMessageSender";
 import {
   activeChatSelectors,
@@ -16,7 +17,10 @@ import ImageViewer from "../Ui/ImageViewer";
 import { useChatListCacheActions } from "../../queries/chatListCache";
 import { useChatDetailsQuery } from "../../queries/useChatDetailsQuery";
 import { useChatMessagesQuery } from "../../queries/useChatMessagesQuery";
-import { flattenMessagePages, useMessageCacheActions } from "../../queries/messageCache";
+import {
+  flattenMessagePages,
+  useMessageCacheActions,
+} from "../../queries/messageCache";
 
 const EMPTY_FILES: File[] = [];
 const EMPTY_MESSAGE_PAGES: never[] = [];
@@ -31,11 +35,11 @@ const ActiveChat = () => {
 
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
   const initializeRealtime = useActiveChatStore(
-    activeChatSelectors.initializeRealtime,
+    activeChatSelectors.initializeRealtime
   );
   const setCurrentChat = useActiveChatStore(activeChatSelectors.setCurrentChat);
   const typingUsers = useActiveChatStore(
-    activeChatSelectors.typingUsers(chatId),
+    activeChatSelectors.typingUsers(chatId)
   );
   const { setMessages } = useMessageCacheActions(chatId);
   const {
@@ -46,30 +50,39 @@ const ActiveChat = () => {
     isFetchingNextPage,
   } = useChatMessagesQuery(chatId);
   const { data: chatData } = useChatDetailsQuery(chatId);
+  const { data: membersData } = useChatMembersQuery(
+    chatId!,
+    !!chatId && chatData?.type === "channel"
+  );
   const messages = useMemo(
     () => flattenMessagePages(messagesData?.pages ?? EMPTY_MESSAGE_PAGES),
-    [messagesData?.pages],
+    [messagesData?.pages]
   );
+
   const canSendMessages = useMemo(() => {
     if (!chatData || !myId) return true;
+
     if (chatData.type !== "channel") return true;
 
-    return chatData.admins?.includes(myId) ?? false;
-  }, [chatData, myId]);
+    if (!membersData) return false;
+
+    return membersData.members.some((m) => m.id === myId && m.is_admin);
+  }, [chatData, myId, membersData]);
+
   const handleLoadMore = useCallback(() => {
     void fetchNextPage();
   }, [fetchNextPage]);
   const modalFiles = useComposerStore(
-    (state) => state.composers[composerScopeId]?.modalFiles ?? EMPTY_FILES,
+    (state) => state.composers[composerScopeId]?.modalFiles ?? EMPTY_FILES
   );
   const modalOpen = useComposerStore(
-    (state) => state.composers[composerScopeId]?.modalOpen ?? false,
+    (state) => state.composers[composerScopeId]?.modalOpen ?? false
   );
   const modalInitialCaption = useComposerStore(
-    (state) => state.composers[composerScopeId]?.modalInitialCaption ?? "",
+    (state) => state.composers[composerScopeId]?.modalInitialCaption ?? ""
   );
   const replyTo = useComposerStore(
-    (state) => state.composers[composerScopeId]?.replyTo ?? null,
+    (state) => state.composers[composerScopeId]?.replyTo ?? null
   );
   const openModal = useComposerStore((state) => state.openModal);
   const closeModal = useComposerStore((state) => state.closeModal);
@@ -79,23 +92,24 @@ const ActiveChat = () => {
 
   const handleOpenModal = useCallback(
     (files: File[]) => openModal(composerScopeId, files),
-    [composerScopeId, openModal],
+    [composerScopeId, openModal]
   );
   const handleCloseModal = useCallback(
     () => closeModal(composerScopeId),
-    [closeModal, composerScopeId],
+    [closeModal, composerScopeId]
   );
   const handleAddFiles = useCallback(
     (files: File[]) => addFiles(composerScopeId, files),
-    [addFiles, composerScopeId],
+    [addFiles, composerScopeId]
   );
   const handleRemoveFile = useCallback(
     (index: number) => removeFile(composerScopeId, index),
-    [composerScopeId, removeFile],
+    [composerScopeId, removeFile]
   );
   const handleReplySelect = useCallback(
-    (message: (typeof messages)[number]) => setReplyTo(composerScopeId, message),
-    [composerScopeId, setReplyTo],
+    (message: (typeof messages)[number]) =>
+      setReplyTo(composerScopeId, message),
+    [composerScopeId, setReplyTo]
   );
 
   useEffect(() => {

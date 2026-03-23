@@ -64,7 +64,7 @@ const LoginPage = () => {
           <form onSubmit={handleSubmit}>
             <Box sx={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               <Box>
-                <Typography
+                {/* <Typography
                   sx={{
                     color: theme.palette.background.wb,
                     fontSize: "20px",
@@ -72,7 +72,7 @@ const LoginPage = () => {
                   }}
                 >
                   Логин<span style={{ color: "#FA3B3B" }}>*</span>
-                </Typography>
+                </Typography> */}
                 <AppTextField
                   label="Логин"
                   required
@@ -93,7 +93,7 @@ const LoginPage = () => {
               </Box>
 
               <Box>
-                <Typography
+                {/* <Typography
                   sx={{
                     color: theme.palette.background.wb,
                     fontSize: "20px",
@@ -101,7 +101,7 @@ const LoginPage = () => {
                   }}
                 >
                   Пароль<span style={{ color: "#FA3B3B" }}>*</span>
-                </Typography>
+                </Typography> */}
                 <AppTextField
                   label="Пароль"
                   required

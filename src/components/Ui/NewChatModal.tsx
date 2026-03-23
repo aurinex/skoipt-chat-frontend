@@ -15,6 +15,7 @@ import {
   Backdrop,
   IconButton,
   Button,
+  InputAdornment,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { useNavigate } from "react-router-dom";
@@ -101,7 +102,7 @@ const NewChatModal: React.FC<{
     }
 
     setSelectedUsers((prev) =>
-      prev.find((u) => u.id === user.id) ? prev : [...prev, user],
+      prev.find((u) => u.id === user.id) ? prev : [...prev, user]
     );
   };
 
@@ -149,6 +150,8 @@ const NewChatModal: React.FC<{
       closeAfterTransition
       slots={{ backdrop: Backdrop }}
       slotProps={{ backdrop: { timeout: 200 } }}
+      disableAutoFocus
+      disableEnforceFocus
     >
       <Fade in={open}>
         <Box
@@ -279,7 +282,19 @@ const NewChatModal: React.FC<{
                     <AppTextField
                       value={search}
                       onChange={setSearch}
-                      placeholder="Поиск"
+                      placeholder="username"
+                      styles={{
+                        ".MuiOutlinedInput-input ": {
+                          padding: "19px 22px 19px 10px !important",
+                        },
+                      }}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start" sx={{ mr: "0px" }}>
+                            <Typography sx={{ fontSize: 20 }}>@</Typography>
+                          </InputAdornment>
+                        ),
+                      }}
                     />
                   )}
 
