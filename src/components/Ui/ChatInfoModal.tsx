@@ -28,9 +28,16 @@ import {
   getUserAvatarUrl,
   getUserDisplayName,
   isChatAdmin,
-  isCurrentUserChatAdmin,
   resolveUser,
 } from "../../utils/user";
+import {
+  canEditChatAvatar,
+  canInviteMembers,
+  canKickChatMember,
+  canManageChat,
+  canPromoteChatMember,
+  canRevokeChatAdmin,
+} from "../../utils/permissions";
 import UserAvatar from "./UserAvatar";
 import UserName from "./UserName";
 import UserSubtitle from "./UserSubtitle";
@@ -92,7 +99,9 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
 
   // 🔹 ADMIN CHECK
   const myId = getMyId();
-  const isAdmin = isCurrentUserChatAdmin(data?.members, myId);
+  const canManageCurrentChat = canManageChat(chatData, myId, data?.members);
+  const canEditAvatar = canEditChatAvatar(chatData, myId, data?.members);
+  const canInviteToCurrentChat = canInviteMembers(chatData, myId, data?.members);
 
   // 🔹 STATUS
   let status = "Информация";
@@ -104,7 +113,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
 
   if (type === "channel") {
     const count = data?.total ?? chatData.member_count ?? 0;
-    status = isAdmin ? `${count} участников` : `${count} подписчиков`;
+    status = canManageCurrentChat ? `${count} участников` : `${count} подписчиков`;
   }
 
   useEffect(() => {
@@ -280,14 +289,14 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
               sx={{
                 width: 90,
                 height: 90,
-                cursor: isAdmin ? "pointer" : "default",
-                "&:hover": isAdmin
+                cursor: canEditAvatar ? "pointer" : "default",
+                "&:hover": canEditAvatar
                   ? {
                       opacity: 0.8,
                     }
                   : undefined,
               }}
-              onClick={() => isAdmin && fileInputRef.current?.click()}
+              onClick={() => canEditAvatar && fileInputRef.current?.click()}
             />
           ) : (
             <Avatar
@@ -295,14 +304,14 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
               sx={{
                 width: 90,
                 height: 90,
-                cursor: isAdmin ? "pointer" : "default",
-                "&:hover": isAdmin
+                cursor: canEditAvatar ? "pointer" : "default",
+                "&:hover": canEditAvatar
                   ? {
                       opacity: 0.8,
                     }
                   : undefined,
               }}
-              onClick={() => isAdmin && fileInputRef.current?.click()}
+              onClick={() => canEditAvatar && fileInputRef.current?.click()}
             />
           )}
           <input
@@ -358,7 +367,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                 mt: 1,
               }}
             >
-              {isAdmin && (
+              {canInviteToCurrentChat && (
                 <Button
                   fullWidth
                   onClick={() => setShowAddInput((prev) => !prev)}
@@ -607,7 +616,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                                   color: "#ffae00ff",
                                   transition: "color 0.2s ease",
                                   cursor:
-                                    isAdmin && resolvedMember.id !== myId
+                                    canRevokeChatAdmin(myId, resolvedMember, data?.members)
                                       ? "pointer"
                                       : "default",
                                   ":hover": {
@@ -618,7 +627,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                                   },
                                 }}
                               />
-                            ) : isAdmin && resolvedMember.id !== myId ? (
+                            ) : canPromoteChatMember(myId, resolvedMember, data?.members) ? (
                               <IconButton
                                 size="small"
                                 onClick={() => handleMakeAdmin(resolvedMember.id)}
@@ -678,7 +687,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                     )} */}
 
                         {/* 🔴 KICK BUTTON */}
-                        {isAdmin && resolvedMember.id !== myId && (
+                        {canKickChatMember(myId, resolvedMember, data?.members) && (
                           <Button
                             size="small"
                             onClick={() => handleKick(resolvedMember.id)}

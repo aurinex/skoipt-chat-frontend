@@ -21,7 +21,7 @@ import {
   flattenMessagePages,
   useMessageCacheActions,
 } from "../../queries/messageCache";
-import { isCurrentUserChatAdmin } from "../../utils/user";
+import { canSendToChat } from "../../utils/permissions";
 
 const EMPTY_FILES: File[] = [];
 const EMPTY_MESSAGE_PAGES: never[] = [];
@@ -61,13 +61,7 @@ const ActiveChat = () => {
   );
 
   const canSendMessages = useMemo(() => {
-    if (!chatData || !myId) return true;
-
-    if (chatData.type !== "channel") return true;
-
-    if (!membersData) return false;
-
-    return isCurrentUserChatAdmin(membersData.members, myId);
+    return canSendToChat(chatData, myId, membersData?.members);
   }, [chatData, myId, membersData]);
 
   const handleLoadMore = useCallback(() => {
