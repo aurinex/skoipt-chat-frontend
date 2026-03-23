@@ -14,6 +14,7 @@ import FilePreview from "../Ui/FilePreview";
 import { formatLocalTime, formatDateLabel } from "../../utils/chatFormatters";
 import type { Message, ChatData } from "../../types";
 import type { AppColors } from "../../types/theme";
+import { useUserStore } from "../../stores/useUserStore";
 
 interface MessageListProps {
   messages: Message[];
@@ -281,6 +282,7 @@ const MessageList = memo(
     canLoadMore = false,
     isLoadingMore = false,
   }: MessageListProps) => {
+    const usersById = useUserStore((state) => state.usersById);
     const scrollRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const prevChatIdRef = useRef<string | undefined>(chatId);
@@ -474,6 +476,7 @@ const MessageList = memo(
                   : [];
 
                 const isUploading = !!msg._uploading;
+                const sender = msg.sender_id ? usersById[msg.sender_id] ?? msg.sender : msg.sender;
 
                 // Разделяем на изображения и остальные файлы
                 const imageUrls = fileUrls.filter(
@@ -557,7 +560,7 @@ const MessageList = memo(
                         >
                           {isLastInGroup ? (
                             <Avatar
-                              src={msg.sender?.avatar_url ?? undefined}
+                              src={sender?.avatar_url ?? undefined}
                               sx={{
                                 width: 45,
                                 height: 45,
@@ -565,7 +568,7 @@ const MessageList = memo(
                                 bgcolor: colors.eighth,
                               }}
                             >
-                              {msg.sender?.first_name?.[0]}
+                              {sender?.first_name?.[0]}
                             </Avatar>
                           ) : (
                             <Box sx={{ width: 34 }} />
@@ -595,9 +598,9 @@ const MessageList = memo(
                                 ml: 1.5,
                               }}
                             >
-                              {msg.sender?.first_name}{" "}
-                              {msg.sender?.last_name?.[0]
-                                ? `${msg.sender.last_name[0]}.`
+                              {sender?.first_name}{" "}
+                              {sender?.last_name?.[0]
+                                ? `${sender.last_name[0]}.`
                                 : ""}
                             </Typography>
                           )}
@@ -714,7 +717,8 @@ const MessageList = memo(
                               <Typography
                                 sx={{ fontSize: "0.75rem", color: "#fff" }}
                               >
-                                {msg.reply_to_message.sender?.first_name ||
+                                {usersById[msg.reply_to_message.sender_id]?.first_name ||
+                                  msg.reply_to_message.sender?.first_name ||
                                   "Ответ"}
                               </Typography>
                               <Typography

@@ -6,9 +6,7 @@ import {
   Fade,
   Backdrop,
   Button,
-  Icon,
   IconButton,
-  List,
   ListItem,
   ListItemButton,
   CircularProgress,
@@ -25,6 +23,7 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { useUsersSearchQuery } from "../../queries/useUsersSearchQuery";
 import type { User } from "../../types";
+import { useCachedUser, useUserStore } from "../../stores/useUserStore";
 
 import StarRoundedIcon from "@mui/icons-material/StarRounded";
 import StarOutlineRoundedIcon from "@mui/icons-material/StarOutlineRounded";
@@ -38,7 +37,6 @@ interface Props {
 }
 
 const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
-  if (!chatData) return null;
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [showAddInput, setShowAddInput] = useState(false);
@@ -47,6 +45,8 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
   const [search, setSearch] = useState("");
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
   const { data: users = [], isFetching } = useUsersSearchQuery(search);
+  const usersById = useUserStore((state) => state.usersById);
+  const interlocutor = useCachedUser(chatData?.interlocutor);
 
   const handleSelectUser = (user: User) => {
     setSelectedUsers((prev) =>
@@ -57,21 +57,24 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
   };
 
   const navigate = useNavigate();
-
-  const type = chatData.type;
+  const type = chatData?.type ?? "direct";
 
   // 🔹 NAME
   let name = "";
 
-  const chatId = "id" in chatData ? chatData.id : (chatData.chat_id ?? null);
+  const chatId = chatData
+    ? "id" in chatData
+      ? chatData.id
+      : (chatData.chat_id ?? null)
+    : null;
 
-  if (type === "direct") {
+  if (chatData && type === "direct") {
     name = chatData.interlocutor
       ? `${chatData.interlocutor.first_name ?? ""} ${
           chatData.interlocutor.last_name ?? ""
         }`.trim()
       : "";
-  } else {
+  } else if (chatData) {
     name = chatData.name ?? "";
   }
 
@@ -113,9 +116,11 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
     });
   }, [showAddInput, data?.members?.length]);
 
+  if (!chatData) return null;
+
   const avatar =
     type === "direct"
-      ? chatData.interlocutor?.avatar_url
+      ? interlocutor?.avatar_url
       : "avatar_url" in chatData
         ? chatData.avatar_url
         : undefined;
@@ -139,25 +144,6 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
       queryClient.invalidateQueries({ queryKey: ["chat-members", chatId] });
       queryClient.invalidateQueries({ queryKey: ["chat-details", chatId] });
       queryClient.invalidateQueries({ queryKey: ["chats"] });
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleInvite = async () => {
-    if (!chatId) return;
-
-    const userId = prompt("Введите ID пользователя");
-    if (!userId) return;
-
-    try {
-      await api.chats.addMember(chatId, userId);
-
-      queryClient.invalidateQueries({ queryKey: ["chat-members", chatId] });
-      queryClient.invalidateQueries({ queryKey: ["chat-details", chatId] });
-      queryClient.invalidateQueries({ queryKey: ["chats"] });
-
-      console.log("Приглашён");
     } catch (e) {
       console.error(e);
     }
@@ -391,7 +377,11 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                       {selectedUsers.map((u) => (
                         <Chip
                           key={u.id}
-                          avatar={<Avatar src={u.avatar_url ?? undefined} />}
+                          avatar={
+                            <Avatar
+                              src={usersById[u.id]?.avatar_url ?? u.avatar_url ?? undefined}
+                            />
+                          }
                           label={`${u.first_name} ${u.last_name}`}
                           onDelete={() =>
                             setSelectedUsers((prev) =>
@@ -468,7 +458,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                             }}
                           >
                             <Avatar
-                              src={user.avatar_url ?? undefined}
+                              src={usersById[user.id]?.avatar_url ?? user.avatar_url ?? undefined}
                               sx={{ mr: 2 }}
                             />
                             <Box>
@@ -632,7 +622,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                           </Box>
 
                           <Avatar
-                            src={member.avatar_url ?? undefined}
+                            src={usersById[member.id]?.avatar_url ?? member.avatar_url ?? undefined}
                             sx={{ width: 32, height: 32 }}
                           />
 

@@ -4,6 +4,7 @@ import { queryKeys } from "../lib/queryKeys";
 import { socket } from "../services/api";
 import type { Message, TypingUser } from "../types";
 import { getMessagesFromPages } from "../queries/messageCache";
+import { collectUsersFromMessages, upsertUser, upsertUsers } from "./useUserStore";
 
 const EMPTY_TYPING_USERS: TypingUser[] = [];
 
@@ -104,6 +105,7 @@ export const useActiveChatStore = create<ActiveChatState>((set, get) => ({
     socket.on("new_message", (data) => {
       const message = data.message || data;
       const chatId = String(message.chat_id);
+      upsertUsers(collectUsersFromMessages([message]));
 
       queryClient.setQueryData(
         queryKeys.messages.list(chatId),
@@ -162,6 +164,11 @@ export const useActiveChatStore = create<ActiveChatState>((set, get) => ({
       const chatId = String(data.chat_id);
       const userId = String(data.user_id);
       const timerKey = getTypingTimerKey(chatId, userId);
+      upsertUser({
+        id: userId,
+        first_name: data.first_name,
+        last_name: data.last_name,
+      });
 
       if (data.is_typing) {
         set((prev) => addTypingUserToState(prev, chatId, userId, data));

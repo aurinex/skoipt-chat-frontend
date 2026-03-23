@@ -11,6 +11,7 @@ import { Link, useLocation } from "react-router-dom";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import { Skeleton } from "@mui/material";
 import type { Chat, Message } from "../../types";
+import { useUserStore } from "../../stores/useUserStore";
 
 interface ChatListItemsProps {
   chats: Chat[];
@@ -74,6 +75,7 @@ const ChatListItems = ({
   const theme = useTheme();
   const colors = theme.palette.background;
   const location = useLocation();
+  const usersById = useUserStore((state) => state.usersById);
 
   const filtered = searchQuery.trim()
     ? chats.filter((chat) => {
@@ -137,7 +139,7 @@ const ChatListItems = ({
 
   const getChatAvatar = (chat: Chat) => {
     if (chat.type === "direct") {
-      return chat.interlocutor?.avatar_url ?? undefined;
+      return usersById[chat.interlocutor?.id ?? ""]?.avatar_url ?? chat.interlocutor?.avatar_url ?? undefined;
     }
 
     return chat.avatar_url ?? undefined;

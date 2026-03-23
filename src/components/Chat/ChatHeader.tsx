@@ -7,6 +7,7 @@ import type { AppColors } from "../../types/theme";
 import FindCustomIcon from "../../assets/icons/find.svg?react";
 import SettingsCustomIcon from "../../assets/icons/settings.svg?react";
 import ChatInfoModal from "../Ui/ChatInfoModal";
+import { useCachedUser } from "../../stores/useUserStore";
 
 interface ChatHeaderProps {
   chatData: ChatData | ChatPreview | null;
@@ -36,6 +37,7 @@ const ChatHeader = memo(
   ({ chatData, typingUsers, isMsgsLoading, colors }: ChatHeaderProps) => {
     const chatTitle = getDisplayName(chatData);
     const [openInfo, setOpenInfo] = useState(false);
+    const interlocutor = useCachedUser(chatData?.interlocutor);
 
     const getStatusContent = () => {
       if (typingUsers.length > 0) {
@@ -48,7 +50,7 @@ const ChatHeader = memo(
 
         const names = typingUsers.map(
           (u) =>
-            `${u.first_name}${u.last_name ? " " + u.last_name[0] + "." : ""}`
+            `${u.first_name}${u.last_name ? " " + u.last_name[0] + "." : ""}`,
         );
 
         if (names.length === 1) return `${names[0]} печатает...`;
@@ -130,7 +132,7 @@ const ChatHeader = memo(
 
       // direct чат
       if (chatData.type === "direct") {
-        return chatData.interlocutor?.avatar_url ?? undefined;
+        return interlocutor?.avatar_url ?? undefined;
       }
 
       // group / channel (только если это ChatData)
@@ -204,7 +206,7 @@ const ChatHeader = memo(
         />
       </Box>
     );
-  }
+  },
 );
 
 export default ChatHeader;

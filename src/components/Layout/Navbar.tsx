@@ -7,21 +7,23 @@ import FriendsIconCustom from "../../assets/icons/friends.svg?react";
 import SettingsIconCustom from "../../assets/icons/settings.svg?react";
 import { useMeQuery } from "../../queries/useMeQuery";
 import { useState } from "react";
+import { useCachedUser } from "../../stores/useUserStore";
 
 interface NavbarProps {
   orientation?: "vertical" | "horizontal";
 }
+
+type TabKey = "home" | "messages" | "friends";
 
 const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
   const theme = useTheme();
   const colors = theme.palette.background;
   const isVertical = orientation === "vertical";
   const { data: me, isPending: isLoading } = useMeQuery();
-  const avatarUrl = me?.avatar_url ?? null;
+  const cachedMe = useCachedUser(me);
+  const avatarUrl = cachedMe?.avatar_url ?? null;
 
-  const [activeTab, setActiveTab] = useState<"home" | "messages" | "friends">(
-    "messages",
-  );
+  const [activeTab, setActiveTab] = useState<TabKey>("messages");
 
   const containerStyles = {
     width: isVertical ? 70 : "100%",
@@ -46,15 +48,15 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
 
   const tabs = [
     {
-      key: "home",
+      key: "home" as const,
       icon: <HomeIconCustom width={24} height={24} />,
     },
     {
-      key: "messages",
+      key: "messages" as const,
       icon: <MessageIconCustom width={24} height={24} />,
     },
     {
-      key: "friends",
+      key: "friends" as const,
       icon: <FriendsIconCustom width={24} height={24} />,
     },
   ];
@@ -101,7 +103,7 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
             return (
               <IconButton
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key as any)}
+                onClick={() => setActiveTab(tab.key)}
                 sx={{
                   color: isActive ? "#fff" : colors.wb,
                   bgcolor: isActive ? colors.eighth : "transparent",
