@@ -1,11 +1,11 @@
 import { Typography } from "@mui/material";
 import type { TypographyProps } from "@mui/material";
-import type { User } from "../../types";
+import type { UserSnapshot } from "../../stores/useUserStore";
 import { useResolvedUser } from "../../stores/useUserStore";
 import { getUserDisplayName, getUserShortName } from "../../utils/user";
 
 interface UserNameProps extends TypographyProps {
-  user?: Partial<User> | null;
+  user?: UserSnapshot | null;
   fallback?: string;
   short?: boolean;
 }

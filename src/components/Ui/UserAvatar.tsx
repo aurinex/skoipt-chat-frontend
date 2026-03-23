@@ -1,11 +1,11 @@
 import { Avatar } from "@mui/material";
 import type { AvatarProps } from "@mui/material";
-import type { User } from "../../types";
+import type { UserSnapshot } from "../../stores/useUserStore";
 import { useResolvedUser } from "../../stores/useUserStore";
 import { getUserAvatarUrl, getUserInitial } from "../../utils/user";
 
 interface UserAvatarProps extends Omit<AvatarProps, "src"> {
-  user?: Partial<User> | null;
+  user?: UserSnapshot | null;
   fallback?: string;
 }
 

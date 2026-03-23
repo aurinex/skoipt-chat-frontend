@@ -1,10 +1,11 @@
-import type { ChatData } from "../types";
+import type { Chat, ChatData, ChatPreview } from "../types";
 import { isChatAdmin, isCurrentUserChatAdmin } from "./user";
 
 type ChatMemberLike = { id?: string; is_admin?: boolean } | null | undefined;
+type ChatPermissionTarget = Pick<Chat | ChatData | ChatPreview, "type"> | null | undefined;
 
 export const canSendToChat = (
-  chat: ChatData | null | undefined,
+  chat: ChatPermissionTarget,
   currentUserId: string | null | undefined,
   members?: ChatMemberLike[],
 ) => {
@@ -14,7 +15,7 @@ export const canSendToChat = (
 };
 
 export const canManageChat = (
-  chat: ChatData | null | undefined,
+  chat: ChatPermissionTarget,
   currentUserId: string | null | undefined,
   members?: ChatMemberLike[],
 ) => {

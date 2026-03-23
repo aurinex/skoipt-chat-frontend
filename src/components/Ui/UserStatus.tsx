@@ -1,11 +1,12 @@
 import { Box, Typography } from "@mui/material";
 import type { BoxProps, TypographyProps } from "@mui/material";
-import type { TypingUser, User } from "../../types";
+import type { TypingUser } from "../../types";
+import type { UserSnapshot } from "../../stores/useUserStore";
 import { useResolvedUser } from "../../stores/useUserStore";
 import { getTypingStatusText, getUserPresenceText } from "../../utils/user";
 
 interface UserStatusProps extends Omit<TypographyProps, "children"> {
-  user?: Partial<User> | null;
+  user?: UserSnapshot | null;
   typingUsers?: TypingUser[];
   indicatorOnly?: boolean;
   showIndicator?: boolean;

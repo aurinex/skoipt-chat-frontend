@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { TextField, Button, Typography, Box } from "@mui/material";
+import { Button, Box } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useTheme } from "@mui/material";
@@ -19,24 +19,6 @@ const LoginPage = () => {
     } catch (err: unknown) {
       console.error("Ошибка входа:", err);
     }
-  };
-
-  const input = {
-    ".MuiOutlinedInput-root": {
-      color: theme.palette.background.fiveth,
-      borderRadius: "20px",
-      fontSize: "20px",
-      height: "49px",
-    },
-    ".MuiOutlinedInput-input": {
-      padding: "19px 22px",
-    },
-    ".MuiOutlinedInput-notchedOutline": {
-      border: "none",
-    },
-    bgcolor: theme.palette.background.fourth,
-    border: "none",
-    borderRadius: "20px",
   };
 
   return (

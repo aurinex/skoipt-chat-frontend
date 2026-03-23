@@ -1,11 +1,11 @@
 import { Typography } from "@mui/material";
 import type { TypographyProps } from "@mui/material";
-import type { User } from "../../types";
+import type { UserSnapshot } from "../../stores/useUserStore";
 import { useResolvedUser } from "../../stores/useUserStore";
 import { getUserSubtitle } from "../../utils/user";
 
 interface UserSubtitleProps extends TypographyProps {
-  user?: Partial<User> | null;
+  user?: UserSnapshot | null;
   includeUsername?: boolean;
   includeGroup?: boolean;
   separator?: string;

@@ -425,7 +425,9 @@ const files = {
     const formData = new FormData();
     formData.append("file", file);
     return requestFormData<{
-      avatar_url: string;
+      url: string;
+      object_name: string;
+      is_public: boolean;
     }>(`/files/chat/${chatId}`, formData);
   },
 

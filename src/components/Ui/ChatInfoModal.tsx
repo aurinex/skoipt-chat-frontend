@@ -71,6 +71,8 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
 
   const navigate = useNavigate();
   const type = chatData?.type ?? "direct";
+  const chatMemberCount =
+    chatData && "member_count" in chatData ? (chatData.member_count ?? 0) : 0;
 
   // 🔹 NAME
   let name = "";
@@ -102,12 +104,12 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
   let status = "Информация";
 
   if (type === "group") {
-    const count = data?.total ?? chatData.member_count ?? 0;
+    const count = data?.total ?? chatMemberCount;
     status = `${count} участников`;
   }
 
   if (type === "channel") {
-    const count = data?.total ?? chatData.member_count ?? 0;
+    const count = data?.total ?? chatMemberCount;
     status = canManageCurrentChat
       ? `${count} участников`
       : `${count} подписчиков`;
