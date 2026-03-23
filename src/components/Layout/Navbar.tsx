@@ -1,4 +1,4 @@
-import { Box, IconButton, Avatar, useTheme, Skeleton } from "@mui/material";
+import { Box, IconButton, useTheme, Skeleton } from "@mui/material";
 import ThemeSwitcher from "./ThemeSwitcher";
 
 import HomeIconCustom from "../../assets/icons/home.svg?react";
@@ -8,6 +8,7 @@ import SettingsIconCustom from "../../assets/icons/settings.svg?react";
 import { useMeQuery } from "../../queries/useMeQuery";
 import { useState } from "react";
 import { useCachedUser } from "../../stores/useUserStore";
+import UserAvatar from "../Ui/UserAvatar";
 
 interface NavbarProps {
   orientation?: "vertical" | "horizontal";
@@ -21,7 +22,6 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
   const isVertical = orientation === "vertical";
   const { data: me, isPending: isLoading } = useMeQuery();
   const cachedMe = useCachedUser(me);
-  const avatarUrl = cachedMe?.avatar_url ?? null;
 
   const [activeTab, setActiveTab] = useState<TabKey>("messages");
 
@@ -164,8 +164,9 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
               <SettingsIconCustom width={24} height={24} />
             </IconButton>
 
-            <Avatar
-              src={avatarUrl || "/default-avatar.png"}
+            <UserAvatar
+              user={cachedMe}
+              fallback="?"
               sx={{
                 width: 55,
                 height: 55,

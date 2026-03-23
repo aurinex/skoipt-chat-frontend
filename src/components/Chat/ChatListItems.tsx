@@ -14,9 +14,9 @@ import type { Chat, Message } from "../../types";
 import { useUserStore } from "../../stores/useUserStore";
 import {
   getChatDisplayName,
-  getUserAvatarUrl,
   resolveUser,
 } from "../../utils/user";
+import UserAvatar from "../Ui/UserAvatar";
 
 interface ChatListItemsProps {
   chats: Chat[];
@@ -131,14 +131,6 @@ const ChatListItems = ({
     );
   }
 
-  const getChatAvatar = (chat: Chat) => {
-    if (chat.type === "direct") {
-      return getUserAvatarUrl(resolveUser(chat.interlocutor, usersById));
-    }
-
-    return chat.avatar_url ?? undefined;
-  };
-
   return (
     <List sx={{ p: 0 }}>
       {filtered.map((chat) => {
@@ -159,10 +151,17 @@ const ChatListItems = ({
                 transition: "background-color 0.2s",
               }}
             >
-              <Avatar
-                src={getChatAvatar(chat)}
-                sx={{ width: 50, height: 50, mr: 2 }}
-              />
+              {chat.type === "direct" ? (
+                <UserAvatar
+                  user={resolveUser(chat.interlocutor, usersById)}
+                  sx={{ width: 50, height: 50, mr: 2 }}
+                />
+              ) : (
+                <Avatar
+                  src={chat.avatar_url ?? undefined}
+                  sx={{ width: 50, height: 50, mr: 2 }}
+                />
+              )}
 
               <Box sx={{ flexGrow: 1, overflow: "hidden" }}>
                 <Typography
