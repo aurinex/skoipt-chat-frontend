@@ -27,6 +27,8 @@ import { useCachedUser, useUserStore } from "../../stores/useUserStore";
 import {
   getUserAvatarUrl,
   getUserDisplayName,
+  isChatAdmin,
+  isCurrentUserChatAdmin,
   resolveUser,
 } from "../../utils/user";
 import UserAvatar from "./UserAvatar";
@@ -90,8 +92,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
 
   // 🔹 ADMIN CHECK
   const myId = getMyId();
-  const isAdmin =
-    data?.members?.some((m) => m.id === myId && m.is_admin) ?? false;
+  const isAdmin = isCurrentUserChatAdmin(data?.members, myId);
 
   // 🔹 STATUS
   let status = "Информация";
@@ -598,7 +599,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                             }}
                           >
                             {/* c59300ff */}
-                            {resolvedMember.is_admin ? (
+                            {isChatAdmin(resolvedMember) ? (
                               <StarRoundedIcon
                                 onClick={() => handleRevokeAdmin(resolvedMember.id)}
                                 sx={{

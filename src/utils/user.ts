@@ -3,6 +3,7 @@ import type { UserSnapshot } from "../stores/useUserStore";
 
 type UserRecord = Record<string, UserSnapshot>;
 type ResolvableUser = UserSnapshot | User | null | undefined;
+type ChatMemberLike = { id?: string; is_admin?: boolean } | null | undefined;
 
 export const resolveUser = (
   user: ResolvableUser,
@@ -121,3 +122,21 @@ export const getUserSubtitle = (
 
   return parts.join(separator) || fallback;
 };
+
+export const hasUserRole = (user: ResolvableUser, role: string) =>
+  user?.role === role;
+
+export const isAdminUser = (user: ResolvableUser) =>
+  hasUserRole(user, "admin");
+
+export const isChatAdmin = (member: ChatMemberLike) =>
+  Boolean(member?.is_admin);
+
+export const isCurrentUserChatAdmin = (
+  members: ChatMemberLike[] | undefined,
+  currentUserId: string | null | undefined,
+) =>
+  (members ?? []).some(
+    (member) =>
+      String(member?.id) === String(currentUserId) && isChatAdmin(member),
+  );

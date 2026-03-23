@@ -21,6 +21,7 @@ import {
   flattenMessagePages,
   useMessageCacheActions,
 } from "../../queries/messageCache";
+import { isCurrentUserChatAdmin } from "../../utils/user";
 
 const EMPTY_FILES: File[] = [];
 const EMPTY_MESSAGE_PAGES: never[] = [];
@@ -66,7 +67,7 @@ const ActiveChat = () => {
 
     if (!membersData) return false;
 
-    return membersData.members.some((m) => m.id === myId && m.is_admin);
+    return isCurrentUserChatAdmin(membersData.members, myId);
   }, [chatData, myId, membersData]);
 
   const handleLoadMore = useCallback(() => {
