@@ -6,6 +6,7 @@ import MessageIconCustom from "../../assets/icons/message.svg?react";
 import FriendsIconCustom from "../../assets/icons/friends.svg?react";
 import SettingsIconCustom from "../../assets/icons/settings.svg?react";
 import { useMeQuery } from "../../queries/useMeQuery";
+import { useState } from "react";
 
 interface NavbarProps {
   orientation?: "vertical" | "horizontal";
@@ -17,6 +18,10 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
   const isVertical = orientation === "vertical";
   const { data: me, isPending: isLoading } = useMeQuery();
   const avatarUrl = me?.avatar_url ?? null;
+
+  const [activeTab, setActiveTab] = useState<"home" | "messages" | "friends">(
+    "messages",
+  );
 
   const containerStyles = {
     width: isVertical ? 70 : "100%",
@@ -38,6 +43,21 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
     gap: isVertical ? 3 : 4,
     alignItems: "center",
   };
+
+  const tabs = [
+    {
+      key: "home",
+      icon: <HomeIconCustom width={24} height={24} />,
+    },
+    {
+      key: "messages",
+      icon: <MessageIconCustom width={24} height={24} />,
+    },
+    {
+      key: "friends",
+      icon: <FriendsIconCustom width={24} height={24} />,
+    },
+  ];
 
   return (
     <Box sx={containerStyles}>
@@ -75,22 +95,29 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
         </Box>
       ) : (
         <Box sx={groupStyles}>
-          <IconButton sx={{ color: colors.wb }}>
-            <HomeIconCustom width={24} height={24} />
-          </IconButton>
-          <IconButton
-            sx={{
-              color: colors.sixth,
-              bgcolor: colors.eighth,
-              borderRadius: "12px",
-              "&:hover": { bgcolor: colors.eighth, opacity: 0.9 },
-            }}
-          >
-            <MessageIconCustom width={24} height={24} />
-          </IconButton>
-          <IconButton sx={{ color: colors.wb }}>
-            <FriendsIconCustom width={24} height={24} />
-          </IconButton>
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.key;
+
+            return (
+              <IconButton
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key as any)}
+                sx={{
+                  color: isActive ? "#fff" : colors.wb,
+                  bgcolor: isActive ? colors.eighth : "transparent",
+                  borderRadius: "12px",
+                  transition: "all 0.2s ease",
+
+                  "&:hover": {
+                    bgcolor: isActive ? colors.eighth : colors.fourth,
+                    scale: 1.05,
+                  },
+                }}
+              >
+                {tab.icon}
+              </IconButton>
+            );
+          })}
         </Box>
       )}
 

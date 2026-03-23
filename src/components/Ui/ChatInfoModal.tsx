@@ -215,19 +215,33 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
     }
   };
 
-  // const handleMakeAdmin = async (userId: string) => {
-  //   if (!chatId) return;
+  const handleMakeAdmin = async (userId: string) => {
+    if (!chatId) return;
 
-  //   try {
-  //     await api.chats.makeAdmin(chatId, userId);
+    try {
+      await api.chats.makeAdmin(chatId, userId);
 
-  //     queryClient.invalidateQueries({ queryKey: ["chat-members", chatId] });
+      queryClient.invalidateQueries({ queryKey: ["chat-members", chatId] });
 
-  //     console.log("Пользователь повышен до администратора");
-  //   } catch (e) {
-  //     console.error(e);
-  //   }
-  // };
+      console.log("Пользователь повышен до администратора");
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleRevokeAdmin = async (userId: string) => {
+    if (!chatId) return;
+
+    try {
+      await api.chats.revokeAdmin(chatId, userId);
+
+      queryClient.invalidateQueries({ queryKey: ["chat-members", chatId] });
+
+      console.log("Администратор понижен до участника");
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   return (
     <Modal
@@ -435,7 +449,6 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                       </ListItem>
                     ))}
                   </Box> */}
-
                     {filteredUsers.map((user: User) => {
                       const isSelected = selectedUsers.some(
                         (u) => u.id === user.id,
@@ -578,11 +591,27 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                             {/* c59300ff */}
                             {member.is_admin ? (
                               <StarRoundedIcon
-                                sx={{ fontSize: 20, color: "#ffae00ff" }}
+                                onClick={() => handleRevokeAdmin(member.id)}
+                                sx={{
+                                  fontSize: 20,
+                                  color: "#ffae00ff",
+                                  transition: "color 0.2s ease",
+                                  cursor:
+                                    isAdmin && member.id !== myId
+                                      ? "pointer"
+                                      : "default",
+                                  ":hover": {
+                                    color:
+                                      member.id === myId
+                                        ? undefined
+                                        : colors.seventh,
+                                  },
+                                }}
                               />
                             ) : isAdmin && member.id !== myId ? (
                               <IconButton
                                 size="small"
+                                onClick={() => handleMakeAdmin(member.id)}
                                 sx={{
                                   p: 0.5,
                                   border: "none",

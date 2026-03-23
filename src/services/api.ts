@@ -339,6 +339,18 @@ const chats = {
       offset: number;
     }>(`/chats/${chatId}/members?limit=${limit}&offset=${offset}`);
   },
+
+  async makeAdmin(chatId: string, targetUserId: string) {
+    return request(`/chats/${chatId}/admin/${targetUserId}`, {
+      method: "POST",
+    });
+  },
+
+  async revokeAdmin(chatId: string, targetUserId: string) {
+    return request(`/chats/${chatId}/admin/${targetUserId}`, {
+      method: "DELETE",
+    });
+  },
 };
 
 // ─── Messages ────────────────────────────────────────────────────────────────

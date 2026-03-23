@@ -11,6 +11,7 @@ interface AppTextFieldProps {
   onChange?: (value: string) => void;
   InputProps?: TextFieldProps["InputProps"];
   styles?: TextFieldProps["sx"];
+  autoFocus?: boolean;
 }
 
 const AppTextField = ({
@@ -22,6 +23,7 @@ const AppTextField = ({
   onChange,
   InputProps,
   styles,
+  ...rest
 }: AppTextFieldProps) => {
   const theme = useTheme();
   const colors = theme.palette.background;
@@ -65,6 +67,7 @@ const AppTextField = ({
           },
           bgcolor: colors.fourth,
         }}
+        {...rest}
       />
     </Box>
   );

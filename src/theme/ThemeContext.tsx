@@ -13,7 +13,7 @@ const ThemeContext = createContext<any>(null);
 
 export const ThemeProvider = ({ children }: any) => {
   const [mode, setModeState] = useState<Mode>(
-    (localStorage.getItem("theme") as Mode) || "system"
+    (localStorage.getItem("theme") as Mode) || "system",
   );
 
   const setMode = (value: Mode) => {
@@ -97,7 +97,7 @@ export const ThemeProvider = ({ children }: any) => {
           },
         },
       }),
-    [actualMode]
+    [actualMode],
   );
 
   return (

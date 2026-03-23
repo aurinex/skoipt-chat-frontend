@@ -1,4 +1,4 @@
-import { Box } from "@mui/material";
+import { Box, useTheme } from "@mui/material";
 import { Outlet } from "react-router-dom";
 import { useEffect, useRef } from "react";
 import { socket, getMyId } from "../../services/api";
@@ -8,6 +8,10 @@ import { useChatListCacheActions } from "../../queries/chatListCache";
 
 const Layout = () => {
   const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
+
+  const theme = useTheme();
+  const colors = theme.palette.background;
+
   const {
     updateChatFromMessage,
     setChatTyping,
@@ -22,6 +26,13 @@ const Layout = () => {
     sound.volume = 0.3;
     notificationSoundRef.current = sound;
   }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+
+    root.style.setProperty("--scrollbar-thumb", colors.fourth);
+    root.style.setProperty("--scrollbar-track", "transparent");
+  }, [colors]);
 
   useEffect(() => {
     const unsubTyping = socket.on("typing", (data) => {
