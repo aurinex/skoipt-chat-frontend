@@ -12,10 +12,8 @@ import DoneAllIcon from "@mui/icons-material/DoneAll";
 import { Skeleton } from "@mui/material";
 import type { Chat, Message } from "../../types";
 import { useUserStore } from "../../stores/useUserStore";
-import {
-  getChatDisplayName,
-  resolveUser,
-} from "../../utils/user";
+import { resolveUser } from "../../utils/user";
+import { getChatAvatarUrl, getChatTitle } from "../../utils/chat";
 import UserAvatar from "../Ui/UserAvatar";
 
 interface ChatListItemsProps {
@@ -74,7 +72,7 @@ const ChatListItems = ({
     ? chats.filter((chat) => {
         const q = searchQuery.toLowerCase();
         const interlocutor = resolveUser(chat.interlocutor, usersById);
-        const name = getChatDisplayName(chat, usersById).toLowerCase();
+        const name = (getChatTitle(chat, usersById, "Пользователь") ?? "").toLowerCase();
         const username = (interlocutor?.username || "").toLowerCase();
         return name.includes(q) || username.includes(q);
       })
@@ -158,7 +156,7 @@ const ChatListItems = ({
                 />
               ) : (
                 <Avatar
-                  src={chat.avatar_url ?? undefined}
+                  src={getChatAvatarUrl(chat, usersById)}
                   sx={{ width: 50, height: 50, mr: 2 }}
                 />
               )}
@@ -172,7 +170,7 @@ const ChatListItems = ({
                   }}
                   noWrap
                 >
-                  {getChatDisplayName(chat, usersById)}
+                  {getChatTitle(chat, usersById)}
                 </Typography>
 
                 <Typography

@@ -8,9 +8,10 @@ import FindCustomIcon from "../../assets/icons/find.svg?react";
 import SettingsCustomIcon from "../../assets/icons/settings.svg?react";
 import ChatInfoModal from "../Ui/ChatInfoModal";
 import { useResolvedUser } from "../../stores/useUserStore";
-import { getUserDisplayName } from "../../utils/user";
+import { getChatAvatarUrl, getChatTitle } from "../../utils/chat";
 import UserAvatar from "../Ui/UserAvatar";
 import UserStatus from "../Ui/UserStatus";
+import { useUserStore } from "../../stores/useUserStore";
 
 interface ChatHeaderProps {
   chatData: ChatData | ChatPreview | null;
@@ -19,21 +20,13 @@ interface ChatHeaderProps {
   colors: AppColors;
 }
 
-const getDisplayName = (
-  chatData: ChatData | ChatPreview | null,
-  interlocutorName: string,
-) => {
-  if (!chatData) return null;
-  if ("name" in chatData && chatData.name) return chatData.name;
-  return interlocutorName || null;
-};
-
 const ChatHeader = memo(
   ({ chatData, typingUsers, isMsgsLoading, colors }: ChatHeaderProps) => {
     const [openInfo, setOpenInfo] = useState(false);
+    const usersById = useUserStore((state) => state.usersById);
     const interlocutor = useResolvedUser(chatData?.interlocutor);
-    const interlocutorName = getUserDisplayName(interlocutor, "");
-    const chatTitle = getDisplayName(chatData, interlocutorName);
+    const chatTitle = getChatTitle(chatData, usersById, "Загрузка...");
+    const chatAvatarUrl = getChatAvatarUrl(chatData, usersById);
 
     if (isMsgsLoading && !chatData) {
       return (
@@ -122,7 +115,7 @@ const ChatHeader = memo(
             <UserAvatar user={interlocutor} sx={{ width: 60, height: 60 }} />
           ) : (
             <Avatar
-              src={chatData && "avatar_url" in chatData ? chatData.avatar_url ?? undefined : undefined}
+              src={chatAvatarUrl}
               sx={{ width: 60, height: 60 }}
             />
           )}

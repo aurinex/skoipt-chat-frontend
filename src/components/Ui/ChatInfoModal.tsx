@@ -24,12 +24,8 @@ import { useEffect, useRef, useState } from "react";
 import { useUsersSearchQuery } from "../../queries/useUsersSearchQuery";
 import type { User } from "../../types";
 import { useCachedUser, useUserStore } from "../../stores/useUserStore";
-import {
-  getUserAvatarUrl,
-  getUserDisplayName,
-  isChatAdmin,
-  resolveUser,
-} from "../../utils/user";
+import { getUserDisplayName, isChatAdmin, resolveUser } from "../../utils/user";
+import { getChatAvatarUrl, getChatTitle } from "../../utils/chat";
 import {
   canEditChatAvatar,
   canInviteMembers,
@@ -84,12 +80,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
       ? chatData.id
       : (chatData.chat_id ?? null)
     : null;
-
-  if (chatData && type === "direct") {
-    name = getUserDisplayName(interlocutor, "");
-  } else if (chatData) {
-    name = chatData.name ?? "";
-  }
+  name = getChatTitle(chatData, usersById, "") ?? "";
 
   // 🔹 MEMBERS QUERY (только для group/channel)
   const { data, isLoading } = useChatMembersQuery(
@@ -101,7 +92,11 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
   const myId = getMyId();
   const canManageCurrentChat = canManageChat(chatData, myId, data?.members);
   const canEditAvatar = canEditChatAvatar(chatData, myId, data?.members);
-  const canInviteToCurrentChat = canInviteMembers(chatData, myId, data?.members);
+  const canInviteToCurrentChat = canInviteMembers(
+    chatData,
+    myId,
+    data?.members,
+  );
 
   // 🔹 STATUS
   let status = "Информация";
@@ -113,7 +108,9 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
 
   if (type === "channel") {
     const count = data?.total ?? chatData.member_count ?? 0;
-    status = canManageCurrentChat ? `${count} участников` : `${count} подписчиков`;
+    status = canManageCurrentChat
+      ? `${count} участников`
+      : `${count} подписчиков`;
   }
 
   useEffect(() => {
@@ -132,12 +129,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
 
   if (!chatData) return null;
 
-  const avatar =
-    type === "direct"
-      ? getUserAvatarUrl(interlocutor)
-      : "avatar_url" in chatData
-        ? chatData.avatar_url
-        : undefined;
+  const avatar = getChatAvatarUrl(chatData, usersById);
 
   const filteredUsers = users.filter(
     (u) => !(data?.members ?? []).some((m) => m.id === u.id),
@@ -149,7 +141,8 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
     (user) => resolveUser(user, usersById) ?? user,
   );
   const resolvedMembers =
-    data?.members?.map((member) => resolveUser(member, usersById) ?? member) ?? [];
+    data?.members?.map((member) => resolveUser(member, usersById) ?? member) ??
+    [];
 
   const handleAddMember = async () => {
     if (!chatId || selectedUsers.length === 0) return;
@@ -482,7 +475,9 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                       return (
                         <ListItem key={resolvedUser.id} disablePadding>
                           <ListItemButton
-                            onClick={() => handleSelectUser(resolvedUser as User)}
+                            onClick={() =>
+                              handleSelectUser(resolvedUser as User)
+                            }
                             sx={{
                               borderRadius: "12px",
                               mb: "8px",
@@ -494,7 +489,10 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                           >
                             <UserAvatar user={resolvedUser} sx={{ mr: 2 }} />
                             <Box>
-                              <UserName user={resolvedUser} sx={{ color: colors.sixth }} />
+                              <UserName
+                                user={resolvedUser}
+                                sx={{ color: colors.sixth }}
+                              />
                               <UserSubtitle
                                 user={resolvedUser}
                                 sx={{
@@ -610,15 +608,20 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                             {/* c59300ff */}
                             {isChatAdmin(resolvedMember) ? (
                               <StarRoundedIcon
-                                onClick={() => handleRevokeAdmin(resolvedMember.id)}
+                                onClick={() =>
+                                  handleRevokeAdmin(resolvedMember.id)
+                                }
                                 sx={{
                                   fontSize: 20,
                                   color: "#ffae00ff",
                                   transition: "color 0.2s ease",
-                                  cursor:
-                                    canRevokeChatAdmin(myId, resolvedMember, data?.members)
-                                      ? "pointer"
-                                      : "default",
+                                  cursor: canRevokeChatAdmin(
+                                    myId,
+                                    resolvedMember,
+                                    data?.members,
+                                  )
+                                    ? "pointer"
+                                    : "default",
                                   ":hover": {
                                     color:
                                       resolvedMember.id === myId
@@ -627,10 +630,16 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                                   },
                                 }}
                               />
-                            ) : canPromoteChatMember(myId, resolvedMember, data?.members) ? (
+                            ) : canPromoteChatMember(
+                                myId,
+                                resolvedMember,
+                                data?.members,
+                              ) ? (
                               <IconButton
                                 size="small"
-                                onClick={() => handleMakeAdmin(resolvedMember.id)}
+                                onClick={() =>
+                                  handleMakeAdmin(resolvedMember.id)
+                                }
                                 sx={{
                                   p: 0.5,
                                   border: "none",
@@ -687,7 +696,11 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                     )} */}
 
                         {/* 🔴 KICK BUTTON */}
-                        {canKickChatMember(myId, resolvedMember, data?.members) && (
+                        {canKickChatMember(
+                          myId,
+                          resolvedMember,
+                          data?.members,
+                        ) && (
                           <Button
                             size="small"
                             onClick={() => handleKick(resolvedMember.id)}
