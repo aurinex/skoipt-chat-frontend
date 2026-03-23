@@ -10,7 +10,11 @@ import DoneAllIcon from "@mui/icons-material/DoneAll";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import FilePreview from "../Ui/FilePreview";
-import { formatLocalTime, formatDateLabel } from "../../utils/chatFormatters";
+import {
+  formatLocalTime,
+  formatDateLabel,
+  getChatDateKey,
+} from "../../utils/chatFormatters";
 import type { Message, ChatData } from "../../types";
 import type { AppColors } from "../../types/theme";
 import { useUserStore } from "../../stores/useUserStore";
@@ -465,9 +469,9 @@ const MessageList = memo(
                   !prevMsg || prevMsg.sender_id !== msg.sender_id;
                 const isLastInGroup =
                   !nextMsg || nextMsg.sender_id !== msg.sender_id;
-                const currentDate = new Date(msg.created_at).toDateString();
+                const currentDate = getChatDateKey(msg.created_at);
                 const prevDate = prevMsg
-                  ? new Date(prevMsg.created_at).toDateString()
+                  ? getChatDateKey(prevMsg.created_at)
                   : null;
                 const showDateLabel = currentDate !== prevDate;
 

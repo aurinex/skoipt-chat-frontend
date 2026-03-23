@@ -132,10 +132,18 @@ const ChatHeader = memo(
             >
               {chatTitle || "Загрузка..."}
             </Typography>
-            {chatData?.interlocutor ? (
+            {typingUsers.length > 0 ? (
+              <UserStatus
+                typingUsers={typingUsers}
+                sx={{
+                  color: colors.fiveth,
+                  fontSize: 16,
+                  mt: "-6px",
+                }}
+              />
+            ) : chatData?.interlocutor ? (
               <UserStatus
                 user={interlocutor}
-                typingUsers={typingUsers}
                 sx={{
                   color: colors.fiveth,
                   fontSize: 16,

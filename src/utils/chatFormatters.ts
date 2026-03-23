@@ -1,10 +1,17 @@
-export const formatLocalTime = (dateStr: string) => {
+export const parseChatDate = (dateStr: string) => {
   const isoStr =
     dateStr.includes("Z") || dateStr.includes("+")
       ? dateStr
       : `${dateStr.replace(" ", "T")}Z`;
 
-  const date = new Date(isoStr);
+  return new Date(isoStr);
+};
+
+export const getChatDateKey = (dateStr: string) =>
+  parseChatDate(dateStr).toDateString();
+
+export const formatLocalTime = (dateStr: string) => {
+  const date = parseChatDate(dateStr);
 
   return date.toLocaleTimeString([], {
     hour: "2-digit",
@@ -14,12 +21,7 @@ export const formatLocalTime = (dateStr: string) => {
 };
 
 export const formatDateLabel = (dateStr: string) => {
-  const isoStr =
-    dateStr.includes("Z") || dateStr.includes("+")
-      ? dateStr
-      : `${dateStr.replace(" ", "T")}Z`;
-
-  const date = new Date(isoStr);
+  const date = parseChatDate(dateStr);
   const now = new Date();
 
   if (date.toDateString() === now.toDateString()) {

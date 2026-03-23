@@ -35,10 +35,16 @@ export const getUserShortName = (
 
   const firstName = user.first_name?.trim();
   const lastInitial = user.last_name?.trim()?.[0];
+  const fullNameParts = user.full_name?.trim().split(/\s+/).filter(Boolean) ?? [];
+  const fullNameFirst = fullNameParts[0];
+  const fullNameLastInitial = fullNameParts[1]?.[0];
 
   if (firstName && lastInitial) return `${firstName} ${lastInitial}.`;
+  if (firstName && fullNameLastInitial) return `${firstName} ${fullNameLastInitial}.`;
+  if (fullNameFirst && fullNameLastInitial) return `${fullNameFirst} ${fullNameLastInitial}.`;
   if (firstName) return firstName;
-  return getUserDisplayName(user, fallback);
+  if (fullNameFirst) return fullNameFirst;
+  return user.username || fallback;
 };
 
 export const getUserAvatarUrl = (user: ResolvableUser) =>
