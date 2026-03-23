@@ -5,6 +5,7 @@ import ProtectedRoute from "./components/Layout/ProtectedRoute";
 import LoginPage from "./pages/LoginPage";
 import ActiveChat from "./components/Chat/ActiveChat";
 import NewChat from "./components/Chat/NewChat";
+import MiniAppsPage from "./pages/MiniAppsPage";
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
               <Route index />
               <Route path="chat/new" element={<NewChat />} />
               <Route path="chat/:chatId" element={<ActiveChat />} />
+              <Route path="miniapps" element={<MiniAppsPage />} />
               <Route path="settings" element={<div>Настройки</div>} />
             </Route>
           </Route>

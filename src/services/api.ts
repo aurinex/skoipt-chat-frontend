@@ -436,6 +436,19 @@ const files = {
   },
 };
 
+// ─── MINIAPPS ───────────────────────────────────────────────────────────────
+
+const miniApps = {
+  async launch(appId: string) {
+    return request<{ url: string; token: string }>(
+      `/mini-apps/${appId}/launch`,
+      {
+        method: "POST",
+      },
+    );
+  },
+};
+
 // ─── WebSocket ───────────────────────────────────────────────────────────────
 
 class MessengerSocket {
@@ -550,5 +563,5 @@ class MessengerSocket {
 
 export const socket = new MessengerSocket();
 
-const api = { auth, chats, messages, files, users };
+const api = { auth, chats, messages, files, users, miniApps };
 export default api;

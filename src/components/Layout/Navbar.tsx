@@ -8,13 +8,14 @@ import SettingsIconCustom from "../../assets/icons/settings.svg?react";
 import { useMeQuery } from "../../queries/useMeQuery";
 import { useState } from "react";
 import { useCachedUser } from "../../stores/useUserStore";
+import AppsIcon from "@mui/icons-material/Apps";
 import UserAvatar from "../Ui/UserAvatar";
 
 interface NavbarProps {
   orientation?: "vertical" | "horizontal";
 }
 
-type TabKey = "home" | "messages" | "friends";
+type TabKey = "home" | "messages" | "friends" | "apps";
 
 const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
   const theme = useTheme();
@@ -58,6 +59,10 @@ const Navbar = ({ orientation = "vertical" }: NavbarProps) => {
     {
       key: "friends" as const,
       icon: <FriendsIconCustom width={24} height={24} />,
+    },
+    {
+      key: "apps" as const,
+      icon: <AppsIcon width={24} height={24} />,
     },
   ];
 
