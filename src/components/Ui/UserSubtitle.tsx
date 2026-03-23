@@ -1,8 +1,8 @@
 import { Typography } from "@mui/material";
 import type { TypographyProps } from "@mui/material";
 import type { User } from "../../types";
-import { useUserStore } from "../../stores/useUserStore";
-import { getUserSubtitle, resolveUser } from "../../utils/user";
+import { useResolvedUser } from "../../stores/useUserStore";
+import { getUserSubtitle } from "../../utils/user";
 
 interface UserSubtitleProps extends TypographyProps {
   user?: Partial<User> | null;
@@ -21,8 +21,7 @@ const UserSubtitle = ({
   children,
   ...props
 }: UserSubtitleProps) => {
-  const usersById = useUserStore((state) => state.usersById);
-  const resolvedUser = resolveUser(user, usersById);
+  const resolvedUser = useResolvedUser(user);
   const content = getUserSubtitle(resolvedUser, {
     includeUsername,
     includeGroup,

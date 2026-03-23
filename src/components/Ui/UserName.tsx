@@ -1,8 +1,8 @@
 import { Typography } from "@mui/material";
 import type { TypographyProps } from "@mui/material";
 import type { User } from "../../types";
-import { useUserStore } from "../../stores/useUserStore";
-import { getUserDisplayName, getUserShortName, resolveUser } from "../../utils/user";
+import { useResolvedUser } from "../../stores/useUserStore";
+import { getUserDisplayName, getUserShortName } from "../../utils/user";
 
 interface UserNameProps extends TypographyProps {
   user?: Partial<User> | null;
@@ -17,8 +17,7 @@ const UserName = ({
   children,
   ...props
 }: UserNameProps) => {
-  const usersById = useUserStore((state) => state.usersById);
-  const resolvedUser = resolveUser(user, usersById);
+  const resolvedUser = useResolvedUser(user);
   const content = short
     ? getUserShortName(resolvedUser, fallback)
     : getUserDisplayName(resolvedUser, fallback);

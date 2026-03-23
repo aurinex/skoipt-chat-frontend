@@ -75,6 +75,12 @@ export const useCachedUser = <T extends UserSnapshot | null | undefined>(user: T
   return mergeUserWithCache(user, cachedUser);
 };
 
+export const useResolvedUser = <T extends UserSnapshot | null | undefined>(user: T) =>
+  useCachedUser(user);
+
+export const useResolvedUserById = (userId: string | null | undefined) =>
+  useUserStore((state) => (userId ? state.usersById[userId] : undefined));
+
 const getReplyUsers = (reply?: ReplyToMessage | null) => [reply?.sender];
 
 export const collectUsersFromMessages = (messages: Message[]) =>

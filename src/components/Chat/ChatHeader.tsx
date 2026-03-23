@@ -7,7 +7,7 @@ import type { AppColors } from "../../types/theme";
 import FindCustomIcon from "../../assets/icons/find.svg?react";
 import SettingsCustomIcon from "../../assets/icons/settings.svg?react";
 import ChatInfoModal from "../Ui/ChatInfoModal";
-import { useCachedUser } from "../../stores/useUserStore";
+import { useResolvedUser } from "../../stores/useUserStore";
 import { getUserDisplayName } from "../../utils/user";
 import UserAvatar from "../Ui/UserAvatar";
 import UserStatus from "../Ui/UserStatus";
@@ -31,7 +31,7 @@ const getDisplayName = (
 const ChatHeader = memo(
   ({ chatData, typingUsers, isMsgsLoading, colors }: ChatHeaderProps) => {
     const [openInfo, setOpenInfo] = useState(false);
-    const interlocutor = useCachedUser(chatData?.interlocutor);
+    const interlocutor = useResolvedUser(chatData?.interlocutor);
     const interlocutorName = getUserDisplayName(interlocutor, "");
     const chatTitle = getDisplayName(chatData, interlocutorName);
 

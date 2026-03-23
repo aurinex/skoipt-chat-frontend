@@ -1,8 +1,8 @@
 import { Avatar } from "@mui/material";
 import type { AvatarProps } from "@mui/material";
 import type { User } from "../../types";
-import { useUserStore } from "../../stores/useUserStore";
-import { getUserAvatarUrl, getUserInitial, resolveUser } from "../../utils/user";
+import { useResolvedUser } from "../../stores/useUserStore";
+import { getUserAvatarUrl, getUserInitial } from "../../utils/user";
 
 interface UserAvatarProps extends Omit<AvatarProps, "src"> {
   user?: Partial<User> | null;
@@ -10,8 +10,7 @@ interface UserAvatarProps extends Omit<AvatarProps, "src"> {
 }
 
 const UserAvatar = ({ user, fallback = "?", children, ...props }: UserAvatarProps) => {
-  const usersById = useUserStore((state) => state.usersById);
-  const resolvedUser = resolveUser(user, usersById);
+  const resolvedUser = useResolvedUser(user);
 
   return (
     <Avatar src={getUserAvatarUrl(resolvedUser)} {...props}>

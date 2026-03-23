@@ -1,8 +1,8 @@
 import { Box, Typography } from "@mui/material";
 import type { BoxProps, TypographyProps } from "@mui/material";
 import type { TypingUser, User } from "../../types";
-import { useUserStore } from "../../stores/useUserStore";
-import { getTypingStatusText, getUserPresenceText, resolveUser } from "../../utils/user";
+import { useResolvedUser } from "../../stores/useUserStore";
+import { getTypingStatusText, getUserPresenceText } from "../../utils/user";
 
 interface UserStatusProps extends Omit<TypographyProps, "children"> {
   user?: Partial<User> | null;
@@ -21,8 +21,7 @@ const UserStatus = ({
   sx,
   ...props
 }: UserStatusProps) => {
-  const usersById = useUserStore((state) => state.usersById);
-  const resolvedUser = resolveUser(user, usersById);
+  const resolvedUser = useResolvedUser(user);
   const statusText =
     getTypingStatusText(typingUsers) ?? getUserPresenceText(resolvedUser);
   const isActive = typingUsers.length > 0 || Boolean(resolvedUser?.is_online);
