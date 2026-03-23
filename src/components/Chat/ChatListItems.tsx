@@ -12,24 +12,17 @@ import DoneAllIcon from "@mui/icons-material/DoneAll";
 import { Skeleton } from "@mui/material";
 import type { Chat, Message } from "../../types";
 import { useUserStore } from "../../stores/useUserStore";
+import {
+  getChatDisplayName,
+  getUserAvatarUrl,
+  resolveUser,
+} from "../../utils/user";
 
 interface ChatListItemsProps {
   chats: Chat[];
   isLoading?: boolean;
   searchQuery?: string;
 }
-
-const getChatDisplayName = (chat: Chat) => {
-  if (chat.name) return chat.name;
-  if (chat.interlocutor?.full_name?.trim()) return chat.interlocutor.full_name;
-
-  const fullName = [chat.interlocutor?.first_name, chat.interlocutor?.last_name]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
-
-  return fullName || chat.interlocutor?.username || "Пользователь";
-};
 
 const getLastMessagePreview = (msg?: Message | null) => {
   if (!msg) return "Нет сообщений";
@@ -80,8 +73,9 @@ const ChatListItems = ({
   const filtered = searchQuery.trim()
     ? chats.filter((chat) => {
         const q = searchQuery.toLowerCase();
-        const name = getChatDisplayName(chat).toLowerCase();
-        const username = (chat.interlocutor?.username || "").toLowerCase();
+        const interlocutor = resolveUser(chat.interlocutor, usersById);
+        const name = getChatDisplayName(chat, usersById).toLowerCase();
+        const username = (interlocutor?.username || "").toLowerCase();
         return name.includes(q) || username.includes(q);
       })
     : chats;
@@ -139,7 +133,7 @@ const ChatListItems = ({
 
   const getChatAvatar = (chat: Chat) => {
     if (chat.type === "direct") {
-      return usersById[chat.interlocutor?.id ?? ""]?.avatar_url ?? chat.interlocutor?.avatar_url ?? undefined;
+      return getUserAvatarUrl(resolveUser(chat.interlocutor, usersById));
     }
 
     return chat.avatar_url ?? undefined;
@@ -179,7 +173,7 @@ const ChatListItems = ({
                   }}
                   noWrap
                 >
-                  {getChatDisplayName(chat)}
+                  {getChatDisplayName(chat, usersById)}
                 </Typography>
 
                 <Typography

@@ -24,6 +24,11 @@ import { useEffect, useRef, useState } from "react";
 import { useUsersSearchQuery } from "../../queries/useUsersSearchQuery";
 import type { User } from "../../types";
 import { useCachedUser, useUserStore } from "../../stores/useUserStore";
+import {
+  getUserAvatarUrl,
+  getUserDisplayName,
+  resolveUser,
+} from "../../utils/user";
 
 import StarRoundedIcon from "@mui/icons-material/StarRounded";
 import StarOutlineRoundedIcon from "@mui/icons-material/StarOutlineRounded";
@@ -69,11 +74,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
     : null;
 
   if (chatData && type === "direct") {
-    name = chatData.interlocutor
-      ? `${chatData.interlocutor.first_name ?? ""} ${
-          chatData.interlocutor.last_name ?? ""
-        }`.trim()
-      : "";
+    name = getUserDisplayName(interlocutor, "");
   } else if (chatData) {
     name = chatData.name ?? "";
   }
@@ -120,7 +121,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
 
   const avatar =
     type === "direct"
-      ? interlocutor?.avatar_url
+      ? getUserAvatarUrl(interlocutor)
       : "avatar_url" in chatData
         ? chatData.avatar_url
         : undefined;
@@ -128,6 +129,14 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
   const filteredUsers = users.filter(
     (u) => !(data?.members ?? []).some((m) => m.id === u.id),
   );
+  const resolvedSelectedUsers = selectedUsers.map(
+    (user) => resolveUser(user, usersById) ?? user,
+  );
+  const resolvedFilteredUsers = filteredUsers.map(
+    (user) => resolveUser(user, usersById) ?? user,
+  );
+  const resolvedMembers =
+    data?.members?.map((member) => resolveUser(member, usersById) ?? member) ?? [];
 
   const handleAddMember = async () => {
     if (!chatId || selectedUsers.length === 0) return;
@@ -374,18 +383,14 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                   {/* 👤 SELECTED USER */}
                   {selectedUsers.length > 0 && (
                     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
-                      {selectedUsers.map((u) => (
+                      {resolvedSelectedUsers.map((user) => (
                         <Chip
-                          key={u.id}
-                          avatar={
-                            <Avatar
-                              src={usersById[u.id]?.avatar_url ?? u.avatar_url ?? undefined}
-                            />
-                          }
-                          label={`${u.first_name} ${u.last_name}`}
+                          key={user.id}
+                          avatar={<Avatar src={getUserAvatarUrl(user)} />}
+                          label={getUserDisplayName(user)}
                           onDelete={() =>
                             setSelectedUsers((prev) =>
-                              prev.filter((x) => x.id !== u.id),
+                              prev.filter((x) => x.id !== user.id),
                             )
                           }
                           sx={{
@@ -439,15 +444,15 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                       </ListItem>
                     ))}
                   </Box> */}
-                    {filteredUsers.map((user: User) => {
+                    {resolvedFilteredUsers.map((resolvedUser) => {
                       const isSelected = selectedUsers.some(
-                        (u) => u.id === user.id,
+                        (u) => u.id === resolvedUser.id,
                       );
 
                       return (
-                        <ListItem key={user.id} disablePadding>
+                        <ListItem key={resolvedUser.id} disablePadding>
                           <ListItemButton
-                            onClick={() => handleSelectUser(user)}
+                            onClick={() => handleSelectUser(resolvedUser as User)}
                             sx={{
                               borderRadius: "12px",
                               mb: "8px",
@@ -458,12 +463,12 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                             }}
                           >
                             <Avatar
-                              src={usersById[user.id]?.avatar_url ?? user.avatar_url ?? undefined}
+                              src={getUserAvatarUrl(resolvedUser)}
                               sx={{ mr: 2 }}
                             />
                             <Box>
                               <Typography sx={{ color: colors.sixth }}>
-                                {user.first_name} {user.last_name}
+                                {getUserDisplayName(resolvedUser)}
                               </Typography>
                               <Typography
                                 sx={{
@@ -471,7 +476,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                                   color: colors.fiveth,
                                 }}
                               >
-                                @{user.username}
+                                @{resolvedUser.username}
                               </Typography>
                             </Box>
                           </ListItemButton>
@@ -539,9 +544,9 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                     </Typography>
                   )}
 
-                  {data?.members?.map((member) => (
+                  {resolvedMembers.map((resolvedMember) => (
                     <Box
-                      key={member.id}
+                      key={resolvedMember.id}
                       sx={{
                         display: "flex",
                         justifyContent: "space-between",
@@ -579,29 +584,29 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                             }}
                           >
                             {/* c59300ff */}
-                            {member.is_admin ? (
+                            {resolvedMember.is_admin ? (
                               <StarRoundedIcon
-                                onClick={() => handleRevokeAdmin(member.id)}
+                                onClick={() => handleRevokeAdmin(resolvedMember.id)}
                                 sx={{
                                   fontSize: 20,
                                   color: "#ffae00ff",
                                   transition: "color 0.2s ease",
                                   cursor:
-                                    isAdmin && member.id !== myId
+                                    isAdmin && resolvedMember.id !== myId
                                       ? "pointer"
                                       : "default",
                                   ":hover": {
                                     color:
-                                      member.id === myId
+                                      resolvedMember.id === myId
                                         ? undefined
                                         : colors.seventh,
                                   },
                                 }}
                               />
-                            ) : isAdmin && member.id !== myId ? (
+                            ) : isAdmin && resolvedMember.id !== myId ? (
                               <IconButton
                                 size="small"
-                                onClick={() => handleMakeAdmin(member.id)}
+                                onClick={() => handleMakeAdmin(resolvedMember.id)}
                                 sx={{
                                   p: 0.5,
                                   border: "none",
@@ -622,7 +627,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                           </Box>
 
                           <Avatar
-                            src={usersById[member.id]?.avatar_url ?? member.avatar_url ?? undefined}
+                            src={getUserAvatarUrl(resolvedMember)}
                             sx={{ width: 32, height: 32 }}
                           />
 
@@ -635,7 +640,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                                 fontSize: 14,
                               }}
                             >
-                              {member.first_name} {member.last_name}
+                              {getUserDisplayName(resolvedMember)}
                             </Typography>
 
                             <Typography
@@ -644,7 +649,7 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                                 fontSize: 12,
                               }}
                             >
-                              @{member.username}
+                              @{resolvedMember.username}
                             </Typography>
                           </Box>
                         </Box>
@@ -660,10 +665,10 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                     )} */}
 
                         {/* 🔴 KICK BUTTON */}
-                        {isAdmin && member.id !== myId && (
+                        {isAdmin && resolvedMember.id !== myId && (
                           <Button
                             size="small"
-                            onClick={() => handleKick(member.id)}
+                            onClick={() => handleKick(resolvedMember.id)}
                             sx={{
                               minWidth: "unset",
                               px: 1,

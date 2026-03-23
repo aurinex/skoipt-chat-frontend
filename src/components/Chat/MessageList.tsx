@@ -15,6 +15,12 @@ import { formatLocalTime, formatDateLabel } from "../../utils/chatFormatters";
 import type { Message, ChatData } from "../../types";
 import type { AppColors } from "../../types/theme";
 import { useUserStore } from "../../stores/useUserStore";
+import {
+  getUserAvatarUrl,
+  getUserInitial,
+  getUserShortName,
+  resolveUser,
+} from "../../utils/user";
 
 interface MessageListProps {
   messages: Message[];
@@ -476,7 +482,17 @@ const MessageList = memo(
                   : [];
 
                 const isUploading = !!msg._uploading;
-                const sender = msg.sender_id ? usersById[msg.sender_id] ?? msg.sender : msg.sender;
+                const sender = resolveUser(msg.sender, usersById) ?? resolveUser(
+                  msg.sender_id ? { id: msg.sender_id } : undefined,
+                  usersById,
+                );
+                const replySender = resolveUser(
+                  msg.reply_to_message?.sender ??
+                    (msg.reply_to_message?.sender_id
+                      ? { id: msg.reply_to_message.sender_id }
+                      : undefined),
+                  usersById,
+                );
 
                 // Разделяем на изображения и остальные файлы
                 const imageUrls = fileUrls.filter(
@@ -560,7 +576,7 @@ const MessageList = memo(
                         >
                           {isLastInGroup ? (
                             <Avatar
-                              src={sender?.avatar_url ?? undefined}
+                              src={getUserAvatarUrl(sender)}
                               sx={{
                                 width: 45,
                                 height: 45,
@@ -568,7 +584,7 @@ const MessageList = memo(
                                 bgcolor: colors.eighth,
                               }}
                             >
-                              {sender?.first_name?.[0]}
+                              {getUserInitial(sender)}
                             </Avatar>
                           ) : (
                             <Box sx={{ width: 34 }} />
@@ -598,10 +614,7 @@ const MessageList = memo(
                                 ml: 1.5,
                               }}
                             >
-                              {sender?.first_name}{" "}
-                              {sender?.last_name?.[0]
-                                ? `${sender.last_name[0]}.`
-                                : ""}
+                              {getUserShortName(sender, "Пользователь")}
                             </Typography>
                           )}
                         {highlightedId === msg.id && (
@@ -717,9 +730,7 @@ const MessageList = memo(
                               <Typography
                                 sx={{ fontSize: "0.75rem", color: "#fff" }}
                               >
-                                {usersById[msg.reply_to_message.sender_id]?.first_name ||
-                                  msg.reply_to_message.sender?.first_name ||
-                                  "Ответ"}
+                                {getUserShortName(replySender, "Ответ")}
                               </Typography>
                               <Typography
                                 sx={{

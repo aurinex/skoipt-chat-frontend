@@ -27,6 +27,7 @@ import {
   useCreateChannelMutation,
   useCreateGroupMutation,
 } from "../../queries/useChatMutations";
+import { getUserAvatarUrl, getUserDisplayName } from "../../utils/user";
 
 type Mode = "direct" | "group" | "channel";
 
@@ -52,6 +53,16 @@ const NewChatModal: React.FC<{
   const results: User[] = data ?? [];
   const createGroupMutation = useCreateGroupMutation();
   const createChannelMutation = useCreateChannelMutation();
+  const resetState = () => {
+    setMode("direct");
+    setName("");
+    setSelectedUsers([]);
+    setSearch("");
+  };
+  const handleClose = () => {
+    resetState();
+    onClose();
+  };
 
   useEffect(() => {
     if (!contentRef.current) return;
@@ -84,20 +95,10 @@ const NewChatModal: React.FC<{
   //   return () => clearTimeout(t);
   // }, [search]);
 
-  // 🧹 очистка
-  useEffect(() => {
-    if (!open) {
-      setMode("direct");
-      setName("");
-      setSelectedUsers([]);
-      setSearch("");
-    }
-  }, [open]);
-
   const handleSelectUser = (user: User) => {
     if (mode === "direct") {
       navigate(`/chat/new?userId=${user.id}`);
-      onClose();
+      handleClose();
       return;
     }
 
@@ -133,7 +134,7 @@ const NewChatModal: React.FC<{
         navigate(`/chat/${chat.id}`);
       }
 
-      onClose();
+      handleClose();
     } catch (e) {
       console.error(e);
     }
@@ -146,7 +147,7 @@ const NewChatModal: React.FC<{
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       closeAfterTransition
       slots={{ backdrop: Backdrop }}
       slotProps={{ backdrop: { timeout: 200 } }}
@@ -192,7 +193,7 @@ const NewChatModal: React.FC<{
 
             <IconButton
               size="small"
-              onClick={onClose}
+              onClick={handleClose}
               sx={{ color: colors.fiveth }}
             >
               <CloseIcon fontSize="small" />
@@ -267,7 +268,7 @@ const NewChatModal: React.FC<{
                       {selectedUsers.map((u) => (
                         <Chip
                           key={u.id}
-                          label={`${u.first_name} ${u.last_name}`}
+                          label={getUserDisplayName(u)}
                           onDelete={() => removeUser(u.id)}
                           sx={{
                             bgcolor: colors.fourth,
@@ -313,12 +314,12 @@ const NewChatModal: React.FC<{
                               }}
                             >
                               <Avatar
-                                src={user.avatar_url ?? undefined}
+                                src={getUserAvatarUrl(user)}
                                 sx={{ mr: 2 }}
                               />
                               <Box>
                                 <Typography sx={{ color: colors.sixth }}>
-                                  {user.first_name} {user.last_name}
+                                  {getUserDisplayName(user)}
                                 </Typography>
                                 <Typography
                                   sx={{

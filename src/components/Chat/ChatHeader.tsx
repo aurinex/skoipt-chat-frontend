@@ -8,6 +8,7 @@ import FindCustomIcon from "../../assets/icons/find.svg?react";
 import SettingsCustomIcon from "../../assets/icons/settings.svg?react";
 import ChatInfoModal from "../Ui/ChatInfoModal";
 import { useCachedUser } from "../../stores/useUserStore";
+import { getUserAvatarUrl, getUserDisplayName } from "../../utils/user";
 
 interface ChatHeaderProps {
   chatData: ChatData | ChatPreview | null;
@@ -16,28 +17,21 @@ interface ChatHeaderProps {
   colors: AppColors;
 }
 
-const getDisplayName = (chatData: ChatData | ChatPreview | null) => {
+const getDisplayName = (
+  chatData: ChatData | ChatPreview | null,
+  interlocutorName: string,
+) => {
   if (!chatData) return null;
   if ("name" in chatData && chatData.name) return chatData.name;
-
-  const interlocutor = chatData.interlocutor;
-  if (!interlocutor) return null;
-
-  if (interlocutor.full_name?.trim()) return interlocutor.full_name;
-
-  const fullName = [interlocutor.first_name, interlocutor.last_name]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
-
-  return fullName || interlocutor.username || null;
+  return interlocutorName || null;
 };
 
 const ChatHeader = memo(
   ({ chatData, typingUsers, isMsgsLoading, colors }: ChatHeaderProps) => {
-    const chatTitle = getDisplayName(chatData);
     const [openInfo, setOpenInfo] = useState(false);
     const interlocutor = useCachedUser(chatData?.interlocutor);
+    const interlocutorName = getUserDisplayName(interlocutor, "");
+    const chatTitle = getDisplayName(chatData, interlocutorName);
 
     const getStatusContent = () => {
       if (typingUsers.length > 0) {
@@ -132,7 +126,7 @@ const ChatHeader = memo(
 
       // direct чат
       if (chatData.type === "direct") {
-        return interlocutor?.avatar_url ?? undefined;
+        return getUserAvatarUrl(interlocutor);
       }
 
       // group / channel (только если это ChatData)

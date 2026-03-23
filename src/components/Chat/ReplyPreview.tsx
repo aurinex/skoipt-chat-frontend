@@ -1,6 +1,7 @@
 import { Box, Typography, IconButton } from "@mui/material";
 import type { Message } from "../../types";
 import type { AppColors } from "../../types/theme";
+import { getUserShortName } from "../../utils/user";
 
 interface ReplyPreviewProps {
   replyTo: Message | null;
@@ -28,7 +29,7 @@ const ReplyPreview = ({ replyTo, onCancel, colors }: ReplyPreviewProps) => {
     >
       <Box sx={{ overflow: "hidden" }}>
         <Typography sx={{ fontSize: "0.75rem", color: colors.fiveth }}>
-          {replyTo.sender?.first_name || "Ответ"}
+          {getUserShortName(replyTo.sender, "Ответ")}
         </Typography>
 
         <Typography

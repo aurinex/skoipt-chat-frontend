@@ -10,6 +10,7 @@ import {
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import type { User } from "../../types";
+import { getUserAvatarUrl, getUserDisplayName } from "../../utils/user";
 
 interface UserSearchResultsProps {
   users: User[];
@@ -57,7 +58,7 @@ const UserSearchResults = ({
           >
             <Box sx={{ position: "relative", mr: 2 }}>
               <Avatar
-                src={user.avatar_url ?? undefined}
+                src={getUserAvatarUrl(user)}
                 sx={{ width: 50, height: 50 }}
               />
               {user.is_online && (
@@ -85,7 +86,7 @@ const UserSearchResults = ({
                 }}
                 noWrap
               >
-                {user.first_name} {user.last_name}
+                {getUserDisplayName(user)}
               </Typography>
               <Typography
                 sx={{ color: colors.fiveth, fontSize: "0.85rem" }}
