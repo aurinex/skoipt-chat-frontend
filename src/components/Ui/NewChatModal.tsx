@@ -29,6 +29,7 @@ import {
 import { getUserDisplayName } from "../../utils/user";
 import UserAvatar from "./UserAvatar";
 import UserName from "./UserName";
+import UserSubtitle from "./UserSubtitle";
 
 type Mode = "direct" | "group" | "channel";
 
@@ -317,14 +318,13 @@ const NewChatModal: React.FC<{
                               <UserAvatar user={user} sx={{ mr: 2 }} />
                               <Box>
                                 <UserName user={user} sx={{ color: colors.sixth }} />
-                                <Typography
+                                <UserSubtitle
+                                  user={user}
                                   sx={{
                                     fontSize: 12,
                                     color: colors.fiveth,
                                   }}
-                                >
-                                  @{user.username}
-                                </Typography>
+                                />
                               </Box>
                             </ListItemButton>
                           </ListItem>

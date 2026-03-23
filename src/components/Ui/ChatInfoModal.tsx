@@ -31,6 +31,7 @@ import {
 } from "../../utils/user";
 import UserAvatar from "./UserAvatar";
 import UserName from "./UserName";
+import UserSubtitle from "./UserSubtitle";
 
 import StarRoundedIcon from "@mui/icons-material/StarRounded";
 import StarOutlineRoundedIcon from "@mui/icons-material/StarOutlineRounded";
@@ -484,14 +485,13 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                             <UserAvatar user={resolvedUser} sx={{ mr: 2 }} />
                             <Box>
                               <UserName user={resolvedUser} sx={{ color: colors.sixth }} />
-                              <Typography
+                              <UserSubtitle
+                                user={resolvedUser}
                                 sx={{
                                   fontSize: 12,
                                   color: colors.fiveth,
                                 }}
-                              >
-                                @{resolvedUser.username}
-                              </Typography>
+                              />
                             </Box>
                           </ListItemButton>
                         </ListItem>
@@ -656,14 +656,13 @@ const ChatInfoModal = ({ open, onClose, chatData, colors }: Props) => {
                               }}
                             />
 
-                            <Typography
+                            <UserSubtitle
+                              user={resolvedMember}
                               sx={{
                                 color: colors.fiveth,
                                 fontSize: 12,
                               }}
-                            >
-                              @{resolvedMember.username}
-                            </Typography>
+                            />
                           </Box>
                         </Box>
                       </Box>

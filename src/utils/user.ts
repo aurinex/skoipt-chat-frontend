@@ -84,3 +84,34 @@ export const getUserPresenceText = (
   if (!user) return "Загрузка данных...";
   return user.is_online ? onlineLabel : fallback;
 };
+
+export const getUserSubtitle = (
+  user: ResolvableUser,
+  options?: {
+    includeUsername?: boolean;
+    includeGroup?: boolean;
+    separator?: string;
+    fallback?: string;
+  },
+) => {
+  const {
+    includeUsername = true,
+    includeGroup = true,
+    separator = " · ",
+    fallback = "",
+  } = options ?? {};
+
+  if (!user) return fallback;
+
+  const parts: string[] = [];
+
+  if (includeUsername && user.username) {
+    parts.push(`@${user.username}`);
+  }
+
+  if (includeGroup && user.group) {
+    parts.push(user.group);
+  }
+
+  return parts.join(separator) || fallback;
+};

@@ -12,6 +12,7 @@ import type { User } from "../../types";
 import UserAvatar from "../Ui/UserAvatar";
 import UserName from "../Ui/UserName";
 import UserStatus from "../Ui/UserStatus";
+import UserSubtitle from "../Ui/UserSubtitle";
 
 interface UserSearchResultsProps {
   users: User[];
@@ -81,13 +82,11 @@ const UserSearchResults = ({
                 }}
                 noWrap
               />
-              <Typography
+              <UserSubtitle
+                user={user}
                 sx={{ color: colors.fiveth, fontSize: "0.85rem" }}
                 noWrap
-              >
-                @{user.username}
-                {user.group ? ` · ${user.group}` : ""}
-              </Typography>
+              />
             </Box>
           </ListItemButton>
         </ListItem>
