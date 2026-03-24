@@ -5,9 +5,14 @@ import { socket, getMyId } from "../../services/api";
 import Navbar from "./Navbar";
 import ChatList from "../Chat/ChatList";
 import { useChatListCacheActions } from "../../queries/chatListCache";
+import MiniAppsList from "../MiniApps/MiniAppsList";
+import { useState } from "react";
+import type { TabKey } from "../../types/index";
 
 const Layout = () => {
   const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
+
+  const [activeTab, setActiveTab] = useState<TabKey>("messages");
 
   const theme = useTheme();
   const colors = theme.palette.background;
@@ -94,11 +99,16 @@ const Layout = () => {
   return (
     <Box sx={{ display: "flex", height: "100vh", overflow: "hidden" }}>
       <Box sx={{ padding: "30px 0 30px 25px" }}>
-        <Navbar orientation="vertical" />
+        <Navbar
+          orientation="vertical"
+          value={activeTab}
+          onChange={setActiveTab}
+        />
       </Box>
 
       <Box sx={{ padding: "30px 36px 0px 36px" }}>
-        <ChatList />
+        {activeTab === "messages" && <ChatList />}
+        {activeTab === "apps" && <MiniAppsList />}
       </Box>
 
       <Box sx={{ flexGrow: 1 }}>

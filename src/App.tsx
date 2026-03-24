@@ -20,7 +20,10 @@ function App() {
               <Route index />
               <Route path="chat/new" element={<NewChat />} />
               <Route path="chat/:chatId" element={<ActiveChat />} />
-              <Route path="miniapps" element={<MiniAppsPage />} />
+              <Route path="miniapps">
+                <Route index element={<MiniAppsPage />} />
+                <Route path=":appId" element={<MiniAppsPage />} />
+              </Route>
               <Route path="settings" element={<div>Настройки</div>} />
             </Route>
           </Route>

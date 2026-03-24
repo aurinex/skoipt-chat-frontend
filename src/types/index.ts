@@ -1,3 +1,5 @@
+export type TabKey = "home" | "messages" | "friends" | "apps";
+
 export interface User {
   id: string;
   username: string;
@@ -10,6 +12,14 @@ export interface User {
   group?: string | null;
   course?: number | null;
   specialty?: string | null;
+}
+
+export interface MiniApps {
+  id: string;
+  name: string;
+  url: string;
+  description: string;
+  is_active: boolean;
 }
 
 export interface ReplyToMessage {

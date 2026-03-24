@@ -1,16 +1,23 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
+import { useParams, useLocation } from "react-router-dom";
 
 function MiniAppsPage() {
+  const { appId } = useParams();
   const [iframeUrl, setIframeUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!appId) return;
+
     const loadApp = async () => {
       try {
-        const { url, token } = await api.miniApps.launch("schedule");
+        const { url, token } = await api.miniApps.launch(appId);
 
-        setIframeUrl(`${url}?token=${token}`);
+        const fullUrl = new URL(url);
+        fullUrl.searchParams.set("token", token);
+
+        setIframeUrl(fullUrl.toString());
       } catch (e) {
         console.error(e);
       } finally {
@@ -19,24 +26,17 @@ function MiniAppsPage() {
     };
 
     loadApp();
-  }, []);
+  }, [appId]);
 
   if (loading) return <div>Загрузка mini app...</div>;
-
   if (!iframeUrl) return <div>Ошибка загрузки</div>;
 
   return (
-    <div style={{ width: "100%", height: "100vh" }}>
-      <iframe
-        src={iframeUrl}
-        style={{
-          width: "100%",
-          height: "100%",
-          border: "none",
-        }}
-        sandbox="allow-scripts allow-same-origin"
-      />
-    </div>
+    <iframe
+      src={iframeUrl}
+      style={{ width: "100%", height: "100vh", border: "none" }}
+      sandbox="allow-scripts allow-same-origin"
+    />
   );
 }
 
