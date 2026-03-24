@@ -10,12 +10,11 @@ interface UseMessageSenderParams {
   setMessages: (updater: (prev: Message[]) => Message[]) => void;
   handleUpdateChat: (msg: Message) => void;
   closeModal: () => void;
+
+  editingMessage: Message | null;
+  setEditingMessage: (msg: Message | null) => void;
 }
 
-/**
- * Вся логика отправки сообщений — текст и файлы.
- * Включает оптимистичные обновления и обработку ошибок.
- */
 export const useMessageSender = ({
   chatId,
   replyTo,
@@ -23,15 +22,47 @@ export const useMessageSender = ({
   setMessages,
   handleUpdateChat,
   closeModal,
+  editingMessage,
+  setEditingMessage,
 }: UseMessageSenderParams) => {
   const myId = getMyId() ?? "";
   const sendMessageMutation = useSendMessageMutation();
+
+  const editMessage = async (messageId: string, text: string) => {
+    return api.messages.edit(chatId, messageId, text);
+  };
 
   const handleSend = useCallback(
     async (text: string, replyToId?: string) => {
       if (!text.trim() || !chatId) return;
 
+      if (editingMessage) {
+        try {
+          await editMessage(editingMessage.id, text);
+
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === editingMessage.id
+                ? {
+                    ...m,
+                    text,
+                    is_edited: true,
+                    edited_at: new Date().toISOString(),
+                  }
+                : m,
+            ),
+          );
+
+          setEditingMessage(null);
+        } catch {
+          console.error("Ошибка редактирования");
+        }
+
+        return;
+      }
+
       const tempId = `temp_${Date.now()}`;
+
       setMessages((prev) => [
         ...prev,
         {
@@ -59,11 +90,13 @@ export const useMessageSender = ({
             reply_to: replyToId || null,
           },
         });
+
         setMessages((prev) =>
           prev.map((m) =>
             m.id === tempId ? { ...msg, reply_to_message: replyTo } : m,
           ),
         );
+
         onReplyReset();
         handleUpdateChat(msg);
       } catch {
@@ -82,6 +115,8 @@ export const useMessageSender = ({
       sendMessageMutation,
       setMessages,
       handleUpdateChat,
+      editingMessage,
+      setEditingMessage,
     ],
   );
 
@@ -113,6 +148,7 @@ export const useMessageSender = ({
           reply_to_message: replyTo || null,
         },
       ]);
+
       closeModal();
 
       try {
@@ -121,15 +157,11 @@ export const useMessageSender = ({
         );
 
         const fileUrls: string[] = [];
-        results.forEach((result, i) => {
+
+        results.forEach((result) => {
           if (result.status === "fulfilled") {
             const res = result.value;
             fileUrls.push(res.is_public ? res.url : res.object_name);
-          } else {
-            console.error(
-              `Не удалось загрузить ${files[i].name}:`,
-              result.reason,
-            );
           }
         });
 
@@ -141,7 +173,6 @@ export const useMessageSender = ({
                 : m,
             ),
           );
-          blobUrls.forEach(URL.revokeObjectURL);
           return;
         }
 
@@ -159,6 +190,7 @@ export const useMessageSender = ({
             m.id === tempId ? { ...msg, reply_to_message: replyTo } : m,
           ),
         );
+
         onReplyReset();
         handleUpdateChat(msg);
       } catch {

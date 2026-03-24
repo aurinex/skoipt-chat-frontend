@@ -5,6 +5,7 @@ import type { Message } from "../../types";
 import type { AppColors } from "../../types/theme";
 import MessageInput from "./MessageInput";
 import ReplyPreview from "./ReplyPreview";
+import EditPreview from "../Layout/EditPreview";
 
 interface ActiveChatComposerProps {
   chatId: string;
@@ -12,6 +13,7 @@ interface ActiveChatComposerProps {
   colors: AppColors;
   setMessages: (updater: Message[] | ((prev: Message[]) => Message[])) => void;
   handleUpdateChat: (message: Message) => void;
+  messages: Message[];
 }
 
 const ActiveChatComposer = ({
@@ -20,6 +22,7 @@ const ActiveChatComposer = ({
   colors,
   setMessages,
   handleUpdateChat,
+  messages,
 }: ActiveChatComposerProps) => {
   const {
     draftText,
@@ -28,7 +31,13 @@ const ActiveChatComposer = ({
     setReplyTo,
     closeModal,
     handleFileInputChange,
+    editingMessage,
+    setEditingMessage,
   } = useComposer(composerScopeId);
+
+  const lastMyMessage = [...messages]
+    .reverse()
+    .find((m) => m.is_mine && !m._failed);
 
   const { handleSend } = useMessageSender({
     chatId,
@@ -37,6 +46,8 @@ const ActiveChatComposer = ({
     setMessages,
     handleUpdateChat,
     closeModal,
+    editingMessage,
+    setEditingMessage,
   });
 
   return (
@@ -46,6 +57,10 @@ const ActiveChatComposer = ({
         onCancel={() => setReplyTo(null)}
         colors={colors}
       />
+      <EditPreview
+        message={editingMessage}
+        onCancel={() => setEditingMessage(null)}
+      />
       <MessageInput
         chatId={chatId}
         onSend={handleSend}
@@ -54,6 +69,13 @@ const ActiveChatComposer = ({
         onChange={setDraftText}
         colors={colors}
         replyTo={replyTo}
+        onCancelEdit={() => setEditingMessage(null)}
+        editing={!!editingMessage}
+        onEditLastMessage={() => {
+          if (lastMyMessage) {
+            setEditingMessage(lastMyMessage);
+          }
+        }}
       />
     </>
   );

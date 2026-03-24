@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Box, TextField, IconButton } from "@mui/material";
 import { socket } from "../../services/api";
 
@@ -16,6 +16,9 @@ interface MessageInputProps {
   value: string;
   onChange: (text: string) => void;
   colors: AppColors;
+  onEditLastMessage?: () => void;
+  onCancelEdit?: () => void;
+  editing?: boolean;
 }
 
 const MessageInput = ({
@@ -26,9 +29,14 @@ const MessageInput = ({
   onChange,
   colors,
   replyTo,
+  onEditLastMessage,
+  onCancelEdit,
+  editing,
 }: MessageInputProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const myTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -49,6 +57,12 @@ const MessageInput = ({
     }, 2000);
   };
 
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+    }
+  }, [editing]);
+
   const handleSend = () => {
     if (!value.trim()) return;
 
@@ -64,9 +78,19 @@ const MessageInput = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowUp" && !value) {
+      e.preventDefault();
+      onEditLastMessage?.();
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault(); // ❗ блокируем перенос
+      e.preventDefault();
       handleSend();
+    }
+
+    if (e.key === "Escape") {
+      e.preventDefault();
+      onCancelEdit?.();
     }
   };
 
@@ -130,6 +154,7 @@ const MessageInput = ({
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
         onPaste={handlePaste}
+        inputRef={inputRef}
         InputProps={{
           disableUnderline: true,
           sx: { color: colors.sixth, px: 1 },

@@ -30,10 +30,11 @@ const ThemeSwitcher = ({ orientation = "horizontal" }: ThemeSwitcherProps) => {
         // Меняем направление в зависимости от пропа
         flexDirection: orientation === "vertical" ? "column" : "row",
         bgcolor: colors.third,
-        p: "4px",
-        borderRadius: "12px",
+        justifyContent: orientation === "vertical" ? "center" : "space-around",
+        p: "4px 4px 4px 4px",
+        borderRadius: "16px",
         border: `1px solid ${colors.fourth}`,
-        width: "fit-content",
+        width: orientation === "vertical" ? "fit-content" : "100%",
         // Добавляем небольшой отступ между кнопками в вертикальном режиме
         gap: orientation === "vertical" ? "4px" : 0,
       }}

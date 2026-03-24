@@ -27,7 +27,9 @@ export const useComposer = (scopeId: string) => {
   const closeModalForScope = useComposerStore((state) => state.closeModal);
   const addFilesForScope = useComposerStore((state) => state.addFiles);
   const removeFileForScope = useComposerStore((state) => state.removeFile);
-  const resetComposerForScope = useComposerStore((state) => state.resetComposer);
+  const resetComposerForScope = useComposerStore(
+    (state) => state.resetComposer,
+  );
 
   const setDraftText = useMemo(
     () => (value: string) => setDraftTextForScope(scopeId, value),
@@ -64,6 +66,19 @@ export const useComposer = (scopeId: string) => {
     [scopeId, resetComposerForScope],
   );
 
+  const editingMessage = useComposerStore(
+    (state) => state.composers[scopeId]?.editingMessage ?? null,
+  );
+
+  const setEditingMessageForScope = useComposerStore(
+    (state) => state.setEditingMessage,
+  );
+
+  const setEditingMessage = useMemo(
+    () => (msg: Message | null) => setEditingMessageForScope(scopeId, msg),
+    [scopeId, setEditingMessageForScope],
+  );
+
   const handleFileInputChange = useMemo(
     () => (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files || []);
@@ -87,5 +102,7 @@ export const useComposer = (scopeId: string) => {
     removeFile,
     handleFileInputChange,
     resetComposer,
+    editingMessage,
+    setEditingMessage,
   };
 };
