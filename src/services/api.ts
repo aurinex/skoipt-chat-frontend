@@ -9,10 +9,10 @@ import type {
 
 // const BASE_URL = "http://localhost:8000";
 // const BASE_WS = "localhost:8000";
-// const BASE_URL = "http://10.10.10.5:8000";
-// const BASE_WS = "10.10.10.5:8000";
-const BASE_URL = "http://192.168.51.143:8000";
-const BASE_WS = "192.168.51.143:8000";
+const BASE_URL = "http://10.10.10.5:8000";
+const BASE_WS = "10.10.10.5:8000";
+// const BASE_URL = "http://192.168.51.143:8000";
+// const BASE_WS = "192.168.51.143:8000";
 
 export interface SocketEventMap {
   new_message: Message & { message?: Message };
@@ -122,7 +122,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 async function requestFormData<T>(
   path: string,
-  formData: FormData
+  formData: FormData,
 ): Promise<T> {
   const headers: Record<string, string> = {};
   if (tokens.access) headers["Authorization"] = `Bearer ${tokens.access}`;
@@ -198,7 +198,7 @@ const auth = {
       {
         method: "POST",
         body: JSON.stringify({ username, email, password, invite_code }),
-      }
+      },
     );
     tokens.set(data.access_token, data.refresh_token);
     return data;
@@ -285,14 +285,14 @@ const chats = {
   // Возвращает { chat_id, message, is_new_chat }
   async sendFirstMessage(
     targetUserId: string,
-    data: { text?: string | null; file_urls?: string[] }
+    data: { text?: string | null; file_urls?: string[] },
   ) {
     return request<{ chat_id: string; message: Message; is_new_chat: boolean }>(
       `/chats/direct/${targetUserId}/message`,
       {
         method: "POST",
         body: JSON.stringify(data),
-      }
+      },
     );
   },
 
@@ -368,7 +368,7 @@ const messages = {
   },
   async loadMore(chatId: string, beforeId: string) {
     return request<Message[]>(
-      `/chats/${chatId}/messages/?before_id=${beforeId}`
+      `/chats/${chatId}/messages/?before_id=${beforeId}`,
     );
   },
 
@@ -378,7 +378,7 @@ const messages = {
       text = null,
       file_urls = [],
       reply_to = null,
-    }: { text?: string | null; file_urls?: string[]; reply_to?: string | null }
+    }: { text?: string | null; file_urls?: string[]; reply_to?: string | null },
   ) {
     return request<Message>(`/chats/${chatId}/messages/`, {
       method: "POST",
@@ -454,7 +454,7 @@ const miniApps = {
       `/mini-apps/${appId}/launch`,
       {
         method: "POST",
-      }
+      },
     );
   },
 };
@@ -499,7 +499,7 @@ class MessengerSocket {
       if (data.event in this.listeners) {
         this._emit(
           data.event as keyof SocketEventMap,
-          data as SocketEventMap[keyof SocketEventMap]
+          data as SocketEventMap[keyof SocketEventMap],
         );
       }
     };
@@ -508,7 +508,7 @@ class MessengerSocket {
       this._stopPing();
       if (this.shouldReconnect) {
         console.log(
-          `WS отключён, переподключение через ${this.reconnectDelay}мс...`
+          `WS отключён, переподключение через ${this.reconnectDelay}мс...`,
         );
         setTimeout(() => this.connect(), this.reconnectDelay);
         this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000);
@@ -541,13 +541,13 @@ class MessengerSocket {
 
   on<K extends keyof SocketEventMap>(
     event: K,
-    handler: (data: SocketEventMap[K]) => void
+    handler: (data: SocketEventMap[K]) => void,
   ) {
     if (!this.listeners[event]) this.listeners[event] = [];
     this.listeners[event]!.push(handler as (data: unknown) => void);
     return () => {
       this.listeners[event] = this.listeners[event]?.filter(
-        (h) => h !== (handler as (data: unknown) => void)
+        (h) => h !== (handler as (data: unknown) => void),
       );
     };
   }

@@ -6,13 +6,12 @@ import {
   Tooltip,
   LinearProgress,
 } from "@mui/material";
+import emojiRegex from "emoji-regex";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import FilePreview from "../Ui/FilePreview";
-import {
-  getChatDateKey,
-} from "../../utils/chatFormatters";
+import { getChatDateKey } from "../../utils/chatFormatters";
 import type { Message, ChatData } from "../../types";
 import type { AppColors } from "../../types/theme";
 import { useUserStore } from "../../stores/useUserStore";
@@ -293,10 +292,10 @@ const MessageList = memo(
     const contentRef = useRef<HTMLDivElement>(null);
     const prevChatIdRef = useRef<string | undefined>(chatId);
     const prevFirstMessageIdRef = useRef<string | null>(
-      messages[0]?.id ?? null
+      messages[0]?.id ?? null,
     );
     const prevLastMessageIdRef = useRef<string | null>(
-      messages[messages.length - 1]?.id ?? null
+      messages[messages.length - 1]?.id ?? null,
     );
     const prevScrollHeightRef = useRef(0);
     const prevScrollTopRef = useRef(0);
@@ -305,6 +304,18 @@ const MessageList = memo(
     const stickToBottomRef = useRef(true);
 
     const [highlightedId, setHighlightedId] = useState<string | null>(null);
+
+    const isOnlyEmojis = (text: string) => {
+      const regex = emojiRegex();
+      const matches = text.match(regex) || [];
+
+      const onlyEmoji = matches.join("") === text.trim();
+
+      return {
+        onlyEmoji,
+        count: matches.length,
+      };
+    };
 
     useEffect(() => {
       if (prevChatIdRef.current !== chatId) {
@@ -478,14 +489,16 @@ const MessageList = memo(
                 const fileUrls: string[] = msg.file_urls?.length
                   ? msg.file_urls
                   : msg.file_url
-                  ? [msg.file_url]
-                  : [];
+                    ? [msg.file_url]
+                    : [];
 
                 const isUploading = !!msg._uploading;
-                const sender = resolveUser(msg.sender, usersById) ?? resolveUser(
-                  msg.sender_id ? { id: msg.sender_id } : undefined,
-                  usersById,
-                );
+                const sender =
+                  resolveUser(msg.sender, usersById) ??
+                  resolveUser(
+                    msg.sender_id ? { id: msg.sender_id } : undefined,
+                    usersById,
+                  );
                 const replySender = resolveUser(
                   msg.reply_to_message?.sender ??
                     (msg.reply_to_message?.sender_id
@@ -498,21 +511,28 @@ const MessageList = memo(
                 const imageUrls = fileUrls.filter(
                   (u) =>
                     u.match(/\.(jpg|jpeg|png|gif|webp)/i) ||
-                    u.startsWith("blob:")
+                    u.startsWith("blob:"),
                 );
                 const otherUrls = fileUrls.filter(
                   (u) =>
                     !u.match(/\.(jpg|jpeg|png|gif|webp)/i) &&
-                    !u.startsWith("blob:")
+                    !u.startsWith("blob:"),
                 );
 
                 // Для плейсхолдера не-изображений считаем количество
                 const uploadingNonImageCount = isUploading
-                  ? msg._nonImageCount ?? 0
+                  ? (msg._nonImageCount ?? 0)
                   : 0;
 
                 const hasImages = imageUrls.length > 0;
                 const hasText = !!msg.text;
+
+                const emojiData = msg.text ? isOnlyEmojis(msg.text) : null;
+
+                const isBigEmoji =
+                  emojiData?.onlyEmoji &&
+                  emojiData.count > 0 &&
+                  emojiData.count <= 1;
 
                 const isPureMedia =
                   hasImages && !hasText && otherUrls.length === 0;
@@ -643,11 +663,13 @@ const MessageList = memo(
                                 ? "18px 18px 4px 18px"
                                 : "18px"
                               : isLastInGroup
-                              ? "18px 18px 18px 4px"
-                              : "18px",
-                            bgcolor: isMessageFromMe
-                              ? colors.eighth
-                              : colors.second,
+                                ? "18px 18px 18px 4px"
+                                : "18px",
+                            bgcolor: isBigEmoji
+                              ? "transparent"
+                              : isMessageFromMe
+                                ? colors.eighth
+                                : colors.second,
                             color: isMessageFromMe ? "#fff" : colors.sixth,
                             overflow: "hidden", // Чтобы картинки не вылезали за скругления
                             display: "flex",
@@ -688,7 +710,7 @@ const MessageList = memo(
                                 const targetId = msg.reply_to;
                                 const container = scrollRef.current;
                                 const el = document.getElementById(
-                                  `msg-${targetId}`
+                                  `msg-${targetId}`,
                                 );
 
                                 if (container && el) {
@@ -749,10 +771,13 @@ const MessageList = memo(
                           {hasText && (
                             <Typography
                               sx={{
-                                fontSize: "1rem",
-                                lineHeight: 1.4,
+                                fontSize: isBigEmoji ? "5rem" : "1rem",
+                                lineHeight: isBigEmoji ? 1.2 : 1.4,
+                                textAlign: isBigEmoji ? "center" : "left",
                                 wordBreak: "break-word",
-                                p: "8px 14px 6px 14px",
+                                p: isBigEmoji
+                                  ? "6px 10px"
+                                  : "8px 14px 6px 14px",
                                 maxWidth: hasImages ? "220px" : "100%",
                                 whiteSpace: "pre-wrap",
                               }}
@@ -860,8 +885,8 @@ const MessageList = memo(
                                         msg._pending || isUploading
                                           ? "rgba(255,255,255,0.3)"
                                           : msg.read_by?.length > 0
-                                          ? "rgba(255,255,255,1)"
-                                          : "rgba(255,255,255,0.5)",
+                                            ? "rgba(255,255,255,1)"
+                                            : "rgba(255,255,255,0.5)",
                                     }}
                                   />
                                 )}
@@ -879,7 +904,7 @@ const MessageList = memo(
         </Box>
       </Box>
     );
-  }
+  },
 );
 
 export default MessageList;

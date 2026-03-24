@@ -1,6 +1,9 @@
-import { useRef } from "react";
-import { Box, TextField, IconButton } from "@mui/material";
+import { useEffect, useRef } from "react";
+import { Box, TextField, IconButton, useTheme } from "@mui/material";
 import { socket } from "../../services/api";
+import { useState } from "react";
+import EmojiPicker, { Theme } from "emoji-picker-react";
+import EmojiEmotionsIcon from "@mui/icons-material/EmojiEmotions";
 
 import FileCustomIcon from "../../assets/icons/file.svg?react";
 import MicCustomIcon from "../../assets/icons/micro.svg?react";
@@ -29,6 +32,35 @@ const MessageInput = ({
 }: MessageInputProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const myTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showEmoji, setShowEmoji] = useState(false);
+  const pickerRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const muiTheme = useTheme();
+  const emojiTheme =
+    muiTheme.palette.mode === "dark" ? Theme.DARK : Theme.LIGHT;
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+
+      if (
+        pickerRef.current &&
+        !pickerRef.current.contains(target) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(target)
+      ) {
+        setShowEmoji(false);
+      }
+    };
+
+    if (showEmoji) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showEmoji]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -104,6 +136,7 @@ const MessageInput = ({
         borderRadius: "25px",
         display: "flex",
         alignItems: "center",
+        position: "relative",
       }}
     >
       <input
@@ -114,6 +147,25 @@ const MessageInput = ({
         accept="image/*,video/mp4,audio/*,application/pdf"
         onChange={onFileUpload}
       />
+      {showEmoji && (
+        <Box
+          ref={pickerRef}
+          sx={{
+            position: "absolute",
+            bottom: 70,
+            right: 0,
+            zIndex: 10,
+          }}
+        >
+          <EmojiPicker
+            searchDisabled={true}
+            theme={emojiTheme}
+            onEmojiClick={(emojiData) => {
+              onChange(value + emojiData.emoji);
+            }}
+          />
+        </Box>
+      )}
       <IconButton
         sx={{ color: colors.fiveth }}
         onClick={() => fileInputRef.current?.click()}
@@ -135,6 +187,15 @@ const MessageInput = ({
           sx: { color: colors.sixth, px: 1 },
         }}
       />
+      <IconButton
+        ref={buttonRef}
+        sx={{ color: colors.fiveth }}
+        onClick={(e) => {
+          setShowEmoji((prev) => !prev);
+        }}
+      >
+        <EmojiEmotionsIcon />
+      </IconButton>
       <IconButton sx={{ color: colors.fiveth }}>
         <MicCustomIcon width={24} height={24} />
       </IconButton>
