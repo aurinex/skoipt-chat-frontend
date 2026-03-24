@@ -10,6 +10,7 @@ import {
 } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { useSettingsStore } from "../../stores/useSettingsStore";
+import ThemeSwitcher from "../Layout/ThemeSwitcher";
 
 interface Props {
   open: boolean;
@@ -100,6 +101,8 @@ const MySettingsModal = ({ open, onClose }: Props) => {
               </Button>
             </Box>
           </Box>
+
+          <ThemeSwitcher orientation="horizontal" />
 
           {/* ───────────── SOUNDS ───────────── */}
           <FormControlLabel

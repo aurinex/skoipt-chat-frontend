@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Box, Typography, useTheme } from "@mui/material";
+import { Box, Menu, MenuItem, Typography, useTheme } from "@mui/material";
 import { getMyId } from "../../services/api";
 import { useChatMembersQuery } from "../../queries/useChatMembersQuery";
 import { useMessageSender } from "../../hooks/useMessageSender";
@@ -22,6 +22,7 @@ import {
   useMessageCacheActions,
 } from "../../queries/messageCache";
 import { canSendToChat } from "../../utils/permissions";
+import type { Message } from "../../types";
 
 const EMPTY_FILES: File[] = [];
 const EMPTY_MESSAGE_PAGES: never[] = [];
@@ -33,14 +34,22 @@ const ActiveChat = () => {
   const myId = getMyId();
   const { updateChatFromMessage } = useChatListCacheActions();
   const composerScopeId = chatId ? `chat:${chatId}` : "chat:none";
+  const setEditingMessage = useComposerStore((s) => s.setEditingMessage);
 
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+
+  const [contextMenu, setContextMenu] = useState<{
+    mouseX: number;
+    mouseY: number;
+    message: Message | null;
+  } | null>(null);
+
   const initializeRealtime = useActiveChatStore(
-    activeChatSelectors.initializeRealtime
+    activeChatSelectors.initializeRealtime,
   );
   const setCurrentChat = useActiveChatStore(activeChatSelectors.setCurrentChat);
   const typingUsers = useActiveChatStore(
-    activeChatSelectors.typingUsers(chatId)
+    activeChatSelectors.typingUsers(chatId),
   );
   const { setMessages } = useMessageCacheActions(chatId);
   const {
@@ -53,11 +62,11 @@ const ActiveChat = () => {
   const { data: chatData } = useChatDetailsQuery(chatId);
   const { data: membersData } = useChatMembersQuery(
     chatId!,
-    !!chatId && chatData?.type === "channel"
+    !!chatId && chatData?.type === "channel",
   );
   const messages = useMemo(
     () => flattenMessagePages(messagesData?.pages ?? EMPTY_MESSAGE_PAGES),
-    [messagesData?.pages]
+    [messagesData?.pages],
   );
 
   const canSendMessages = useMemo(() => {
@@ -68,16 +77,16 @@ const ActiveChat = () => {
     void fetchNextPage();
   }, [fetchNextPage]);
   const modalFiles = useComposerStore(
-    (state) => state.composers[composerScopeId]?.modalFiles ?? EMPTY_FILES
+    (state) => state.composers[composerScopeId]?.modalFiles ?? EMPTY_FILES,
   );
   const modalOpen = useComposerStore(
-    (state) => state.composers[composerScopeId]?.modalOpen ?? false
+    (state) => state.composers[composerScopeId]?.modalOpen ?? false,
   );
   const modalInitialCaption = useComposerStore(
-    (state) => state.composers[composerScopeId]?.modalInitialCaption ?? ""
+    (state) => state.composers[composerScopeId]?.modalInitialCaption ?? "",
   );
   const replyTo = useComposerStore(
-    (state) => state.composers[composerScopeId]?.replyTo ?? null
+    (state) => state.composers[composerScopeId]?.replyTo ?? null,
   );
   const openModal = useComposerStore((state) => state.openModal);
   const closeModal = useComposerStore((state) => state.closeModal);
@@ -87,24 +96,27 @@ const ActiveChat = () => {
 
   const handleOpenModal = useCallback(
     (files: File[]) => openModal(composerScopeId, files),
-    [composerScopeId, openModal]
+    [composerScopeId, openModal],
   );
   const handleCloseModal = useCallback(
     () => closeModal(composerScopeId),
-    [closeModal, composerScopeId]
+    [closeModal, composerScopeId],
   );
   const handleAddFiles = useCallback(
     (files: File[]) => addFiles(composerScopeId, files),
-    [addFiles, composerScopeId]
+    [addFiles, composerScopeId],
   );
   const handleRemoveFile = useCallback(
     (index: number) => removeFile(composerScopeId, index),
-    [composerScopeId, removeFile]
+    [composerScopeId, removeFile],
   );
   const handleReplySelect = useCallback(
     (message: (typeof messages)[number]) =>
       setReplyTo(composerScopeId, message),
-    [composerScopeId, setReplyTo]
+    [composerScopeId, setReplyTo],
+  );
+  const editingMessage = useComposerStore(
+    (s) => s.composers[composerScopeId]?.editingMessage ?? null,
   );
 
   useEffect(() => {
@@ -122,6 +134,8 @@ const ActiveChat = () => {
     setMessages,
     handleUpdateChat: updateChatFromMessage,
     closeModal: handleCloseModal,
+    editingMessage,
+    setEditingMessage: (msg) => setEditingMessage(composerScopeId, msg),
   });
 
   if (!chatId) {
@@ -185,6 +199,12 @@ const ActiveChat = () => {
             onLoadMore={handleLoadMore}
             canLoadMore={Boolean(hasNextPage)}
             isLoadingMore={isFetchingNextPage}
+            onEditMessage={(msg) => setEditingMessage(composerScopeId, msg)}
+            onContextMenuOpen={(data: {
+              mouseX: number;
+              mouseY: number;
+              message: Message | null;
+            }) => setContextMenu(data)}
           />
           {canSendMessages && (
             <ActiveChatComposer
@@ -193,8 +213,39 @@ const ActiveChat = () => {
               colors={colors}
               setMessages={setMessages}
               handleUpdateChat={updateChatFromMessage}
+              messages={messages}
             />
           )}
+          <Menu
+            keepMounted
+            open={!!contextMenu}
+            onClose={() => setContextMenu(null)}
+            anchorReference="anchorPosition"
+            anchorPosition={
+              contextMenu
+                ? { top: contextMenu.mouseY, left: contextMenu.mouseX }
+                : undefined
+            }
+          >
+            <MenuItem
+              onClick={() => {
+                if (!contextMenu?.message) return;
+                setEditingMessage(composerScopeId, contextMenu.message);
+                setContextMenu(null);
+              }}
+            >
+              Редактировать
+            </MenuItem>
+
+            <MenuItem
+              onClick={() => {
+                console.log("delete", contextMenu?.message?.id);
+                setContextMenu(null);
+              }}
+            >
+              Удалить
+            </MenuItem>
+          </Menu>
         </Box>
       </ChatShell>
     </>

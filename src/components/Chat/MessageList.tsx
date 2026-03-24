@@ -12,6 +12,7 @@ import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import FilePreview from "../Ui/FilePreview";
 import { getChatDateKey } from "../../utils/chatFormatters";
+import { getChatDateKey } from "../../utils/chatFormatters";
 import type { Message, ChatData } from "../../types";
 import type { AppColors } from "../../types/theme";
 import { useUserStore } from "../../stores/useUserStore";
@@ -20,6 +21,7 @@ import UserAvatar from "../Ui/UserAvatar";
 import UserName from "../Ui/UserName";
 import DateLabel from "../Ui/DateLabel";
 import TimeText from "../Ui/TimeText";
+import { Menu, MenuItem } from "@mui/material";
 
 interface MessageListProps {
   messages: Message[];
@@ -32,6 +34,12 @@ interface MessageListProps {
   onLoadMore?: () => void;
   canLoadMore?: boolean;
   isLoadingMore?: boolean;
+  onEditMessage?: (msg: Message) => void;
+  onContextMenuOpen?: (data: {
+    mouseX: number;
+    mouseY: number;
+    message: Message | null;
+  }) => void;
 }
 
 const MAX_HEIGHT = 1000;
@@ -286,6 +294,7 @@ const MessageList = memo(
     onLoadMore,
     canLoadMore = false,
     isLoadingMore = false,
+    onContextMenuOpen,
   }: MessageListProps) => {
     const usersById = useUserStore((state) => state.usersById);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -302,6 +311,8 @@ const MessageList = memo(
     const shouldRestoreScrollRef = useRef(false);
     const shouldScrollToBottomOnChatOpenRef = useRef(true);
     const stickToBottomRef = useRef(true);
+
+    const editedMapRef = useRef<Record<string, boolean>>({});
 
     const [highlightedId, setHighlightedId] = useState<string | null>(null);
 
@@ -423,9 +434,18 @@ const MessageList = memo(
 
     const showSkeleton = isMsgsLoading && messages.length === 0;
 
+    const highlightMessage = (id: string) => {
+      setHighlightedId(id);
+
+      setTimeout(() => {
+        setHighlightedId(null);
+      }, 2000);
+    };
+
     return (
       <Box
         ref={scrollRef}
+        data-chat-scroll
         sx={{
           flexGrow: 1,
           overflowY: "auto",
@@ -447,6 +467,10 @@ const MessageList = memo(
               )}
               {messages.map((msg, index) => {
                 if (msg.is_system) {
+                  if (msg.is_edited && !editedMapRef.current[msg.id]) {
+                    editedMapRef.current[msg.id] = true;
+                    setTimeout(() => highlightMessage(msg.id), 50);
+                  }
                   return (
                     <Box
                       key={msg.id}
@@ -572,6 +596,15 @@ const MessageList = memo(
                     <Box
                       id={`msg-${msg.id}`}
                       onDoubleClick={() => onReply?.(msg)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+
+                        onContextMenuOpen?.({
+                          mouseX: e.clientX,
+                          mouseY: e.clientY,
+                          message: msg,
+                        });
+                      }}
                       sx={{
                         position: "relative",
                         display: "flex",
@@ -645,11 +678,20 @@ const MessageList = memo(
                               pointerEvents: "none",
                               ml: "54px",
                               background: `linear-gradient(
-                            ${isMessageFromMe ? "270deg" : "90deg"},
-                            ${colors.highlight} 0%,
-                            ${colors.third} 90%
-                          )`,
+        ${isMessageFromMe ? "270deg" : "90deg"},
+        rgba(255,255,255,0.25) 0%,
+        rgba(255,255,255,0.05) 70%,
+        transparent 100%
+      )`,
                               animation: "fadeHighlight 2s ease forwards",
+                              "@keyframes fadeHighlight": {
+                                "0%": {
+                                  opacity: 1,
+                                },
+                                "100%": {
+                                  opacity: 0,
+                                },
+                              },
                             }}
                           />
                         )}
@@ -854,6 +896,13 @@ const MessageList = memo(
                                   }),
                             }}
                           >
+                            {msg.is_edited && (
+                              <Typography
+                                sx={{ fontSize: "0.7rem", opacity: 0.6 }}
+                              >
+                                (изменено)
+                              </Typography>
+                            )}
                             <TimeText
                               value={msg.created_at}
                               sx={{

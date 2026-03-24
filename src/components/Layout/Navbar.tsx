@@ -41,7 +41,7 @@ const Navbar = ({ orientation = "vertical", value, onChange }: NavbarProps) => {
     flexDirection: isVertical ? "column" : "row",
     alignItems: "center",
     justifyContent: "space-between",
-    py: isVertical ? 2 : 0,
+    py: isVertical ? 1 : 0,
     px: isVertical ? 0 : 2,
     bgcolor: colors.fourth,
     borderRadius: "22px",
@@ -100,8 +100,6 @@ const Navbar = ({ orientation = "vertical", value, onChange }: NavbarProps) => {
           </>
         ) : (
           <>
-            <ThemeSwitcher orientation="vertical" />
-
             <IconButton
               sx={{ color: colors.wb }}
               onClick={() => setOpenSettings(true)}
@@ -116,6 +114,7 @@ const Navbar = ({ orientation = "vertical", value, onChange }: NavbarProps) => {
                 width: 55,
                 height: 55,
                 border: `2px solid ${colors.fourth}`,
+                borderRadius: "20px",
               }}
             />
           </>

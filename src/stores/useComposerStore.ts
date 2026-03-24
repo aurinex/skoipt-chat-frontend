@@ -7,6 +7,7 @@ interface ComposerStateItem {
   modalFiles: File[];
   modalOpen: boolean;
   modalInitialCaption: string;
+  editingMessage: Message | null;
 }
 
 interface ComposerStoreState {
@@ -18,6 +19,7 @@ interface ComposerStoreState {
   addFiles: (scopeId: string, files: File[]) => void;
   removeFile: (scopeId: string, index: number) => void;
   resetComposer: (scopeId: string) => void;
+  setEditingMessage: (scopeId: string, message: Message | null) => void;
 }
 
 const EMPTY_FILES: File[] = [];
@@ -28,6 +30,7 @@ const createComposerState = (): ComposerStateItem => ({
   modalFiles: EMPTY_FILES,
   modalOpen: false,
   modalInitialCaption: "",
+  editingMessage: null,
 });
 
 export const useComposerStore = create<ComposerStoreState>((set) => ({
@@ -131,6 +134,18 @@ export const useComposerStore = create<ComposerStoreState>((set) => ({
       composers: {
         ...state.composers,
         [scopeId]: createComposerState(),
+      },
+    })),
+
+  setEditingMessage: (scopeId, message) =>
+    set((state) => ({
+      composers: {
+        ...state.composers,
+        [scopeId]: {
+          ...(state.composers[scopeId] ?? createComposerState()),
+          editingMessage: message,
+          draftText: message?.text ?? "", // 💥 важно
+        },
       },
     })),
 }));
