@@ -12,7 +12,6 @@ import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import FilePreview from "../Ui/FilePreview";
 import { getChatDateKey } from "../../utils/chatFormatters";
-import { getChatDateKey } from "../../utils/chatFormatters";
 import type { Message, ChatData } from "../../types";
 import type { AppColors } from "../../types/theme";
 import { useUserStore } from "../../stores/useUserStore";
