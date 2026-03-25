@@ -24,11 +24,12 @@ const ChatList = () => {
     <Box
       sx={{
         width: 400,
-        bgcolor: colors.second,
         display: "flex",
         flexDirection: "column",
         height: "100vh",
         gap: 2,
+        position: "relative",
+        overflow: "hidden",
       }}
     >
       <Box
@@ -36,6 +37,7 @@ const ChatList = () => {
           display: "flex",
           alignItems: "baseline",
           justifyContent: "space-between",
+          animation: "softFadeUp var(--motion-base) var(--motion-spring)",
         }}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
@@ -57,7 +59,14 @@ const ChatList = () => {
 
       <ChatSearch value={searchQuery} onChange={setSearchQuery} />
 
-      <Box sx={{ flexGrow: 1, overflowY: "auto" }}>
+      <Box
+        sx={{
+          flexGrow: 1,
+          overflowY: "auto",
+          pr: 0.5,
+          animation: "softFadeIn var(--motion-slow) var(--motion-soft)",
+        }}
+      >
         {isSearching && (
           <>
             <Typography

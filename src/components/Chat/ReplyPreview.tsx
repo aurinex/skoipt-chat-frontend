@@ -25,6 +25,8 @@ const ReplyPreview = ({ replyTo, onCancel, colors }: ReplyPreviewProps) => {
         justifyContent: "space-between",
         alignItems: "center",
         width: "100%",
+        animation: "softFadeUp var(--motion-base) var(--motion-spring)",
+        boxShadow: "var(--surface-glow-soft)",
       }}
     >
       <Box sx={{ overflow: "hidden" }}>

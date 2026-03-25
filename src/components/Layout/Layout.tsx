@@ -97,8 +97,20 @@ const Layout = () => {
   ]);
 
   return (
-    <Box sx={{ display: "flex", height: "100vh", overflow: "hidden" }}>
-      <Box sx={{ padding: "30px 0 30px 25px" }}>
+    <Box
+      sx={{
+        display: "flex",
+        height: "100vh",
+        overflow: "hidden",
+        animation: "softFadeIn var(--motion-slow) var(--motion-soft)",
+      }}
+    >
+      <Box
+        sx={{
+          padding: "30px 0 30px 25px",
+          animation: "softFadeUp var(--motion-slow) var(--motion-spring)",
+        }}
+      >
         <Navbar
           orientation="vertical"
           value={activeTab}
@@ -106,12 +118,27 @@ const Layout = () => {
         />
       </Box>
 
-      <Box sx={{ padding: "30px 36px 0px 36px" }}>
+      <Box
+        sx={{
+          padding: "30px 36px 0px 36px",
+          animation: "softFadeUp var(--motion-slow) var(--motion-spring)",
+          animationDelay: "70ms",
+          animationFillMode: "both",
+        }}
+      >
         {activeTab === "messages" && <ChatList />}
         {activeTab === "apps" && <MiniAppsList />}
       </Box>
 
-      <Box sx={{ flexGrow: 1 }}>
+      <Box
+        sx={{
+          flexGrow: 1,
+          minWidth: 0,
+          animation: "softFadeUp var(--motion-slow) var(--motion-spring)",
+          animationDelay: "120ms",
+          animationFillMode: "both",
+        }}
+      >
         <Outlet />
       </Box>
     </Box>

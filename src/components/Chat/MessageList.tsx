@@ -1,4 +1,12 @@
-import { useRef, useEffect, useLayoutEffect, memo, useState } from "react";
+import {
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  memo,
+  useState,
+  useCallback,
+  type RefObject,
+} from "react";
 import {
   Box,
   Typography,
@@ -20,7 +28,6 @@ import UserAvatar from "../Ui/UserAvatar";
 import UserName from "../Ui/UserName";
 import DateLabel from "../Ui/DateLabel";
 import TimeText from "../Ui/TimeText";
-import { Menu, MenuItem } from "@mui/material";
 
 interface MessageListProps {
   messages: Message[];
@@ -33,12 +40,32 @@ interface MessageListProps {
   onLoadMore?: () => void;
   canLoadMore?: boolean;
   isLoadingMore?: boolean;
-  onEditMessage?: (msg: Message) => void;
   onContextMenuOpen?: (data: {
     mouseX: number;
     mouseY: number;
     message: Message | null;
   }) => void;
+}
+
+interface MessageRowProps {
+  msg: Message;
+  prevMsg?: Message;
+  nextMsg?: Message;
+  showDateLabel: boolean;
+  isGroupChat: boolean;
+  chatId: string | undefined;
+  colors: AppColors;
+  usersById: ReturnType<typeof useUserStore.getState>["usersById"];
+  highlighted: boolean;
+  scrollRef: RefObject<HTMLDivElement | null>;
+  onImageClick?: (url: string) => void;
+  onReply?: (msg: Message) => void;
+  onContextMenuOpen?: (data: {
+    mouseX: number;
+    mouseY: number;
+    message: Message | null;
+  }) => void;
+  onHighlightMessage: (id: string) => void;
 }
 
 const MAX_HEIGHT = 1000;
@@ -132,7 +159,6 @@ const MessageSkeleton = memo(({ colors }: { colors: AppColors }) => (
   </Box>
 ));
 
-// Сетка изображений — как в Telegram
 const ImageGrid = ({
   urls,
   chatId,
@@ -160,7 +186,6 @@ const ImageGrid = ({
           overflow: "hidden",
         }}
       >
-        {/* 🔹 Blur фон */}
         <Box
           component="img"
           src={urls[0]}
@@ -174,8 +199,6 @@ const ImageGrid = ({
             transform: "scale(1.2)",
           }}
         />
-
-        {/* 🔹 Основная картинка */}
         <FilePreview
           fileUrl={urls[0]}
           chatId={chatId!}
@@ -186,13 +209,11 @@ const ImageGrid = ({
     );
   }
 
-  // 2 колонки для 2+ изображений
   return (
     <Box
       sx={{
         display: "grid",
-        gridTemplateColumns:
-          count === 2 ? "1fr 1fr" : count === 3 ? "1fr 1fr" : "1fr 1fr",
+        gridTemplateColumns: "1fr 1fr",
         gap: "2px",
         borderRadius: "inherit",
         overflow: "hidden",
@@ -200,7 +221,6 @@ const ImageGrid = ({
       }}
     >
       {urls.map((url, i) => {
-        // Для 3 фото: первое занимает всю первую колонку
         const isWide = count === 3 && i === 0;
 
         return (
@@ -230,7 +250,6 @@ const ImageGrid = ({
   );
 };
 
-// Превью изображения из blob URL во время загрузки
 const UploadingImageThumb = ({
   src,
   fill,
@@ -252,7 +271,6 @@ const UploadingImageThumb = ({
   />
 );
 
-// Плейсхолдер для загружаемых файлов (не изображений)
 const UploadingFilePlaceholder = ({ count }: { count: number }) => (
   <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mt: 1 }}>
     {Array.from({ length: count }).map((_, i) => (
@@ -279,6 +297,452 @@ const UploadingFilePlaceholder = ({ count }: { count: number }) => (
       </Box>
     ))}
   </Box>
+);
+
+const SystemMessageRow = memo(
+  ({ message, colors }: { message: Message; colors: AppColors }) => (
+    <Box
+      sx={{
+        alignSelf: "center",
+        my: 1,
+        px: 2,
+        py: 0.5,
+        bgcolor: colors.fourth,
+        borderRadius: "20px",
+      }}
+    >
+      <Typography
+        sx={{
+          color: colors.fiveth,
+          fontSize: "0.75rem",
+          textAlign: "center",
+          whiteSpace: "pre-wrap",
+        }}
+      >
+        {message.text}
+      </Typography>
+    </Box>
+  ),
+);
+
+const MessageRow = memo(
+  ({
+    msg,
+    prevMsg,
+    nextMsg,
+    showDateLabel,
+    isGroupChat,
+    chatId,
+    colors,
+    usersById,
+    highlighted,
+    scrollRef,
+    onImageClick,
+    onReply,
+    onContextMenuOpen,
+    onHighlightMessage,
+  }: MessageRowProps) => {
+    const isOnlyEmojis = (text: string) => {
+      const regex = emojiRegex();
+      const matches = text.match(regex) || [];
+
+      return {
+        onlyEmoji: matches.join("") === text.trim(),
+        count: matches.length,
+      };
+    };
+
+    const isMessageFromMe = msg.is_mine;
+    const isFirstInGroup = !prevMsg || prevMsg.sender_id !== msg.sender_id;
+    const isLastInGroup = !nextMsg || nextMsg.sender_id !== msg.sender_id;
+
+    const fileUrls: string[] = msg.file_urls?.length
+      ? msg.file_urls
+      : msg.file_url
+        ? [msg.file_url]
+        : [];
+
+    const isUploading = !!msg._uploading;
+    const sender =
+      resolveUser(msg.sender, usersById) ??
+      resolveUser(
+        msg.sender_id ? { id: msg.sender_id } : undefined,
+        usersById,
+      );
+    const replySender = resolveUser(
+      msg.reply_to_message?.sender ??
+        (msg.reply_to_message?.sender_id
+          ? { id: msg.reply_to_message.sender_id }
+          : undefined),
+      usersById,
+    );
+
+    const imageUrls = fileUrls.filter(
+      (u) => u.match(/\.(jpg|jpeg|png|gif|webp)/i) || u.startsWith("blob:"),
+    );
+    const otherUrls = fileUrls.filter(
+      (u) => !u.match(/\.(jpg|jpeg|png|gif|webp)/i) && !u.startsWith("blob:"),
+    );
+    const uploadingNonImageCount = isUploading ? (msg._nonImageCount ?? 0) : 0;
+    const hasImages = imageUrls.length > 0;
+    const hasText = !!msg.text;
+    const emojiData = msg.text ? isOnlyEmojis(msg.text) : null;
+    const isBigEmoji =
+      emojiData?.onlyEmoji && emojiData.count > 0 && emojiData.count <= 1;
+    const isPureMedia = hasImages && !hasText && otherUrls.length === 0;
+
+    return (
+      <Box sx={{ display: "contents" }}>
+        {showDateLabel && (
+          <Box sx={{ display: "flex", justifyContent: "center", my: 2 }}>
+            <Box
+              sx={{
+                borderRadius: "19px",
+                background:
+                  "radial-gradient(circle at 50%, #636363, #CDCDCD 50%, #636363 100%)",
+                padding: "2px",
+              }}
+            >
+              <DateLabel
+                value={msg.created_at}
+                sx={{
+                  color: colors.sixth,
+                  fontSize: "14px",
+                  p: "6px 25px",
+                  borderRadius: "19px",
+                  bgcolor: colors.second,
+                }}
+              />
+            </Box>
+          </Box>
+        )}
+
+        <Box
+          id={`msg-${msg.id}`}
+          onDoubleClick={() => onReply?.(msg)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            onContextMenuOpen?.({
+              mouseX: e.clientX,
+              mouseY: e.clientY,
+              message: msg,
+            });
+          }}
+          sx={{
+            position: "relative",
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "flex-end",
+            justifyContent: isMessageFromMe ? "flex-end" : "flex-start",
+            gap: 1,
+            mb: isLastInGroup ? 2 : 0.4,
+          }}
+        >
+          {!isMessageFromMe && (
+            <Box
+              sx={{
+                width: 45,
+                flexShrink: 0,
+                display: "flex",
+                justifyContent: "center",
+              }}
+            >
+              {isLastInGroup ? (
+                <UserAvatar
+                  user={sender}
+                  sx={{
+                    width: 45,
+                    height: 45,
+                    fontSize: "1.2rem",
+                    bgcolor: colors.eighth,
+                  }}
+                />
+              ) : (
+                <Box sx={{ width: 34 }} />
+              )}
+            </Box>
+          )}
+
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: isMessageFromMe ? "flex-end" : "flex-start",
+              maxWidth: "75%",
+            }}
+          >
+            {!isMessageFromMe && isGroupChat && isFirstInGroup && (
+              <UserName
+                user={sender}
+                short
+                fallback="РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ"
+                sx={{
+                  fontSize: "0.8rem",
+                  color: colors.eighth,
+                  fontWeight: 600,
+                  mb: 0.3,
+                  ml: 1.5,
+                }}
+              />
+            )}
+
+            {highlighted && (
+              <Box
+                sx={{
+                  position: "absolute",
+                  inset: 0,
+                  borderRadius: "16px",
+                  zIndex: 0,
+                  pointerEvents: "none",
+                  ml: "54px",
+                  background: `linear-gradient(
+        ${isMessageFromMe ? "270deg" : "90deg"},
+        rgba(255,255,255,0.25) 0%,
+        rgba(255,255,255,0.05) 70%,
+        transparent 100%
+      )`,
+                  animation: "fadeHighlight 2s ease forwards",
+                  "@keyframes fadeHighlight": {
+                    "0%": { opacity: 1 },
+                    "100%": { opacity: 0 },
+                  },
+                }}
+              />
+            )}
+
+            <Box
+              sx={{
+                position: "relative",
+                zIndex: 1,
+                borderRadius: isMessageFromMe
+                  ? isLastInGroup
+                    ? "18px 18px 4px 18px"
+                    : "18px"
+                  : isLastInGroup
+                    ? "18px 18px 18px 4px"
+                    : "18px",
+                bgcolor: isBigEmoji
+                  ? "transparent"
+                  : isMessageFromMe
+                    ? colors.eighth
+                    : colors.second,
+                color: isMessageFromMe ? "#fff" : colors.sixth,
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                width: "fit-content",
+                alignSelf: isMessageFromMe ? "flex-end" : "flex-start",
+                maxWidth: "100%",
+                boxShadow: isBigEmoji
+                  ? "none"
+                  : isMessageFromMe
+                    ? "0 12px 28px rgba(75, 102, 255, 0.18)"
+                    : "var(--surface-glow-soft)",
+                transition:
+                  "transform var(--motion-fast) var(--motion-soft), box-shadow var(--motion-base) var(--motion-soft)",
+                "&:hover": {
+                  transform: "translateY(-1px)",
+                  boxShadow: isBigEmoji
+                    ? "none"
+                    : isMessageFromMe
+                      ? "0 18px 34px rgba(75, 102, 255, 0.24)"
+                      : "var(--surface-glow)",
+                },
+              }}
+            >
+              {hasImages && (
+                <Box
+                  sx={{
+                    width: "100%",
+                    "& img, & .grid-container": {
+                      borderTopLeftRadius: hasText ? 0 : "inherit",
+                      borderTopRightRadius: hasText ? 0 : "inherit",
+                    },
+                  }}
+                >
+                  <ImageGrid
+                    urls={imageUrls}
+                    chatId={chatId}
+                    isUploading={isUploading}
+                    onImageClick={onImageClick}
+                  />
+                </Box>
+              )}
+
+              {msg.reply_to_message && (
+                <Box
+                  onClick={(e) => {
+                    e.stopPropagation();
+
+                    const targetId = msg.reply_to;
+                    if (!targetId) return;
+
+                    const container = scrollRef.current;
+                    const el = document.getElementById(`msg-${targetId}`);
+
+                    if (container && el) {
+                      const containerRect = container.getBoundingClientRect();
+                      const elRect = el.getBoundingClientRect();
+                      const offset =
+                        elRect.top - containerRect.top + container.scrollTop;
+
+                      container.scrollTo({
+                        top:
+                          offset -
+                          container.clientHeight / 2 +
+                          el.clientHeight / 2,
+                        behavior: "smooth",
+                      });
+
+                      onHighlightMessage(targetId);
+                    }
+                  }}
+                  sx={{
+                    px: 1.5,
+                    py: 1,
+                    bgcolor: "rgba(255, 255, 255, 0.12)",
+                    borderRadius: "6px",
+                    cursor: "pointer",
+                    transition:
+                      "transform var(--motion-fast) var(--motion-soft), background-color var(--motion-fast) var(--motion-soft)",
+                    "&:hover": {
+                      transform: "translateY(-1px)",
+                      bgcolor: "rgba(255, 255, 255, 0.17)",
+                    },
+                  }}
+                >
+                  <UserName
+                    user={replySender}
+                    short
+                    fallback="РћС‚РІРµС‚"
+                    sx={{ fontSize: "0.75rem", color: "#fff" }}
+                  />
+                  <Typography
+                    sx={{
+                      fontSize: "0.8rem",
+                      color: "#cdcdcdff",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {msg.reply_to_message.text || "Р¤Р°Р№Р»"}
+                  </Typography>
+                </Box>
+              )}
+
+              {hasText && (
+                <Typography
+                  sx={{
+                    fontSize: isBigEmoji ? "5rem" : "1rem",
+                    lineHeight: isBigEmoji ? 1.2 : 1.4,
+                    textAlign: isBigEmoji ? "center" : "left",
+                    wordBreak: "break-word",
+                    p: isBigEmoji ? "6px 10px" : "8px 14px 6px 14px",
+                    maxWidth: hasImages ? "220px" : "100%",
+                    whiteSpace: "pre-wrap",
+                    textWrap: "pretty",
+                  }}
+                >
+                  {msg.text}
+                </Typography>
+              )}
+
+              <Box sx={{ p: otherUrls.length > 0 ? "4px 12px" : 0 }}>
+                {!isUploading &&
+                  otherUrls.map((url, i) => (
+                    <FilePreview
+                      key={i}
+                      fileUrl={url}
+                      chatId={chatId!}
+                      onImageClick={onImageClick}
+                    />
+                  ))}
+              </Box>
+
+              {isUploading && uploadingNonImageCount > 0 && (
+                <UploadingFilePlaceholder count={uploadingNonImageCount} />
+              )}
+
+              <Box
+                className="image-metadata"
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "flex-end",
+                  gap: 0.5,
+                  pt: 0.5,
+                  ...(isPureMedia
+                    ? {
+                        position: "absolute",
+                        bottom: "6px",
+                        right: "6px",
+                        bgcolor: "rgba(0,0,0,0.4)",
+                        borderRadius: "12px",
+                        px: "8px",
+                        py: "2px",
+                        color: "#fff",
+                        zIndex: 10,
+                      }
+                    : {
+                        mt: -1.5,
+                        alignSelf: "flex-end",
+                        px: "12px",
+                        pb: "6px",
+                        pointerEvents: "none",
+                      }),
+                }}
+              >
+                {msg.is_edited && (
+                  <Typography sx={{ fontSize: "0.7rem", opacity: 0.6 }}>
+                    (РёР·РјРµРЅРµРЅРѕ)
+                  </Typography>
+                )}
+                <TimeText
+                  value={msg.created_at}
+                  sx={{
+                    fontSize: "0.7rem",
+                    opacity: isPureMedia ? 0.9 : 0.5,
+                  }}
+                />
+
+                {isMessageFromMe && (
+                  <>
+                    {msg._failed ? (
+                      <Tooltip
+                        title="РќРµ РѕС‚РїСЂР°РІР»РµРЅРѕ. РџРѕРїСЂРѕР±СѓР№С‚Рµ СЃРЅРѕРІР°."
+                        placement="top"
+                      >
+                        <ErrorOutlineIcon
+                          sx={{
+                            fontSize: 14,
+                            color: "#ff4d4f",
+                            cursor: "pointer",
+                          }}
+                        />
+                      </Tooltip>
+                    ) : (
+                      <DoneAllIcon
+                        sx={{
+                          fontSize: 14,
+                          color:
+                            msg._pending || isUploading
+                              ? "rgba(255,255,255,0.3)"
+                              : msg.read_by?.length > 0
+                                ? "rgba(255,255,255,1)"
+                                : "rgba(255,255,255,0.5)",
+                        }}
+                      />
+                    )}
+                  </>
+                )}
+              </Box>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
+    );
+  },
 );
 
 const MessageList = memo(
@@ -310,22 +774,9 @@ const MessageList = memo(
     const shouldRestoreScrollRef = useRef(false);
     const shouldScrollToBottomOnChatOpenRef = useRef(true);
     const stickToBottomRef = useRef(true);
-
     const editedMapRef = useRef<Record<string, boolean>>({});
 
     const [highlightedId, setHighlightedId] = useState<string | null>(null);
-
-    const isOnlyEmojis = (text: string) => {
-      const regex = emojiRegex();
-      const matches = text.match(regex) || [];
-
-      const onlyEmoji = matches.join("") === text.trim();
-
-      return {
-        onlyEmoji,
-        count: matches.length,
-      };
-    };
 
     useEffect(() => {
       if (prevChatIdRef.current !== chatId) {
@@ -431,15 +882,31 @@ const MessageList = memo(
       return () => container.removeEventListener("scroll", handleScroll);
     }, [canLoadMore, isLoadingMore, onLoadMore]);
 
-    const showSkeleton = isMsgsLoading && messages.length === 0;
-
-    const highlightMessage = (id: string) => {
+    const highlightMessage = useCallback((id: string) => {
       setHighlightedId(id);
 
-      setTimeout(() => {
-        setHighlightedId(null);
+      const timer = window.setTimeout(() => {
+        setHighlightedId((current) => (current === id ? null : current));
       }, 2000);
-    };
+
+      return () => window.clearTimeout(timer);
+    }, []);
+
+    useEffect(() => {
+      const editedSystemMessage = messages.find(
+        (msg) => msg.is_system && msg.is_edited && !editedMapRef.current[msg.id],
+      );
+
+      if (!editedSystemMessage) return;
+
+      editedMapRef.current[editedSystemMessage.id] = true;
+      const clearHighlight = highlightMessage(editedSystemMessage.id);
+
+      return clearHighlight;
+    }, [highlightMessage, messages]);
+
+    const showSkeleton = isMsgsLoading && messages.length === 0;
+    const isGroupChat = (chatData?.member_count ?? 0) > 2;
 
     return (
       <Box
@@ -455,7 +922,7 @@ const MessageList = memo(
         }}
       >
         <Box ref={contentRef} sx={{ display: "flex", flexDirection: "column" }}>
-          {showSkeleton && messages.length === 0 ? (
+          {showSkeleton ? (
             <MessageSkeleton colors={colors} />
           ) : (
             <>
@@ -464,487 +931,39 @@ const MessageList = memo(
                   <LinearProgress sx={{ width: 120, borderRadius: 2 }} />
                 </Box>
               )}
+
               {messages.map((msg, index) => {
                 if (msg.is_system) {
-                  if (msg.is_edited && !editedMapRef.current[msg.id]) {
-                    editedMapRef.current[msg.id] = true;
-                    setTimeout(() => highlightMessage(msg.id), 50);
-                  }
                   return (
-                    <Box
-                      key={msg.id}
-                      sx={{
-                        alignSelf: "center",
-                        my: 1,
-                        px: 2,
-                        py: 0.5,
-                        bgcolor: colors.fourth,
-                        borderRadius: "20px",
-                      }}
-                    >
-                      <Typography
-                        sx={{
-                          color: colors.fiveth,
-                          fontSize: "0.75rem",
-                          textAlign: "center",
-                          whiteSpace: "pre-wrap",
-                        }}
-                      >
-                        {msg.text}
-                      </Typography>
-                    </Box>
+                    <SystemMessageRow key={msg.id} message={msg} colors={colors} />
                   );
                 }
 
-                const isMessageFromMe = msg.is_mine;
                 const prevMsg = messages[index - 1];
                 const nextMsg = messages[index + 1];
-                const isFirstInGroup =
-                  !prevMsg || prevMsg.sender_id !== msg.sender_id;
-                const isLastInGroup =
-                  !nextMsg || nextMsg.sender_id !== msg.sender_id;
                 const currentDate = getChatDateKey(msg.created_at);
                 const prevDate = prevMsg
                   ? getChatDateKey(prevMsg.created_at)
                   : null;
-                const showDateLabel = currentDate !== prevDate;
-
-                const fileUrls: string[] = msg.file_urls?.length
-                  ? msg.file_urls
-                  : msg.file_url
-                    ? [msg.file_url]
-                    : [];
-
-                const isUploading = !!msg._uploading;
-                const sender =
-                  resolveUser(msg.sender, usersById) ??
-                  resolveUser(
-                    msg.sender_id ? { id: msg.sender_id } : undefined,
-                    usersById,
-                  );
-                const replySender = resolveUser(
-                  msg.reply_to_message?.sender ??
-                    (msg.reply_to_message?.sender_id
-                      ? { id: msg.reply_to_message.sender_id }
-                      : undefined),
-                  usersById,
-                );
-
-                // Разделяем на изображения и остальные файлы
-                const imageUrls = fileUrls.filter(
-                  (u) =>
-                    u.match(/\.(jpg|jpeg|png|gif|webp)/i) ||
-                    u.startsWith("blob:"),
-                );
-                const otherUrls = fileUrls.filter(
-                  (u) =>
-                    !u.match(/\.(jpg|jpeg|png|gif|webp)/i) &&
-                    !u.startsWith("blob:"),
-                );
-
-                // Для плейсхолдера не-изображений считаем количество
-                const uploadingNonImageCount = isUploading
-                  ? (msg._nonImageCount ?? 0)
-                  : 0;
-
-                const hasImages = imageUrls.length > 0;
-                const hasText = !!msg.text;
-
-                const emojiData = msg.text ? isOnlyEmojis(msg.text) : null;
-
-                const isBigEmoji =
-                  emojiData?.onlyEmoji &&
-                  emojiData.count > 0 &&
-                  emojiData.count <= 1;
-
-                const isPureMedia =
-                  hasImages && !hasText && otherUrls.length === 0;
 
                 return (
-                  <Box key={msg.id} sx={{ display: "contents" }}>
-                    {showDateLabel && (
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "center",
-                          my: 2,
-                        }}
-                      >
-                        <Box
-                          sx={{
-                            borderRadius: "19px",
-                            background:
-                              "radial-gradient(circle at 50%, #636363, #CDCDCD 50%, #636363 100%)",
-                            padding: "2px", // это ширина границы
-                          }}
-                        >
-                          <DateLabel
-                            value={msg.created_at}
-                            sx={{
-                              color: colors.sixth,
-                              fontSize: "14px",
-                              p: "6px 25px",
-                              borderRadius: "19px", // чуть меньше, чтобы не перекрывать
-                              bgcolor: colors.second,
-                            }}
-                          />
-                        </Box>
-                      </Box>
-                    )}
-
-                    <Box
-                      id={`msg-${msg.id}`}
-                      onDoubleClick={() => onReply?.(msg)}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-
-                        onContextMenuOpen?.({
-                          mouseX: e.clientX,
-                          mouseY: e.clientY,
-                          message: msg,
-                        });
-                      }}
-                      sx={{
-                        position: "relative",
-                        display: "flex",
-                        flexDirection: "row",
-                        alignItems: "flex-end",
-                        justifyContent: isMessageFromMe
-                          ? "flex-end"
-                          : "flex-start",
-                        gap: 1,
-                        mb: isLastInGroup ? 2 : 0.4,
-                      }}
-                    >
-                      {!isMessageFromMe && (
-                        <Box
-                          sx={{
-                            width: 45,
-                            flexShrink: 0,
-                            display: "flex",
-                            justifyContent: "center",
-                          }}
-                        >
-                          {isLastInGroup ? (
-                            <UserAvatar
-                              user={sender}
-                              sx={{
-                                width: 45,
-                                height: 45,
-                                fontSize: "1.2rem",
-                                bgcolor: colors.eighth,
-                              }}
-                            />
-                          ) : (
-                            <Box sx={{ width: 34 }} />
-                          )}
-                        </Box>
-                      )}
-
-                      <Box
-                        sx={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: isMessageFromMe
-                            ? "flex-end"
-                            : "flex-start",
-                          maxWidth: "75%",
-                        }}
-                      >
-                        {!isMessageFromMe &&
-                          (chatData?.member_count ?? 0) > 2 &&
-                          isFirstInGroup && (
-                            <UserName
-                              user={sender}
-                              short
-                              fallback="Пользователь"
-                              sx={{
-                                fontSize: "0.8rem",
-                                color: colors.eighth,
-                                fontWeight: 600,
-                                mb: 0.3,
-                                ml: 1.5,
-                              }}
-                            />
-                          )}
-                        {highlightedId === msg.id && (
-                          <Box
-                            sx={{
-                              position: "absolute",
-                              inset: 0,
-                              borderRadius: "16px",
-                              zIndex: 0,
-                              pointerEvents: "none",
-                              ml: "54px",
-                              background: `linear-gradient(
-        ${isMessageFromMe ? "270deg" : "90deg"},
-        rgba(255,255,255,0.25) 0%,
-        rgba(255,255,255,0.05) 70%,
-        transparent 100%
-      )`,
-                              animation: "fadeHighlight 2s ease forwards",
-                              "@keyframes fadeHighlight": {
-                                "0%": {
-                                  opacity: 1,
-                                },
-                                "100%": {
-                                  opacity: 0,
-                                },
-                              },
-                            }}
-                          />
-                        )}
-                        <Box
-                          sx={{
-                            position: "relative",
-                            zIndex: 1,
-                            p: isPureMedia ? 0 : 0,
-                            borderRadius: isMessageFromMe
-                              ? isLastInGroup
-                                ? "18px 18px 4px 18px"
-                                : "18px"
-                              : isLastInGroup
-                                ? "18px 18px 18px 4px"
-                                : "18px",
-                            bgcolor: isBigEmoji
-                              ? "transparent"
-                              : isMessageFromMe
-                                ? colors.eighth
-                                : colors.second,
-                            color: isMessageFromMe ? "#fff" : colors.sixth,
-                            overflow: "hidden", // Чтобы картинки не вылезали за скругления
-                            display: "flex",
-                            flexDirection: "column",
-                            width: "fit-content", // Добавляем это
-                            alignSelf: isMessageFromMe
-                              ? "flex-end"
-                              : "flex-start", // Важно для выравнивания
-                            maxWidth: "100%", // Чтобы не вылезало за экран
-                          }}
-                        >
-                          {/* КАРТИНКИ */}
-                          {hasImages && (
-                            <Box
-                              sx={{
-                                width: "100%",
-                                // Если сверху есть текст, убираем верхние скругления у картинок
-                                "& img, & .grid-container": {
-                                  borderTopLeftRadius: hasText ? 0 : "inherit",
-                                  borderTopRightRadius: hasText ? 0 : "inherit",
-                                },
-                              }}
-                            >
-                              <ImageGrid
-                                urls={imageUrls}
-                                chatId={chatId}
-                                isUploading={isUploading}
-                                onImageClick={onImageClick}
-                              />
-                            </Box>
-                          )}
-
-                          {msg.reply_to_message && (
-                            <Box
-                              onClick={(e) => {
-                                e.stopPropagation();
-
-                                const targetId = msg.reply_to;
-                                const container = scrollRef.current;
-                                const el = document.getElementById(
-                                  `msg-${targetId}`,
-                                );
-
-                                if (container && el) {
-                                  const containerRect =
-                                    container.getBoundingClientRect();
-                                  const elRect = el.getBoundingClientRect();
-
-                                  const offset =
-                                    elRect.top -
-                                    containerRect.top +
-                                    container.scrollTop;
-
-                                  container.scrollTo({
-                                    top:
-                                      offset -
-                                      container.clientHeight / 2 +
-                                      el.clientHeight / 2,
-                                    behavior: "smooth",
-                                  });
-
-                                  setHighlightedId(targetId);
-
-                                  setTimeout(() => {
-                                    setHighlightedId(null);
-                                  }, 2000);
-                                }
-                              }}
-                              sx={{
-                                px: 1.5,
-                                py: 1,
-                                // borderLeft: `3px solid ${colors.eighth}`,
-                                bgcolor: "rgba(255, 255, 255, 0.12)",
-                                borderRadius: "6px",
-                                cursor: "pointer",
-                              }}
-                            >
-                              <UserName
-                                user={replySender}
-                                short
-                                fallback="Ответ"
-                                sx={{ fontSize: "0.75rem", color: "#fff" }}
-                              />
-                              <Typography
-                                sx={{
-                                  fontSize: "0.8rem",
-                                  color: "#cdcdcdff",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {msg.reply_to_message.text || "Файл"}
-                              </Typography>
-                            </Box>
-                          )}
-
-                          {/* ТЕКСТ */}
-                          {hasText && (
-                            <Typography
-                              sx={{
-                                fontSize: isBigEmoji ? "5rem" : "1rem",
-                                lineHeight: isBigEmoji ? 1.2 : 1.4,
-                                textAlign: isBigEmoji ? "center" : "left",
-                                wordBreak: "break-word",
-                                p: isBigEmoji
-                                  ? "6px 10px"
-                                  : "8px 14px 6px 14px",
-                                maxWidth: hasImages ? "220px" : "100%",
-                                whiteSpace: "pre-wrap",
-                              }}
-                            >
-                              {msg.text}
-                            </Typography>
-                          )}
-
-                          {/* ФАЙЛЫ */}
-                          <Box
-                            sx={{ p: otherUrls.length > 0 ? "4px 12px" : 0 }}
-                          >
-                            {!isUploading &&
-                              otherUrls.map((url, i) => (
-                                <FilePreview
-                                  key={i}
-                                  fileUrl={url}
-                                  chatId={chatId!}
-                                  onImageClick={onImageClick}
-                                />
-                              ))}
-                          </Box>
-                          {/* Плейсхолдер для загружаемых не-изображений */}
-                          {isUploading && uploadingNonImageCount > 0 && (
-                            <UploadingFilePlaceholder
-                              count={uploadingNonImageCount}
-                            />
-                          )}
-
-                          {/* Индикатор загрузки поверх сетки */}
-                          {/* {isUploading && hasImages && (
-                        <Box
-                          sx={{
-                            position: "absolute",
-                            inset: 0,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            pointerEvents: "none",
-                          }}
-                        >
-                          <CircularProgress size={32} sx={{ color: "#fff" }} />
-                        </Box>
-                      )} */}
-
-                          {/* МЕТАДАННЫЕ */}
-                          <Box
-                            className="image-metadata"
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "flex-end",
-                              gap: 0.5,
-                              pt: 0.5,
-                              ...(isPureMedia
-                                ? {
-                                    position: "absolute",
-                                    bottom: "6px",
-                                    right: "6px",
-                                    bgcolor: "rgba(0,0,0,0.4)",
-                                    borderRadius: "12px",
-                                    px: "8px",
-                                    py: "2px",
-                                    color: "#fff",
-                                    zIndex: 10,
-                                  }
-                                : {
-                                    // Если есть текст, время идет снизу в потоке
-                                    mt: -1.5, // Немного приподнимаем, если оно внизу текста/картинки
-                                    alignSelf: "flex-end",
-                                    px: "12px",
-                                    pb: "6px",
-                                    pointerEvents: "none",
-                                  }),
-                            }}
-                          >
-                            {msg.is_edited && (
-                              <Typography
-                                sx={{ fontSize: "0.7rem", opacity: 0.6 }}
-                              >
-                                (изменено)
-                              </Typography>
-                            )}
-                            <TimeText
-                              value={msg.created_at}
-                              sx={{
-                                fontSize: "0.7rem",
-                                opacity: isPureMedia ? 0.9 : 0.5,
-                              }}
-                            />
-
-                            {isMessageFromMe && (
-                              <>
-                                {msg._failed ? (
-                                  <Tooltip
-                                    title="Не отправлено. Попробуйте снова."
-                                    placement="top"
-                                  >
-                                    <ErrorOutlineIcon
-                                      sx={{
-                                        fontSize: 14,
-                                        color: "#ff4d4f",
-                                        cursor: "pointer",
-                                      }}
-                                    />
-                                  </Tooltip>
-                                ) : (
-                                  <DoneAllIcon
-                                    sx={{
-                                      fontSize: 14,
-                                      color:
-                                        msg._pending || isUploading
-                                          ? "rgba(255,255,255,0.3)"
-                                          : msg.read_by?.length > 0
-                                            ? "rgba(255,255,255,1)"
-                                            : "rgba(255,255,255,0.5)",
-                                    }}
-                                  />
-                                )}
-                              </>
-                            )}
-                          </Box>
-                        </Box>
-                      </Box>
-                    </Box>
-                  </Box>
+                  <MessageRow
+                    key={msg.id}
+                    msg={msg}
+                    prevMsg={prevMsg}
+                    nextMsg={nextMsg}
+                    showDateLabel={currentDate !== prevDate}
+                    isGroupChat={isGroupChat}
+                    chatId={chatId}
+                    colors={colors}
+                    usersById={usersById}
+                    highlighted={highlightedId === msg.id}
+                    scrollRef={scrollRef}
+                    onImageClick={onImageClick}
+                    onReply={onReply}
+                    onContextMenuOpen={onContextMenuOpen}
+                    onHighlightMessage={highlightMessage}
+                  />
                 );
               })}
             </>

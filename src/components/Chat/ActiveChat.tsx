@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Box, Menu, MenuItem, Typography, useTheme } from "@mui/material";
-import { getMyId } from "../../services/api";
+import api, { getMyId } from "../../services/api";
 import { useChatMembersQuery } from "../../queries/useChatMembersQuery";
 import { useMessageSender } from "../../hooks/useMessageSender";
 import {
@@ -14,6 +14,7 @@ import ChatHeader from "./ChatHeader";
 import MessageList from "./MessageList";
 import ActiveChatComposer from "./ActiveChatComposer";
 import ImageViewer from "../Ui/ImageViewer";
+import AcceptModal from "../Ui/AcceptModal";
 import { useChatListCacheActions } from "../../queries/chatListCache";
 import { useChatDetailsQuery } from "../../queries/useChatDetailsQuery";
 import { useChatMessagesQuery } from "../../queries/useChatMessagesQuery";
@@ -32,11 +33,14 @@ const ActiveChat = () => {
   const theme = useTheme();
   const colors = theme.palette.background;
   const myId = getMyId();
-  const { updateChatFromMessage } = useChatListCacheActions();
+  const { updateChatFromMessage, setChatLastMessage } =
+    useChatListCacheActions();
   const composerScopeId = chatId ? `chat:${chatId}` : "chat:none";
   const setEditingMessage = useComposerStore((s) => s.setEditingMessage);
 
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+  const [deleteCandidate, setDeleteCandidate] = useState<Message | null>(null);
+  const [isDeletingMessage, setIsDeletingMessage] = useState(false);
 
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
@@ -115,6 +119,25 @@ const ActiveChat = () => {
       setReplyTo(composerScopeId, message),
     [composerScopeId, setReplyTo],
   );
+  const handleContextMenuOpen = useCallback(
+    (data: {
+      mouseX: number;
+      mouseY: number;
+      message: Message | null;
+    }) => {
+      setContextMenu(data);
+    },
+    [],
+  );
+  const handleDeleteRequest = useCallback(() => {
+    if (!contextMenu?.message) return;
+    setDeleteCandidate(contextMenu.message);
+    setContextMenu(null);
+  }, [contextMenu]);
+  const handleDeleteCancel = useCallback(() => {
+    if (isDeletingMessage) return;
+    setDeleteCandidate(null);
+  }, [isDeletingMessage]);
   const editingMessage = useComposerStore(
     (s) => s.composers[composerScopeId]?.editingMessage ?? null,
   );
@@ -137,6 +160,49 @@ const ActiveChat = () => {
     editingMessage,
     setEditingMessage: (msg) => setEditingMessage(composerScopeId, msg),
   });
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!chatId || !deleteCandidate || isDeletingMessage) return;
+
+    setIsDeletingMessage(true);
+
+    try {
+      await api.messages.delete(chatId, deleteCandidate.id);
+
+      const nextMessages = messages.filter((msg) => msg.id !== deleteCandidate.id);
+      const nextLastMessage =
+        [...nextMessages].reverse().find((msg) => !msg.is_system) ?? null;
+
+      setMessages(nextMessages);
+      setChatLastMessage(chatId, nextLastMessage);
+
+      if (editingMessage?.id === deleteCandidate.id) {
+        setEditingMessage(composerScopeId, null);
+      }
+
+      if (replyTo?.id === deleteCandidate.id) {
+        setReplyTo(composerScopeId, null);
+      }
+
+      setDeleteCandidate(null);
+    } catch (error) {
+      console.error("Ошибка удаления сообщения", error);
+    } finally {
+      setIsDeletingMessage(false);
+    }
+  }, [
+    chatId,
+    composerScopeId,
+    deleteCandidate,
+    editingMessage,
+    isDeletingMessage,
+    messages,
+    replyTo,
+    setChatLastMessage,
+    setEditingMessage,
+    setMessages,
+    setReplyTo,
+  ]);
 
   if (!chatId) {
     return (
@@ -162,6 +228,17 @@ const ActiveChat = () => {
         open={!!fullScreenImage}
         src={fullScreenImage}
         onClose={() => setFullScreenImage(null)}
+      />
+      <AcceptModal
+        open={!!deleteCandidate}
+        title="Удалить сообщение?"
+        description="Сообщение будет удалено из чата. Это действие нельзя отменить."
+        confirmText="Удалить"
+        cancelText="Отмена"
+        loading={isDeletingMessage}
+        colors={colors}
+        onConfirm={handleDeleteConfirm}
+        onClose={handleDeleteCancel}
       />
       <ChatShell
         modalOpen={modalOpen}
@@ -199,12 +276,7 @@ const ActiveChat = () => {
             onLoadMore={handleLoadMore}
             canLoadMore={Boolean(hasNextPage)}
             isLoadingMore={isFetchingNextPage}
-            onEditMessage={(msg) => setEditingMessage(composerScopeId, msg)}
-            onContextMenuOpen={(data: {
-              mouseX: number;
-              mouseY: number;
-              message: Message | null;
-            }) => setContextMenu(data)}
+            onContextMenuOpen={handleContextMenuOpen}
           />
           {canSendMessages && (
             <ActiveChatComposer
@@ -239,8 +311,7 @@ const ActiveChat = () => {
 
             <MenuItem
               onClick={() => {
-                console.log("delete", contextMenu?.message?.id);
-                setContextMenu(null);
+                handleDeleteRequest();
               }}
             >
               Удалить

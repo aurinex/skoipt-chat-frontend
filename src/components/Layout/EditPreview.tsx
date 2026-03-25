@@ -1,4 +1,4 @@
-import { Box, Button, IconButton, Typography, useTheme } from "@mui/material";
+import { Box, IconButton, Typography, useTheme } from "@mui/material";
 import type { Message } from "../../types";
 import EditNoteRoundedIcon from "@mui/icons-material/EditNoteRounded";
 import CloseIcon from "@mui/icons-material/Close";
@@ -9,10 +9,10 @@ interface Props {
 }
 
 const EditPreview = ({ message, onCancel }: Props) => {
-  if (!message) return null;
-
   const theme = useTheme();
   const colors = theme.palette.background;
+
+  if (!message) return null;
 
   return (
     <Box
@@ -23,6 +23,9 @@ const EditPreview = ({ message, onCancel }: Props) => {
         justifyContent: "space-between",
         display: "flex",
         alignItems: "center",
+        mb: 1,
+        animation: "softFadeUp var(--motion-base) var(--motion-spring)",
+        boxShadow: "var(--surface-glow-soft)",
       }}
     >
       <Box

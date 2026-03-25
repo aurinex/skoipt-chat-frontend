@@ -145,8 +145,18 @@ const ChatListItems = ({
                 borderRadius: "24px",
                 p: 1.5,
                 bgcolor: isSelected ? colors.fourth : "transparent",
-                "&:hover": { bgcolor: colors.third },
-                transition: "background-color 0.2s",
+                transform: isSelected ? "translateX(4px)" : "translateX(0)",
+                boxShadow: isSelected ? "var(--surface-glow-soft)" : "none",
+                animation: "softFadeUp var(--motion-base) var(--motion-spring)",
+                animationDelay: `${Math.min(filtered.indexOf(chat) * 28, 180)}ms`,
+                animationFillMode: "both",
+                transition:
+                  "background-color var(--motion-fast) var(--motion-soft), transform var(--motion-fast) var(--motion-soft), box-shadow var(--motion-base) var(--motion-soft)",
+                "&:hover": {
+                  bgcolor: colors.third,
+                  transform: "translateX(6px)",
+                  boxShadow: "var(--surface-glow-soft)",
+                },
               }}
             >
               {chat.type === "direct" ? (
@@ -223,7 +233,9 @@ const ChatListItems = ({
                         mr: "12px",
                         fontSize: 18,
                         color: lastMsg.is_read ? "#fff" : colors.eighth,
-                        transition: "color 0.3s ease",
+                        transition:
+                          "color var(--motion-base) ease, transform var(--motion-fast) var(--motion-soft)",
+                        transform: lastMsg.is_read ? "scale(1.05)" : "scale(1)",
                       }}
                     />
                   ) : (
@@ -234,7 +246,10 @@ const ChatListItems = ({
                         height: 10,
                         borderRadius: "50%",
                         bgcolor: lastMsg.is_read ? "#fff" : colors.eighth,
-                        transition: "all 0.3s ease",
+                        boxShadow: lastMsg.is_read
+                          ? "none"
+                          : `0 0 0 6px ${colors.eighth}22`,
+                        transition: "all var(--motion-base) var(--motion-soft)",
                       }}
                     />
                   ))}

@@ -161,6 +161,13 @@ const MessageInput = ({
         display: "flex",
         alignItems: "center",
         position: "relative",
+        boxShadow: "var(--surface-glow-soft)",
+        transition:
+          "transform var(--motion-fast) var(--motion-soft), box-shadow var(--motion-base) var(--motion-soft), background-color var(--motion-base) var(--motion-soft)",
+        "&:focus-within": {
+          transform: "translateY(-2px)",
+          boxShadow: "var(--surface-glow)",
+        },
       }}
     >
       <input
@@ -179,6 +186,8 @@ const MessageInput = ({
             bottom: 70,
             right: 0,
             zIndex: 10,
+            transformOrigin: "bottom right",
+            animation: "softFadeUp var(--motion-base) var(--motion-spring)",
           }}
         >
           <EmojiPicker
@@ -209,13 +218,24 @@ const MessageInput = ({
         inputRef={inputRef}
         InputProps={{
           disableUnderline: true,
-          sx: { color: colors.sixth, px: 1 },
+          sx: {
+            color: colors.sixth,
+            px: 1,
+            "& textarea": {
+              lineHeight: 1.45,
+            },
+          },
         }}
       />
       <IconButton
         ref={buttonRef}
-        sx={{ color: colors.fiveth }}
-        onClick={(e) => {
+        sx={{
+          transition:
+            "transform var(--motion-fast) var(--motion-soft), color var(--motion-fast) var(--motion-soft)",
+          transform: showEmoji ? "scale(1.06)" : "scale(1)",
+          color: showEmoji ? colors.eighth : colors.fiveth,
+        }}
+        onClick={() => {
           setShowEmoji((prev) => !prev);
         }}
       >
@@ -224,7 +244,18 @@ const MessageInput = ({
       <IconButton sx={{ color: colors.fiveth }}>
         <MicCustomIcon width={24} height={24} />
       </IconButton>
-      <IconButton sx={{ color: colors.wb }} onClick={handleSend}>
+      <IconButton
+        sx={{
+          color: colors.wb,
+          transition:
+            "transform var(--motion-fast) var(--motion-soft), filter var(--motion-fast) var(--motion-soft)",
+          "&:hover": {
+            transform: "translateX(1px) scale(1.05)",
+            filter: "brightness(1.08)",
+          },
+        }}
+        onClick={handleSend}
+      >
         <SendCustomIcon width={24} height={24} />
       </IconButton>
     </Box>

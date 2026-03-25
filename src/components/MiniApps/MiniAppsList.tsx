@@ -1,15 +1,7 @@
-import {
-  Box,
-  Typography,
-  useTheme,
-  CircularProgress,
-  IconButton,
-} from "@mui/material";
+import { Box, Typography, useTheme, CircularProgress } from "@mui/material";
 import { useMiniAppsQuery } from "../../queries/useMiniAppsQuery";
 import { useNavigate } from "react-router-dom";
 import type { MiniApps } from "../../types/index";
-
-import api from "../../services/api";
 
 const MiniAppsList = () => {
   const theme = useTheme();
@@ -26,7 +18,6 @@ const MiniAppsList = () => {
     <Box
       sx={{
         width: 400,
-        bgcolor: colors.second,
         display: "flex",
         flexDirection: "column",
         height: "100vh",

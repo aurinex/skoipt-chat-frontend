@@ -1,5 +1,4 @@
 import { Box, IconButton, useTheme, Skeleton } from "@mui/material";
-import ThemeSwitcher from "./ThemeSwitcher";
 
 import HomeIconCustom from "../../assets/icons/home.svg?react";
 import MessageIconCustom from "../../assets/icons/message.svg?react";
@@ -7,7 +6,7 @@ import FriendsIconCustom from "../../assets/icons/friends.svg?react";
 import SettingsIconCustom from "../../assets/icons/settings.svg?react";
 import AppsIconCustom from "../../assets/icons/app.svg?react";
 import { useMeQuery } from "../../queries/useMeQuery";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useCachedUser } from "../../stores/useUserStore";
 import UserAvatar from "../Ui/UserAvatar";
 import type { TabKey } from "../../types";

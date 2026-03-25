@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
-import { useParams, useLocation } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 function MiniAppsPage() {
   const { appId } = useParams();

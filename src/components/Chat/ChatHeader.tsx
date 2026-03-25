@@ -108,16 +108,17 @@ const ChatHeader = memo(
             borderRadius: "20px",
             px: 1,
             py: 0.5,
-            transition: "background 0.2s",
+            transition:
+              "background-color var(--motion-fast) var(--motion-soft), transform var(--motion-fast) var(--motion-soft)",
+            "&:hover": {
+              transform: "translateY(-1px)",
+            },
           }}
         >
           {chatData?.type === "direct" ? (
             <UserAvatar user={interlocutor} sx={{ width: 60, height: 60 }} />
           ) : (
-            <Avatar
-              src={chatAvatarUrl}
-              sx={{ width: 60, height: 60 }}
-            />
+            <Avatar src={chatAvatarUrl} sx={{ width: 60, height: 60 }} />
           )}
           <Box>
             <Typography
@@ -132,6 +133,17 @@ const ChatHeader = memo(
                   color: colors.fiveth,
                   fontSize: 16,
                   mt: "-6px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 0.75,
+                  "&::after": {
+                    content: '""',
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    bgcolor: colors.eighth,
+                    animation: "softPulse 1.4s ease-in-out infinite",
+                  },
                 }}
               />
             ) : chatData?.interlocutor ? (
@@ -145,17 +157,17 @@ const ChatHeader = memo(
               />
             ) : (
               <Typography
-              sx={{
-                color: colors.fiveth,
-                fontSize: 16,
-                mt: "-6px",
-              }}
-            >
-              {chatData && "member_count" in chatData && chatData.member_count !== undefined ? (
-                getParticipantString(chatData.member_count)
-              ) : (
-                "Загрузка данных..."
-              )}
+                sx={{
+                  color: colors.fiveth,
+                  fontSize: 16,
+                  mt: "-6px",
+                }}
+              >
+                {chatData &&
+                "member_count" in chatData &&
+                chatData.member_count !== undefined
+                  ? getParticipantString(chatData.member_count)
+                  : "Загрузка данных..."}
               </Typography>
             )}
           </Box>

@@ -108,6 +108,14 @@ export const useChatListCacheActions = () => {
         current.filter((chat) => String(chat.id) !== String(chatId)),
       );
     },
+    setChatLastMessage: (chatId: string, message: Message | null) => {
+      queryClient.setQueryData<Chat[]>(queryKeys.chats.all, (current = []) =>
+        updateChatById(current, chatId, (chat) => ({
+          ...chat,
+          last_message: message ? normalizeLastMessage(message) : null,
+        })),
+      );
+    },
     invalidateChats: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.chats.all });
     },

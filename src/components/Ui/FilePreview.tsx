@@ -18,15 +18,24 @@ const FilePreview = ({
   onImageClick,
   variant = "default",
 }: FilePreviewProps) => {
-  const [url, setUrl] = useState<string | null>(null);
+  const directUrl = fileUrl.startsWith("http") ? fileUrl : null;
+  const [url, setUrl] = useState<string | null>(directUrl);
 
   useEffect(() => {
-    if (fileUrl.startsWith("http")) {
-      setUrl(fileUrl);
-    } else {
-      api.files.getPrivateUrl(chatId, fileUrl).then((res) => setUrl(res.url));
-    }
-  }, [fileUrl, chatId]);
+    if (directUrl) return;
+
+    let isActive = true;
+
+    api.files.getPrivateUrl(chatId, fileUrl).then((res) => {
+      if (isActive) {
+        setUrl(res.url);
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [chatId, directUrl, fileUrl]);
 
   if (!url) return <CircularProgress size={16} sx={{ mt: 1 }} />;
 
@@ -86,6 +95,12 @@ const FilePreview = ({
               maxHeight: 300,
               objectFit: "contain",
               cursor: "pointer",
+              transition:
+                "transform var(--motion-base) var(--motion-soft), filter var(--motion-base) var(--motion-soft)",
+              "&:hover": {
+                transform: "scale(1.02)",
+                filter: "brightness(1.03)",
+              },
             }}
           />
         </Box>
@@ -108,8 +123,13 @@ const FilePreview = ({
           // mt: grid ? 0 : 1,
           display: "block",
           cursor: "pointer", // Иконка лупы для красоты
-          transition: "opacity 0.2s",
-          "&:hover": { opacity: 0.9 },
+          transition:
+            "opacity var(--motion-fast) var(--motion-soft), transform var(--motion-base) var(--motion-soft), filter var(--motion-fast) var(--motion-soft)",
+          "&:hover": {
+            opacity: 0.92,
+            transform: "scale(1.015)",
+            filter: "brightness(1.03)",
+          },
         }}
       />
     );
