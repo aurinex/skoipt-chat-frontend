@@ -4,6 +4,8 @@ export const queryKeys = {
   },
   chats: {
     all: ["chats"] as const,
+    lists: ["chats", "list"] as const,
+    list: (type = "all") => ["chats", "list", type] as const,
     detail: (chatId: string) => ["chats", "detail", chatId] as const,
     preview: (userId: string) => ["chats", "preview", userId] as const,
   },

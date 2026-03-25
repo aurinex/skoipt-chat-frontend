@@ -3,7 +3,7 @@ import { Box, TextField, IconButton, useTheme } from "@mui/material";
 import { socket } from "../../services/api";
 import { useState } from "react";
 import EmojiPicker, { Theme } from "emoji-picker-react";
-import EmojiEmotionsIcon from "@mui/icons-material/EmojiEmotions";
+import EmojiEmotionsIcon from "@mui/icons-material/EmojiEmotionsRounded";
 
 import FileCustomIcon from "../../assets/icons/file.svg?react";
 import MicCustomIcon from "../../assets/icons/micro.svg?react";

@@ -10,7 +10,7 @@ export const useCreateGroupMutation = () => {
   return useMutation({
     mutationFn: api.chats.createGroup,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.chats.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.chats.lists });
     },
   });
 };
@@ -21,7 +21,7 @@ export const useCreateChannelMutation = () => {
   return useMutation({
     mutationFn: api.chats.createChannel,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.chats.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.chats.lists });
     },
   });
 };
@@ -38,7 +38,7 @@ export const useSendFirstMessageMutation = () => {
       data: { text?: string | null; file_urls?: string[] };
     }) => api.chats.sendFirstMessage(targetUserId, data),
     onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.chats.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.chats.lists });
       queryClient.setQueryData(
         queryKeys.messages.list(result.chat_id),
         {
@@ -57,8 +57,8 @@ export const useOpenDirectMutation = () => {
     mutationFn: api.chats.openDirect,
     onSuccess: async (chat) => {
       queryClient.setQueryData(queryKeys.chats.detail(chat.id), chat);
-      queryClient.setQueryData(
-        queryKeys.chats.all,
+      queryClient.setQueriesData(
+        { queryKey: queryKeys.chats.lists },
         (current: Chat[] | undefined) => {
           const list = current ?? [];
           if (list.some((item) => String(item.id) === String(chat.id))) {
@@ -68,7 +68,7 @@ export const useOpenDirectMutation = () => {
           return [normalizeChat(chat), ...list];
         },
       );
-      await queryClient.invalidateQueries({ queryKey: queryKeys.chats.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.chats.lists });
     },
   });
 };

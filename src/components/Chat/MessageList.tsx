@@ -365,10 +365,7 @@ const MessageRow = memo(
     const isUploading = !!msg._uploading;
     const sender =
       resolveUser(msg.sender, usersById) ??
-      resolveUser(
-        msg.sender_id ? { id: msg.sender_id } : undefined,
-        usersById,
-      );
+      resolveUser(msg.sender_id ? { id: msg.sender_id } : undefined, usersById);
     const replySender = resolveUser(
       msg.reply_to_message?.sender ??
         (msg.reply_to_message?.sender_id
@@ -475,7 +472,7 @@ const MessageRow = memo(
               <UserName
                 user={sender}
                 short
-                fallback="РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ"
+                fallback="Пользователь"
                 sx={{
                   fontSize: "0.8rem",
                   color: colors.eighth,
@@ -614,7 +611,7 @@ const MessageRow = memo(
                   <UserName
                     user={replySender}
                     short
-                    fallback="РћС‚РІРµС‚"
+                    fallback="Ответ"
                     sx={{ fontSize: "0.75rem", color: "#fff" }}
                   />
                   <Typography
@@ -626,7 +623,7 @@ const MessageRow = memo(
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {msg.reply_to_message.text || "Р¤Р°Р№Р»"}
+                    {msg.reply_to_message.text || "Файл"}
                   </Typography>
                 </Box>
               )}
@@ -695,7 +692,7 @@ const MessageRow = memo(
               >
                 {msg.is_edited && (
                   <Typography sx={{ fontSize: "0.7rem", opacity: 0.6 }}>
-                    (РёР·РјРµРЅРµРЅРѕ)
+                    (изменено)
                   </Typography>
                 )}
                 <TimeText
@@ -710,7 +707,7 @@ const MessageRow = memo(
                   <>
                     {msg._failed ? (
                       <Tooltip
-                        title="РќРµ РѕС‚РїСЂР°РІР»РµРЅРѕ. РџРѕРїСЂРѕР±СѓР№С‚Рµ СЃРЅРѕРІР°."
+                        title="Не отправлено. Попробуйте снова."
                         placement="top"
                       >
                         <ErrorOutlineIcon
@@ -894,7 +891,8 @@ const MessageList = memo(
 
     useEffect(() => {
       const editedSystemMessage = messages.find(
-        (msg) => msg.is_system && msg.is_edited && !editedMapRef.current[msg.id],
+        (msg) =>
+          msg.is_system && msg.is_edited && !editedMapRef.current[msg.id],
       );
 
       if (!editedSystemMessage) return;
@@ -935,7 +933,11 @@ const MessageList = memo(
               {messages.map((msg, index) => {
                 if (msg.is_system) {
                   return (
-                    <SystemMessageRow key={msg.id} message={msg} colors={colors} />
+                    <SystemMessageRow
+                      key={msg.id}
+                      message={msg}
+                      colors={colors}
+                    />
                   );
                 }
 

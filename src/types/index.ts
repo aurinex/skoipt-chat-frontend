@@ -96,4 +96,5 @@ export interface ChatData {
   members?: string[];
   admins?: string[];
   interlocutor?: User | null;
+  unread_count?: number;
 }

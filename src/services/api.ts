@@ -14,6 +14,8 @@ const BASE_WS = "10.10.10.5:8000";
 // const BASE_URL = "http://192.168.51.143:8000";
 // const BASE_WS = "192.168.51.143:8000";
 
+let chatsTypeFilterSupported: boolean | null = null;
+
 export interface SocketEventMap {
   new_message: Message & { message?: Message };
   typing: {
@@ -271,8 +273,21 @@ const users = {
 // ─── Chats ───────────────────────────────────────────────────────────────────
 
 const chats = {
-  async list() {
-    return request<Chat[]>("/chats/");
+  async list(type = "all") {
+    if (type === "all" || chatsTypeFilterSupported === false) {
+      return request<Chat[]>("/chats/");
+    }
+
+    try {
+      const result = await request<Chat[]>(
+        `/chats/?type=${encodeURIComponent(type)}`,
+      );
+      chatsTypeFilterSupported = true;
+      return result;
+    } catch {
+      chatsTypeFilterSupported = false;
+      return request<Chat[]>("/chats/");
+    }
   },
   async get(chatId: string) {
     return request<ChatData>(`/chats/${chatId}`);

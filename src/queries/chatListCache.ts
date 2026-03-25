@@ -49,10 +49,16 @@ const updateChatById = (
 
 export const useChatListCacheActions = () => {
   const queryClient = useQueryClient();
+  const updateChatLists = (updater: (current: Chat[]) => Chat[]) => {
+    queryClient.setQueriesData<Chat[]>(
+      { queryKey: queryKeys.chats.lists },
+      (current) => updater(current ?? []),
+    );
+  };
 
   return {
     updateChatFromMessage: (message: Message) => {
-      queryClient.setQueryData<Chat[]>(queryKeys.chats.all, (current = []) => {
+      updateChatLists((current = []) => {
         const nextChats = moveChatToTop(current, String(message.chat_id), (chat) => ({
           ...chat,
           last_message: normalizeLastMessage(message),
@@ -62,7 +68,7 @@ export const useChatListCacheActions = () => {
       });
     },
     setChatTyping: (chatId: string, isTyping: boolean) => {
-      queryClient.setQueryData<Chat[]>(queryKeys.chats.all, (current = []) =>
+      updateChatLists((current = []) =>
         updateChatById(current, chatId, (chat) => ({
           ...chat,
           is_typing: isTyping,
@@ -70,7 +76,7 @@ export const useChatListCacheActions = () => {
       );
     },
     markChatLastMessageRead: (chatId: string, messageIds: string[]) => {
-      queryClient.setQueryData<Chat[]>(queryKeys.chats.all, (current = []) =>
+      updateChatLists((current = []) =>
         updateChatById(current, chatId, (chat) => {
           if (!chat.last_message) return chat;
           if (!messageIds.includes(chat.last_message.id)) return chat;
@@ -83,7 +89,7 @@ export const useChatListCacheActions = () => {
       );
     },
     syncUnreadCount: (chatId: string, unreadCount: number) => {
-      queryClient.setQueryData<Chat[]>(queryKeys.chats.all, (current = []) =>
+      updateChatLists((current = []) =>
         updateChatById(current, chatId, (chat) => ({
           ...chat,
           unread_count: unreadCount,
@@ -95,7 +101,7 @@ export const useChatListCacheActions = () => {
       );
     },
     prependChat: (chat: Chat) => {
-      queryClient.setQueryData<Chat[]>(queryKeys.chats.all, (current = []) => {
+      updateChatLists((current = []) => {
         if (current.some((item) => String(item.id) === String(chat.id))) {
           return current;
         }
@@ -104,12 +110,12 @@ export const useChatListCacheActions = () => {
       });
     },
     removeChat: (chatId: string) => {
-      queryClient.setQueryData<Chat[]>(queryKeys.chats.all, (current = []) =>
+      updateChatLists((current = []) =>
         current.filter((chat) => String(chat.id) !== String(chatId)),
       );
     },
     setChatLastMessage: (chatId: string, message: Message | null) => {
-      queryClient.setQueryData<Chat[]>(queryKeys.chats.all, (current = []) =>
+      updateChatLists((current = []) =>
         updateChatById(current, chatId, (chat) => ({
           ...chat,
           last_message: message ? normalizeLastMessage(message) : null,
@@ -117,7 +123,7 @@ export const useChatListCacheActions = () => {
       );
     },
     invalidateChats: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.chats.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.chats.lists });
     },
   };
 };

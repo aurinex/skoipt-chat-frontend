@@ -2,11 +2,13 @@ import { Box, Typography, useTheme, CircularProgress } from "@mui/material";
 import { useMiniAppsQuery } from "../../queries/useMiniAppsQuery";
 import { useNavigate } from "react-router-dom";
 import type { MiniApps } from "../../types/index";
+import { useResponsive } from "../../hooks/useResponsive";
 
 const MiniAppsList = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   const colors = theme.palette.background;
+  const { isMobile } = useResponsive();
 
   const { data: apps = [], isLoading } = useMiniAppsQuery();
 
@@ -17,10 +19,10 @@ const MiniAppsList = () => {
   return (
     <Box
       sx={{
-        width: 400,
+        width: isMobile ? "100%" : 400,
         display: "flex",
         flexDirection: "column",
-        height: "100vh",
+        height: "100%",
         gap: 2,
       }}
     >
@@ -34,9 +36,13 @@ const MiniAppsList = () => {
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <Typography
             variant="h5"
-            sx={{ fontWeight: 700, color: colors.sixth, fontSize: 36 }}
+            sx={{
+              fontWeight: 700,
+              color: colors.sixth,
+              fontSize: isMobile ? 28 : 36,
+            }}
           >
-            Мини-приложения
+            {"\u041c\u0438\u043d\u0438-\u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f"}
           </Typography>
         </Box>
       </Box>

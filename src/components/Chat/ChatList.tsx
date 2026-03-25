@@ -1,5 +1,15 @@
-import { Box, Typography, useTheme, IconButton } from "@mui/material";
-import { useState } from "react";
+import {
+  Box,
+  Checkbox,
+  IconButton,
+  ListItemIcon,
+  ListItemText,
+  Menu,
+  MenuItem,
+  Typography,
+  useTheme,
+} from "@mui/material";
+import { type MouseEvent, useMemo, useState } from "react";
 import NewMessageCustomIcon from "../../assets/icons/new_message.svg?react";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import ChatSearch from "./ChatSearch";
@@ -8,25 +18,112 @@ import UserSearchResults from "./UserSearchResults";
 import NewChatModal from "../Ui/NewChatModal";
 import { useChatsQuery } from "../../queries/useChatsQuery";
 import { useUsersSearchQuery } from "../../queries/useUsersSearchQuery";
+import { useResponsive } from "../../hooks/useResponsive";
+import type { Chat } from "../../types";
+
+type ChatFilterMode = "direct" | "channel" | "group" | "custom";
+
+const ALL_CHAT_TYPES: Chat["type"][] = ["direct", "channel", "group"];
+
+const FILTER_TITLES: Record<Exclude<ChatFilterMode, "custom">, string> = {
+  direct: "Диалоги",
+  channel: "Каналы",
+  group: "Беседы",
+};
 
 const ChatList = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterMode, setFilterMode] = useState<ChatFilterMode>("custom");
+  const [selectedTypes, setSelectedTypes] =
+    useState<Chat["type"][]>(ALL_CHAT_TYPES);
+  const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);
+  const [openNewChatModal, setOpenNewChatModal] = useState(false);
+
   const theme = useTheme();
   const colors = theme.palette.background;
+  const { isMobile } = useResponsive();
   const isSearching = searchQuery.trim().length > 0;
-  const { data: chats = [], isPending: isChatsLoading } = useChatsQuery();
+
+  const typeParam = useMemo(() => {
+    if (filterMode !== "custom") {
+      return filterMode;
+    }
+
+    if (
+      selectedTypes.length === 0 ||
+      selectedTypes.length === ALL_CHAT_TYPES.length
+    ) {
+      return "all";
+    }
+
+    return selectedTypes.join(",");
+  }, [filterMode, selectedTypes]);
+
+  const listTitle =
+    filterMode === "custom" ? "Мессенджер" : FILTER_TITLES[filterMode];
+
+  const { data: chats = [], isPending: isChatsLoading } =
+    useChatsQuery(typeParam);
   const { data: userResults = [], isPending: usersLoading } =
     useUsersSearchQuery(searchQuery);
 
-  const [openNewChatModal, setOpenNewChatModal] = useState(false);
+  const handleMenuOpen = (event: MouseEvent<HTMLElement>) => {
+    setMenuAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setMenuAnchorEl(null);
+  };
+
+  const handlePresetSelect = (mode: Exclude<ChatFilterMode, "custom">) => {
+    setFilterMode(mode);
+    setSelectedTypes([mode]);
+    handleMenuClose();
+  };
+
+  const handleCustomSelect = () => {
+    setFilterMode("custom");
+  };
+
+  const handleCustomToggle = (type: Chat["type"]) => {
+    setFilterMode("custom");
+    setSelectedTypes((current) => {
+      const next = current.includes(type)
+        ? current.filter((item) => item !== type)
+        : [...current, type];
+
+      return next.length > 0 ? next : current;
+    });
+  };
+
+  const renderFilterIcon = (type: Chat["type"]) => {
+    if (filterMode !== "custom") {
+      return <ListItemIcon sx={{ minWidth: 16 }} />;
+    }
+
+    return (
+      <ListItemIcon sx={{ minWidth: 36 }}>
+        <Checkbox
+          edge="start"
+          checked={selectedTypes.includes(type)}
+          tabIndex={-1}
+          disableRipple
+          onClick={(event) => {
+            event.stopPropagation();
+            handleCustomToggle(type);
+          }}
+        />
+      </ListItemIcon>
+    );
+  };
 
   return (
     <Box
       sx={{
-        width: 400,
+        width: isMobile ? "100%" : 400,
         display: "flex",
         flexDirection: "column",
-        height: "100vh",
+        height: "100%",
         gap: 2,
         position: "relative",
         overflow: "hidden",
@@ -43,11 +140,29 @@ const ChatList = () => {
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <Typography
             variant="h5"
-            sx={{ fontWeight: 700, color: colors.sixth, fontSize: 36 }}
+            sx={{
+              fontWeight: 700,
+              color: colors.sixth,
+              fontSize: isMobile ? 28 : 36,
+            }}
           >
-            Мессенджер
+            {listTitle}
           </Typography>
-          <KeyboardArrowDownIcon />
+          <IconButton
+            size="small"
+            onClick={handleMenuOpen}
+            disableFocusRipple
+            disableRipple
+            sx={{
+              color: colors.wb,
+              transform: menuAnchorEl ? "rotate(180deg)" : "rotate(0deg)",
+              transition:
+                "transform, color var(--motion-fast) var(--motion-soft)",
+              ":hover": { color: colors.fiveth, borderColor: "transparent" },
+            }}
+          >
+            <KeyboardArrowDownIcon />
+          </IconButton>
         </Box>
         <IconButton
           sx={{ color: colors.wb }}
@@ -63,7 +178,12 @@ const ChatList = () => {
         sx={{
           flexGrow: 1,
           overflowY: "auto",
-          pr: 0.5,
+          msOverflowStyle: "none",
+          scrollbarWidth: "none",
+          "&::-webkit-scrollbar": {
+            display: "none",
+          },
+          pb: isMobile ? "calc(env(safe-area-inset-bottom, 0px) + 104px)" : 0,
           animation: "softFadeIn var(--motion-slow) var(--motion-soft)",
         }}
       >
@@ -110,6 +230,44 @@ const ChatList = () => {
           <ChatListItems chats={chats} isLoading={isChatsLoading} />
         )}
       </Box>
+
+      <Menu
+        anchorEl={menuAnchorEl}
+        open={!!menuAnchorEl}
+        onClose={handleMenuClose}
+        anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+        transformOrigin={{ vertical: "top", horizontal: "left" }}
+      >
+        <MenuItem
+          selected={filterMode === "direct"}
+          onClick={() => handlePresetSelect("direct")}
+        >
+          {renderFilterIcon("direct")}
+          <ListItemText>Диалоги</ListItemText>
+        </MenuItem>
+        <MenuItem
+          selected={filterMode === "channel"}
+          onClick={() => handlePresetSelect("channel")}
+        >
+          {renderFilterIcon("channel")}
+          <ListItemText>Каналы</ListItemText>
+        </MenuItem>
+        <MenuItem
+          selected={filterMode === "group"}
+          onClick={() => handlePresetSelect("group")}
+        >
+          {renderFilterIcon("group")}
+          <ListItemText>Беседы</ListItemText>
+        </MenuItem>
+        <MenuItem
+          selected={filterMode === "custom"}
+          onClick={handleCustomSelect}
+        >
+          <ListItemIcon sx={{ minWidth: 16 }} />
+          <ListItemText>Кастом</ListItemText>
+        </MenuItem>
+      </Menu>
+
       <NewChatModal
         open={openNewChatModal}
         onClose={() => setOpenNewChatModal(false)}

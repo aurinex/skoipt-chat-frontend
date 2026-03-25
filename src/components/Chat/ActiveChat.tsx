@@ -24,6 +24,7 @@ import {
 } from "../../queries/messageCache";
 import { canSendToChat } from "../../utils/permissions";
 import type { Message } from "../../types";
+import { useResponsive } from "../../hooks/useResponsive";
 
 const EMPTY_FILES: File[] = [];
 const EMPTY_MESSAGE_PAGES: never[] = [];
@@ -32,6 +33,7 @@ const ActiveChat = () => {
   const { chatId } = useParams<{ chatId: string }>();
   const theme = useTheme();
   const colors = theme.palette.background;
+  const { isMobile } = useResponsive();
   const myId = getMyId();
   const { updateChatFromMessage, setChatLastMessage } =
     useChatListCacheActions();
@@ -254,8 +256,9 @@ const ActiveChat = () => {
           sx={{
             display: "flex",
             flexDirection: "column",
-            height: "100vh",
-            p: 2,
+            height: "100%",
+            minHeight: 0,
+            p: isMobile ? 1.5 : 2,
             bgcolor: colors.third,
           }}
         >

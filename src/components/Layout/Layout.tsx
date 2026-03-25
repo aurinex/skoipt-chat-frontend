@@ -1,17 +1,19 @@
-import { Box, useTheme } from "@mui/material";
-import { Outlet } from "react-router-dom";
-import { useEffect, useRef } from "react";
+import { Box, Typography, useTheme } from "@mui/material";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
 import { socket, getMyId } from "../../services/api";
 import Navbar from "./Navbar";
 import ChatList from "../Chat/ChatList";
 import { useChatListCacheActions } from "../../queries/chatListCache";
 import MiniAppsList from "../MiniApps/MiniAppsList";
-import { useState } from "react";
 import type { TabKey } from "../../types/index";
+import { useResponsive } from "../../hooks/useResponsive";
 
 const Layout = () => {
   const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
-
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { isMobile } = useResponsive();
   const [activeTab, setActiveTab] = useState<TabKey>("messages");
 
   const theme = useTheme();
@@ -96,51 +98,135 @@ const Layout = () => {
     updateChatFromMessage,
   ]);
 
+  useEffect(() => {
+    if (location.pathname.startsWith("/miniapps")) {
+      setActiveTab("apps");
+      return;
+    }
+
+    setActiveTab("messages");
+  }, [location.pathname]);
+
+  const handleTabChange = (value: TabKey) => {
+    setActiveTab(value);
+
+    if (value === "apps") {
+      navigate("/miniapps");
+      return;
+    }
+
+    if (value === "messages") {
+      navigate("/");
+    }
+  };
+
+  const showMobileChat = isMobile && location.pathname.startsWith("/chat/");
+  const showMobileMiniApp =
+    isMobile && location.pathname.startsWith("/miniapps/");
+  const showSidebar = !isMobile || (!showMobileChat && !showMobileMiniApp);
+  const showOutlet = !isMobile || showMobileChat || showMobileMiniApp;
+
   return (
     <Box
       sx={{
         display: "flex",
+        flexDirection: isMobile ? "column" : "row",
         height: "100vh",
         overflow: "hidden",
         animation: "softFadeIn var(--motion-slow) var(--motion-soft)",
       }}
     >
-      <Box
-        sx={{
-          padding: "30px 0 30px 25px",
-          animation: "softFadeUp var(--motion-slow) var(--motion-spring)",
-        }}
-      >
-        <Navbar
-          orientation="vertical"
-          value={activeTab}
-          onChange={setActiveTab}
-        />
-      </Box>
+      {!isMobile && (
+        <Box
+          sx={{
+            padding: "30px 0 30px 25px",
+            animation: "softFadeUp var(--motion-slow) var(--motion-spring)",
+          }}
+        >
+          <Navbar
+            orientation="vertical"
+            value={activeTab}
+            onChange={handleTabChange}
+          />
+        </Box>
+      )}
 
-      <Box
-        sx={{
-          padding: "30px 36px 0px 36px",
-          animation: "softFadeUp var(--motion-slow) var(--motion-spring)",
-          animationDelay: "70ms",
-          animationFillMode: "both",
-        }}
-      >
-        {activeTab === "messages" && <ChatList />}
-        {activeTab === "apps" && <MiniAppsList />}
-      </Box>
+      {showSidebar && (
+        <Box
+          sx={{
+            px: isMobile ? 2 : 4.5,
+            pt: isMobile ? 2 : 3.75,
+            pb: 0,
+            width: isMobile ? "100%" : "auto",
+            flexGrow: isMobile ? 1 : 0,
+            minHeight: 0,
+            animation: "softFadeUp var(--motion-slow) var(--motion-spring)",
+            animationDelay: "70ms",
+            animationFillMode: "both",
+          }}
+        >
+          {activeTab === "messages" && <ChatList />}
+          {activeTab === "apps" && <MiniAppsList />}
+          {activeTab !== "messages" && activeTab !== "apps" && (
+            <Box
+              sx={{
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: colors.fiveth,
+              }}
+            >
+              <Typography>
+                {
+                  "\u0420\u0430\u0437\u0434\u0435\u043b \u043f\u043e\u043a\u0430 \u043d\u0435 \u0430\u0434\u0430\u043f\u0442\u0438\u0440\u043e\u0432\u0430\u043d"
+                }
+              </Typography>
+            </Box>
+          )}
+        </Box>
+      )}
 
-      <Box
-        sx={{
-          flexGrow: 1,
-          minWidth: 0,
-          animation: "softFadeUp var(--motion-slow) var(--motion-spring)",
-          animationDelay: "120ms",
-          animationFillMode: "both",
-        }}
-      >
-        <Outlet />
-      </Box>
+      {showOutlet && (
+        <Box
+          sx={{
+            flexGrow: 1,
+            minWidth: 0,
+            minHeight: 0,
+            animation: "softFadeUp var(--motion-slow) var(--motion-spring)",
+            animationDelay: "120ms",
+            animationFillMode: "both",
+          }}
+        >
+          <Outlet />
+        </Box>
+      )}
+
+      {isMobile && !location.pathname.startsWith("/chat/") && (
+        <Box
+          sx={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: theme.zIndex.appBar,
+            px: 2,
+            pb: "calc(env(safe-area-inset-bottom, 0px) + 16px)",
+            pt: 1,
+            bgcolor: "transparent",
+            pointerEvents: "none",
+            animation: "softFadeUp var(--motion-slow) var(--motion-spring)",
+          }}
+        >
+          <Box sx={{ pointerEvents: "auto" }}>
+            <Navbar
+              orientation="horizontal"
+              value={activeTab}
+              onChange={handleTabChange}
+            />
+          </Box>
+        </Box>
+      )}
     </Box>
   );
 };
