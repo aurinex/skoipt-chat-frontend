@@ -6,6 +6,7 @@ import LoginPage from "./pages/LoginPage";
 import ActiveChat from "./components/Chat/ActiveChat";
 import NewChat from "./components/Chat/NewChat";
 import MiniAppsPage from "./pages/MiniAppsPage";
+import ProfilePage from "./pages/ProfilePage";
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
                 <Route index element={<MiniAppsPage />} />
                 <Route path=":appId" element={<MiniAppsPage />} />
               </Route>
+              <Route path="profile" element={<ProfilePage />} />
               <Route path="settings" element={<div>Настройки</div>} />
             </Route>
           </Route>

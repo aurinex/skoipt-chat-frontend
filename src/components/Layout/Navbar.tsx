@@ -1,5 +1,6 @@
 import { Box, IconButton, Skeleton, useTheme } from "@mui/material";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import HomeIconCustom from "../../assets/icons/home.svg?react";
 import MessageIconCustom from "../../assets/icons/message.svg?react";
@@ -39,6 +40,7 @@ const Navbar = ({ orientation = "vertical", value, onChange }: NavbarProps) => {
   const colors = theme.palette.background;
   const isVertical = orientation === "vertical";
   const { isMobile } = useResponsive();
+  const navigate = useNavigate();
 
   const { data: me, isPending: isLoading } = useMeQuery();
   const cachedMe = useCachedUser(me);
@@ -133,11 +135,20 @@ const Navbar = ({ orientation = "vertical", value, onChange }: NavbarProps) => {
               <UserAvatar
                 user={cachedMe}
                 fallback="?"
+                onClick={() => navigate("/profile")}
                 sx={{
+                  cursor: "pointer",
                   width: 55,
                   height: 55,
                   border: `2px solid ${colors.fourth}`,
                   borderRadius: "20px",
+                  transition:
+                    "transform var(--motion-fast) var(--motion-soft), box-shadow var(--motion-base) var(--motion-soft), border-color var(--motion-fast) var(--motion-soft)",
+                  "&:hover": {
+                    transform: "translateY(-2px)",
+                    boxShadow: "0 16px 28px rgba(0,0,0,0.16)",
+                    borderColor: colors.eighth,
+                  },
                 }}
               />
             </>

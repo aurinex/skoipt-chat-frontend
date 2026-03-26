@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { queryClient } from "../lib/queryClient";
 import { queryKeys } from "../lib/queryKeys";
-import { socket } from "../services/api";
+import api, { socket } from "../services/api";
 import type { Message, TypingUser } from "../types";
 import { getMessagesFromPages } from "../queries/messageCache";
 import { collectUsersFromMessages, upsertUser, upsertUsers } from "./useUserStore";
@@ -14,11 +14,13 @@ export interface ActiveChatState {
   typingUsersByChatId: Record<string, TypingUser[]>;
   setCurrentChat: (chatId: string | null, userId: string | null) => void;
   initializeRealtime: () => void;
+  syncReadState: (chatId: string, messages: Message[]) => void;
 }
 
 const typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let readTimer: ReturnType<typeof setTimeout> | null = null;
 let realtimeInitialized = false;
+const lastScheduledReadByChat = new Map<string, string>();
 
 const getTypingTimerKey = (chatId: string, userId: string) => `${chatId}:${userId}`;
 
@@ -58,10 +60,23 @@ const removeTypingUserFromState = (
 });
 
 const scheduleReadEvent = (chatId: string, messageId: string | number) => {
+  const normalizedMessageId = String(messageId);
+  if (lastScheduledReadByChat.get(chatId) === normalizedMessageId) return;
+
   if (readTimer) clearTimeout(readTimer);
 
   readTimer = setTimeout(() => {
-    socket.sendRead(chatId, messageId);
+    lastScheduledReadByChat.set(chatId, normalizedMessageId);
+
+    void (async () => {
+      try {
+        await api.chats.read(chatId);
+      } catch (error) {
+        console.error("Failed to mark chat as read via HTTP", error);
+        lastScheduledReadByChat.delete(chatId);
+        socket.sendRead(chatId, normalizedMessageId);
+      }
+    })();
   }, 500);
 };
 
@@ -72,7 +87,12 @@ const syncReadStateIfNeeded = (
 ) => {
   const lastIncoming = [...messages]
     .reverse()
-    .find((message) => String(message.sender_id) !== String(currentUserId) && !message._pending);
+    .find(
+      (message) =>
+        !message.is_system &&
+        String(message.sender_id) !== String(currentUserId) &&
+        !message._pending,
+    );
 
   if (lastIncoming) {
     scheduleReadEvent(chatId, lastIncoming.id);
@@ -83,6 +103,7 @@ export const activeChatSelectors = {
   currentChatId: (state: ActiveChatState) => state.currentChatId,
   initializeRealtime: (state: ActiveChatState) => state.initializeRealtime,
   setCurrentChat: (state: ActiveChatState) => state.setCurrentChat,
+  syncReadState: (state: ActiveChatState) => state.syncReadState,
   typingUsers: (chatId: string | undefined) => (state: ActiveChatState) =>
     chatId ? getTypingUsersForChat(state, chatId) : EMPTY_TYPING_USERS,
 };
@@ -95,7 +116,17 @@ export const useActiveChatStore = create<ActiveChatState>((set, get) => ({
   setCurrentChat: (chatId, userId) => {
     const state = get();
     if (state.currentChatId === chatId && state.currentUserId === userId) return;
+
+    if (readTimer) {
+      clearTimeout(readTimer);
+      readTimer = null;
+    }
+
     set({ currentChatId: chatId, currentUserId: userId });
+  },
+
+  syncReadState: (chatId, messages) => {
+    syncReadStateIfNeeded(chatId, messages, get().currentUserId);
   },
 
   initializeRealtime: () => {
@@ -120,8 +151,6 @@ export const useActiveChatStore = create<ActiveChatState>((set, get) => ({
           }
 
           const nextMessages = [...currentMessages, message];
-          syncReadStateIfNeeded(chatId, nextMessages, get().currentUserId);
-
           return { pages: [nextMessages], pageParams: [undefined] };
         },
       );

@@ -12,6 +12,7 @@ import {
   useOpenDirectMutation,
   useSendFirstMessageMutation,
 } from "../../queries/useChatMutations";
+import { unwrapUploadedAttachment } from "../../utils/messageAttachments";
 
 const NewChat = () => {
   const [searchParams] = useSearchParams();
@@ -83,20 +84,30 @@ const NewChat = () => {
         const uploadResults = await Promise.allSettled(
           files.map((file) => api.files.uploadChatFile(chatId, file)),
         );
-        const fileUrls: string[] = [];
+        const attachments = uploadResults.flatMap((result) =>
+          result.status === "fulfilled"
+            ? [unwrapUploadedAttachment(result.value)]
+            : [],
+        );
         uploadResults.forEach((r) => {
-          if (r.status === "fulfilled") {
-            fileUrls.push(
-              r.value.is_public ? r.value.url : r.value.object_name,
-            );
+          if (r.status === "rejected") {
+            console.error("Ошибка загрузки файла:", r.reason);
           }
         });
 
-        if (fileUrls.length === 0 && !caption.trim()) return;
+        if (attachments.length === 0 && !caption.trim()) return;
 
         await api.messages.send(chatId, {
+          type:
+            attachments.length === 1 && attachments[0].kind === "voice"
+              ? "voice"
+              : attachments.every((attachment) => attachment.kind === "image")
+                ? "image"
+                : attachments.length > 0
+                  ? "file"
+                  : "text",
           text: caption || null,
-          file_urls: fileUrls,
+          attachments,
         });
         navigate(`/chat/${chatId}`, { replace: true });
       } catch (err) {

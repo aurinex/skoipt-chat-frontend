@@ -2,9 +2,15 @@ import { useEffect, useState } from "react";
 import api from "../../services/api";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
+import type { Attachment } from "../../types";
+import {
+  getAttachmentSource,
+  isImageAttachment,
+} from "../../utils/messageAttachments";
 
 interface FilePreviewProps {
-  fileUrl: string;
+  fileUrl?: string;
+  attachment?: Attachment;
   chatId: string;
   onImageClick?: (url: string) => void;
   grid?: boolean;
@@ -13,20 +19,24 @@ interface FilePreviewProps {
 
 const FilePreview = ({
   fileUrl,
+  attachment,
   chatId,
   grid = false,
   onImageClick,
   variant = "default",
 }: FilePreviewProps) => {
-  const directUrl = fileUrl.startsWith("http") ? fileUrl : null;
+  const source = attachment ? getAttachmentSource(attachment) : (fileUrl ?? "");
+  const directUrl =
+    source.startsWith("http") || source.startsWith("blob:") ? source : null;
   const [url, setUrl] = useState<string | null>(directUrl);
 
   useEffect(() => {
     if (directUrl) return;
+    if (!source) return;
 
     let isActive = true;
 
-    api.files.getPrivateUrl(chatId, fileUrl).then((res) => {
+    api.files.getPrivateUrl(chatId, source).then((res) => {
       if (isActive) {
         setUrl(res.url);
       }
@@ -35,13 +45,14 @@ const FilePreview = ({
     return () => {
       isActive = false;
     };
-  }, [chatId, directUrl, fileUrl]);
+  }, [chatId, directUrl, source]);
 
   if (!url) return <CircularProgress size={16} sx={{ mt: 1 }} />;
 
-  const isImage =
-    url.match(/\.(jpg|jpeg|png|gif|webp)/i) ||
-    fileUrl.match(/\.(jpg|jpeg|png|gif|webp)/i);
+  const isImage = attachment
+    ? isImageAttachment(attachment)
+    : /\.(jpg|jpeg|png|gif|webp)/i.test(url) ||
+      /\.(jpg|jpeg|png|gif|webp)/i.test(source);
 
   // Функция-обработчик клика
   const handleClick = (e: React.MouseEvent) => {
@@ -136,13 +147,14 @@ const FilePreview = ({
   }
 
   return (
-    <Box
-      component="a"
-      href={url}
-      target="_blank"
-      sx={{
-        display: "block",
-        mt: 1,
+      <Box
+        component="a"
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        sx={{
+          display: "block",
+          mt: 1,
         color: "inherit",
         textDecoration: "underline",
         fontSize: "0.85rem",

@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../lib/queryKeys";
 import api from "../services/api";
-import type { Chat } from "../types";
+import type { Attachment, Chat, Message } from "../types";
 import { normalizeChat } from "./chatListCache";
 
 export const useCreateGroupMutation = () => {
@@ -35,7 +35,12 @@ export const useSendFirstMessageMutation = () => {
       data,
     }: {
       targetUserId: string;
-      data: { text?: string | null; file_urls?: string[] };
+      data: {
+        text?: string | null;
+        type?: Message["type"];
+        attachments?: Attachment[];
+        file_urls?: string[];
+      };
     }) => api.chats.sendFirstMessage(targetUserId, data),
     onSuccess: async (result) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.chats.lists });
@@ -80,6 +85,12 @@ export const useSendMessageMutation = () =>
       data,
     }: {
       chatId: string;
-      data: { text?: string | null; file_urls?: string[]; reply_to?: string | null };
+      data: {
+        text?: string | null;
+        type?: Message["type"];
+        attachments?: Attachment[];
+        file_urls?: string[];
+        reply_to?: string | null;
+      };
     }) => api.messages.send(chatId, data),
   });

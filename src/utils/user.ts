@@ -123,8 +123,14 @@ export const getUserSubtitle = (
   return parts.join(separator) || fallback;
 };
 
+export const getUserRoles = (user: ResolvableUser) =>
+  user?.roles?.length ? user.roles : user?.role ? [user.role] : [];
+
+export const getPrimaryUserRole = (user: ResolvableUser) =>
+  getUserRoles(user)[0] ?? null;
+
 export const hasUserRole = (user: ResolvableUser, role: string) =>
-  user?.role === role;
+  getUserRoles(user).includes(role);
 
 export const isAdminUser = (user: ResolvableUser) =>
   hasUserRole(user, "admin");

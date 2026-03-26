@@ -54,6 +54,7 @@ const ActiveChat = () => {
     activeChatSelectors.initializeRealtime,
   );
   const setCurrentChat = useActiveChatStore(activeChatSelectors.setCurrentChat);
+  const syncReadState = useActiveChatStore(activeChatSelectors.syncReadState);
   const typingUsers = useActiveChatStore(
     activeChatSelectors.typingUsers(chatId),
   );
@@ -151,6 +152,11 @@ const ActiveChat = () => {
   useEffect(() => {
     setCurrentChat(chatId ?? null, myId);
   }, [chatId, myId, setCurrentChat]);
+
+  useEffect(() => {
+    if (!chatId || messages.length === 0) return;
+    syncReadState(chatId, messages);
+  }, [chatId, messages, syncReadState]);
 
   const { handleModalSend } = useMessageSender({
     chatId: chatId!,

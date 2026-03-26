@@ -1,4 +1,5 @@
 import type {
+  Attachment,
   Chat,
   ChatData,
   ChatPreview,
@@ -265,6 +266,22 @@ const users = {
 
   // Возвращает { chat_id, type, interlocutor }
   // chat_id === null если чата ещё нет — чат в БД НЕ создаётся
+  async updateMe(data: {
+    username?: string;
+    email?: string;
+    first_name?: string;
+    last_name?: string;
+    course?: number | null;
+    group?: string | null;
+    specialty?: string | null;
+    specialty_code?: string | null;
+  }) {
+    return request<User>("/users/me", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
   async chatPreview(userId: string) {
     return request<ChatPreview>(`/users/${userId}/chat-preview`);
   },
@@ -300,7 +317,12 @@ const chats = {
   // Возвращает { chat_id, message, is_new_chat }
   async sendFirstMessage(
     targetUserId: string,
-    data: { text?: string | null; file_urls?: string[] },
+    data: {
+      text?: string | null;
+      type?: Message["type"];
+      attachments?: Attachment[];
+      file_urls?: string[];
+    },
   ) {
     return request<{ chat_id: string; message: Message; is_new_chat: boolean }>(
       `/chats/direct/${targetUserId}/message`,
@@ -353,6 +375,12 @@ const chats = {
     return request(`/chats/${chatId}/leave`, { method: "DELETE" });
   },
 
+  async read(chatId: string) {
+    return request<{ detail: string }>(`/chats/${chatId}/read`, {
+      method: "POST",
+    });
+  },
+
   async getMembers(chatId: string, limit = 50, offset = 0) {
     return request<{
       members: (User & { is_admin: boolean })[];
@@ -391,13 +419,21 @@ const messages = {
     chatId: string,
     {
       text = null,
+      type = "text",
+      attachments = [],
       file_urls = [],
       reply_to = null,
-    }: { text?: string | null; file_urls?: string[]; reply_to?: string | null },
+    }: {
+      text?: string | null;
+      type?: Message["type"];
+      attachments?: Attachment[];
+      file_urls?: string[];
+      reply_to?: string | null;
+    },
   ) {
     return request<Message>(`/chats/${chatId}/messages/`, {
       method: "POST",
-      body: JSON.stringify({ text, file_urls, reply_to }),
+      body: JSON.stringify({ text, type, attachments, file_urls, reply_to }),
     });
   },
 
@@ -446,11 +482,10 @@ const files = {
   async uploadChatFile(chatId: string, file: File) {
     const formData = new FormData();
     formData.append("file", file);
-    return requestFormData<{
-      url: string;
-      object_name: string;
-      is_public: boolean;
-    }>(`/files/chat/${chatId}`, formData);
+    return requestFormData<Attachment | { attachment: Attachment }>(
+      `/files/chat/${chatId}`,
+      formData,
+    );
   },
 
   async getPrivateUrl(chatId: string, objectName: string) {

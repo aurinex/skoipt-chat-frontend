@@ -9,14 +9,18 @@ import {
   Divider,
   Skeleton,
 } from "@mui/material";
-import DoneAllIcon from "@mui/icons-material/DoneAll";
 import FeedIcon from "@mui/icons-material/NewspaperRounded";
 import { Link, useLocation } from "react-router-dom";
 import type { Chat, Message } from "../../types";
 import { useUserStore } from "../../stores/useUserStore";
 import { resolveUser } from "../../utils/user";
 import { getChatAvatarUrl, getChatTitle } from "../../utils/chat";
+import {
+  inferMessageType,
+  splitMessageAttachments,
+} from "../../utils/messageAttachments";
 import UserAvatar from "../Ui/UserAvatar";
+import MessageReadIndicator from "./MessageReadIndicator";
 
 interface ChatListItemsProps {
   chats: Chat[];
@@ -24,40 +28,53 @@ interface ChatListItemsProps {
   searchQuery?: string;
 }
 
+const getPluralizedFiles = (count: number) => {
+  const lastDigit = count % 10;
+  const lastTwoDigits = count % 100;
+  let word = "файлов";
+
+  if (lastTwoDigits < 11 || lastTwoDigits > 19) {
+    if (lastDigit === 1) word = "файл";
+    else if (lastDigit >= 2 && lastDigit <= 4) word = "файла";
+  }
+
+  return `${count} ${word}`;
+};
+
 const getLastMessagePreview = (msg?: Message | null) => {
   if (!msg) return "Нет сообщений";
-  if (msg.is_system) return msg.text ?? "Системное сообщение";
 
-  const files = msg.file_urls || (msg.file_url ? [msg.file_url] : []);
-  const hasFiles = files.length > 0;
-  const hasText = !!msg.text;
+  const messageType = inferMessageType(msg);
+  if (messageType === "system") {
+    return msg.text ?? "Системное сообщение";
+  }
 
-  if (!hasFiles && !hasText) return "Нет сообщений";
+  const { attachments, imageAttachments, voiceAttachments } =
+    splitMessageAttachments(msg);
+  const hasAttachments = attachments.length > 0;
+  const hasText = Boolean(msg.text);
 
-  let filePrefix = "";
-  if (hasFiles) {
-    if (files.length === 1) {
-      const url = files[0].toLowerCase();
-      if (url.match(/\.(jpg|jpeg|png|gif|webp)/)) filePrefix = "Фото";
-      else if (url.match(/\.(mp4|mov|avi)/)) filePrefix = "Видео";
-      else if (url.match(/\.(mp3|ogg|webm|m4a)/)) filePrefix = "Аудио";
-      else filePrefix = "Файл";
-    } else {
-      const count = files.length;
-      const lastDigit = count % 10;
-      const lastTwoDigits = count % 100;
-      let word = "файлов";
-      if (lastTwoDigits < 11 || lastTwoDigits > 19) {
-        if (lastDigit === 1) word = "файл";
-        else if (lastDigit >= 2 && lastDigit <= 4) word = "файла";
+  if (!hasAttachments && !hasText) return "Нет сообщений";
+
+  let attachmentLabel = "";
+
+  if (hasAttachments) {
+    if (attachments.length === 1) {
+      if (messageType === "image" || imageAttachments.length === 1) {
+        attachmentLabel = "Фото";
+      } else if (messageType === "voice" || voiceAttachments.length === 1) {
+        attachmentLabel = "Голосовое";
+      } else {
+        attachmentLabel = "Файл";
       }
-      filePrefix = `${count} ${word}`;
+    } else {
+      attachmentLabel = getPluralizedFiles(attachments.length);
     }
   }
 
-  if (hasFiles && hasText) return `${msg.text} • ${filePrefix}`;
-  if (hasFiles) return filePrefix;
-  return msg.text;
+  if (hasText && hasAttachments) return `${msg.text} • ${attachmentLabel}`;
+  if (hasAttachments) return attachmentLabel;
+  return msg.text ?? "Нет сообщений";
 };
 
 const ChatListItems = ({
@@ -139,6 +156,7 @@ const ChatListItems = ({
         const isSelected = location.pathname.includes(chat.id);
         const lastMsg = chat.last_message;
         const isMine = lastMsg?.is_mine;
+        const isSystemLastMessage = lastMsg ? inferMessageType(lastMsg) === "system" : false;
 
         return (
           <Box key={chat.id}>
@@ -218,7 +236,7 @@ const ChatListItems = ({
                     }}
                     noWrap
                   >
-                    {isMine && !lastMsg?.is_system && (
+                    {isMine && !isSystemLastMessage && (
                       <Box
                         component="span"
                         sx={{ color: colors.fiveth, flexShrink: 0 }}
@@ -251,36 +269,13 @@ const ChatListItems = ({
                     minWidth: 24,
                   }}
                 >
-                  {lastMsg &&
-                    (isMine ? (
-                      <DoneAllIcon
-                        sx={{
-                          mr: "12px",
-                          fontSize: 18,
-                          color: lastMsg.is_read ? "#fff" : colors.eighth,
-                          transition:
-                            "color var(--motion-base) ease, transform var(--motion-fast) var(--motion-soft)",
-                          transform: lastMsg.is_read
-                            ? "scale(1.05)"
-                            : "scale(1)",
-                        }}
-                      />
-                    ) : (
-                      <Box
-                        sx={{
-                          mr: "17px",
-                          width: 10,
-                          height: 10,
-                          borderRadius: "50%",
-                          bgcolor: lastMsg.is_read ? "#fff" : colors.eighth,
-                          boxShadow: lastMsg.is_read
-                            ? "none"
-                            : `0 0 0 6px ${colors.eighth}22`,
-                          transition:
-                            "all var(--motion-base) var(--motion-soft)",
-                        }}
-                      />
-                    ))}
+                  {lastMsg && (
+                    <MessageReadIndicator
+                      message={lastMsg}
+                      colors={colors}
+                      variant="chat-list"
+                    />
+                  )}
                 </Box>
               </ListItemButton>
             </ListItem>

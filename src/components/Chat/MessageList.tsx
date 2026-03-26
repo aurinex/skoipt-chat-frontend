@@ -15,12 +15,12 @@ import {
   LinearProgress,
 } from "@mui/material";
 import emojiRegex from "emoji-regex";
-import DoneAllIcon from "@mui/icons-material/DoneAll";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import FilePreview from "../Ui/FilePreview";
 import { getChatDateKey } from "../../utils/chatFormatters";
-import type { Message, ChatData } from "../../types";
+import api from "../../services/api";
+import type { Attachment, Message, ChatData } from "../../types";
 import type { AppColors } from "../../types/theme";
 import { useUserStore } from "../../stores/useUserStore";
 import { resolveUser } from "../../utils/user";
@@ -28,6 +28,12 @@ import UserAvatar from "../Ui/UserAvatar";
 import UserName from "../Ui/UserName";
 import DateLabel from "../Ui/DateLabel";
 import TimeText from "../Ui/TimeText";
+import MessageReadIndicator from "./MessageReadIndicator";
+import {
+  getAttachmentSource,
+  inferMessageType,
+  splitMessageAttachments,
+} from "../../utils/messageAttachments";
 
 interface MessageListProps {
   messages: Message[];
@@ -160,21 +166,22 @@ const MessageSkeleton = memo(({ colors }: { colors: AppColors }) => (
 ));
 
 const ImageGrid = ({
-  urls,
+  attachments,
   chatId,
   isUploading,
   onImageClick,
 }: {
-  urls: string[];
+  attachments: Attachment[];
   chatId: string | undefined;
   isUploading?: boolean;
   onImageClick?: (url: string) => void;
 }) => {
-  const count = urls.length;
+  const count = attachments.length;
 
   if (count === 1) {
+    const source = getAttachmentSource(attachments[0]);
     return isUploading ? (
-      <UploadingImageThumb src={urls[0]} />
+      <UploadingImageThumb src={source} />
     ) : (
       <Box
         sx={{
@@ -188,7 +195,7 @@ const ImageGrid = ({
       >
         <Box
           component="img"
-          src={urls[0]}
+          src={source}
           sx={{
             position: "absolute",
             inset: 0,
@@ -200,7 +207,7 @@ const ImageGrid = ({
           }}
         />
         <FilePreview
-          fileUrl={urls[0]}
+          attachment={attachments[0]}
           chatId={chatId!}
           onImageClick={onImageClick}
           variant="small"
@@ -220,8 +227,9 @@ const ImageGrid = ({
         maxWidth: 300,
       }}
     >
-      {urls.map((url, i) => {
+      {attachments.map((attachment, i) => {
         const isWide = count === 3 && i === 0;
+        const source = getAttachmentSource(attachment);
 
         return (
           <Box
@@ -234,10 +242,10 @@ const ImageGrid = ({
             }}
           >
             {isUploading ? (
-              <UploadingImageThumb src={url} fill />
+              <UploadingImageThumb src={source} fill />
             ) : (
               <FilePreview
-                fileUrl={url}
+                attachment={attachment}
                 chatId={chatId!}
                 grid
                 onImageClick={onImageClick}
@@ -299,6 +307,68 @@ const UploadingFilePlaceholder = ({ count }: { count: number }) => (
   </Box>
 );
 
+const VoiceAttachmentPreview = ({
+  attachment,
+  chatId,
+  isMine,
+}: {
+  attachment: Attachment;
+  chatId: string;
+  isMine: boolean;
+}) => {
+  const source = getAttachmentSource(attachment);
+  const [audioUrl, setAudioUrl] = useState<string | null>(
+    source.startsWith("http") || source.startsWith("blob:") ? source : null,
+  );
+
+  useEffect(() => {
+    if (audioUrl || !source) return;
+
+    let isActive = true;
+
+    api.files.getPrivateUrl(chatId, source).then((res) => {
+      if (isActive) {
+        setAudioUrl(res.url);
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [audioUrl, chatId, source]);
+
+  return (
+    <Box
+      sx={{
+        px: 1.5,
+        py: 1,
+        minWidth: 220,
+      }}
+    >
+      {audioUrl ? (
+        <Box
+          component="audio"
+          controls
+          preload="metadata"
+          src={audioUrl}
+          sx={{
+            width: "100%",
+            display: "block",
+            filter: isMine ? "invert(1) hue-rotate(180deg)" : "none",
+          }}
+        />
+      ) : (
+        <LinearProgress sx={{ borderRadius: 2 }} />
+      )}
+      {attachment.duration_ms ? (
+        <Typography sx={{ fontSize: "0.7rem", opacity: 0.65, mt: 0.5 }}>
+          {(attachment.duration_ms / 1000).toFixed(1)} сек
+        </Typography>
+      ) : null}
+    </Box>
+  );
+};
+
 const SystemMessageRow = memo(
   ({ message, colors }: { message: Message; colors: AppColors }) => (
     <Box
@@ -356,12 +426,9 @@ const MessageRow = memo(
     const isFirstInGroup = !prevMsg || prevMsg.sender_id !== msg.sender_id;
     const isLastInGroup = !nextMsg || nextMsg.sender_id !== msg.sender_id;
 
-    const fileUrls: string[] = msg.file_urls?.length
-      ? msg.file_urls
-      : msg.file_url
-        ? [msg.file_url]
-        : [];
-
+    const messageType = inferMessageType(msg);
+    const { imageAttachments, voiceAttachments, fileAttachments } =
+      splitMessageAttachments(msg);
     const isUploading = !!msg._uploading;
     const sender =
       resolveUser(msg.sender, usersById) ??
@@ -374,19 +441,18 @@ const MessageRow = memo(
       usersById,
     );
 
-    const imageUrls = fileUrls.filter(
-      (u) => u.match(/\.(jpg|jpeg|png|gif|webp)/i) || u.startsWith("blob:"),
-    );
-    const otherUrls = fileUrls.filter(
-      (u) => !u.match(/\.(jpg|jpeg|png|gif|webp)/i) && !u.startsWith("blob:"),
-    );
     const uploadingNonImageCount = isUploading ? (msg._nonImageCount ?? 0) : 0;
-    const hasImages = imageUrls.length > 0;
+    const hasImages = imageAttachments.length > 0;
+    const hasVoice = voiceAttachments.length > 0;
+    const hasFiles = fileAttachments.length > 0;
     const hasText = !!msg.text;
     const emojiData = msg.text ? isOnlyEmojis(msg.text) : null;
     const isBigEmoji =
       emojiData?.onlyEmoji && emojiData.count > 0 && emojiData.count <= 1;
-    const isPureMedia = hasImages && !hasText && otherUrls.length === 0;
+    const isPureMedia =
+      (messageType === "image" || messageType === "voice") &&
+      !hasText &&
+      !hasFiles;
 
     return (
       <Box sx={{ display: "contents" }}>
@@ -558,7 +624,7 @@ const MessageRow = memo(
                   }}
                 >
                   <ImageGrid
-                    urls={imageUrls}
+                    attachments={imageAttachments}
                     chatId={chatId}
                     isUploading={isUploading}
                     onImageClick={onImageClick}
@@ -645,12 +711,25 @@ const MessageRow = memo(
                 </Typography>
               )}
 
-              <Box sx={{ p: otherUrls.length > 0 ? "4px 12px" : 0 }}>
+              {hasVoice && chatId && (
+                <Box sx={{ pb: hasText ? 1 : 0.5 }}>
+                  {voiceAttachments.map((attachment, index) => (
+                    <VoiceAttachmentPreview
+                      key={`${getAttachmentSource(attachment)}-${index}`}
+                      attachment={attachment}
+                      chatId={chatId}
+                      isMine={isMessageFromMe}
+                    />
+                  ))}
+                </Box>
+              )}
+
+              <Box sx={{ p: hasFiles ? "4px 12px" : 0 }}>
                 {!isUploading &&
-                  otherUrls.map((url, i) => (
+                  fileAttachments.map((attachment, i) => (
                     <FilePreview
                       key={i}
-                      fileUrl={url}
+                      attachment={attachment}
                       chatId={chatId!}
                       onImageClick={onImageClick}
                     />
@@ -719,16 +798,11 @@ const MessageRow = memo(
                         />
                       </Tooltip>
                     ) : (
-                      <DoneAllIcon
-                        sx={{
-                          fontSize: 14,
-                          color:
-                            msg._pending || isUploading
-                              ? "rgba(255,255,255,0.3)"
-                              : msg.read_by?.length > 0
-                                ? "rgba(255,255,255,1)"
-                                : "rgba(255,255,255,0.5)",
-                        }}
+                      <MessageReadIndicator
+                        message={msg}
+                        colors={colors}
+                        variant="message"
+                        pending={msg._pending || isUploading}
                       />
                     )}
                   </>

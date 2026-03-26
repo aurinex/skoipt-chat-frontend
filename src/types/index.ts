@@ -8,10 +8,15 @@ export interface User {
   full_name?: string;
   avatar_url: string | null;
   is_online: boolean;
-  role: string;
+  role?: string | null;
+  roles?: string[];
+  email?: string | null;
   group?: string | null;
   course?: number | null;
   specialty?: string | null;
+  specialty_code?: string | null;
+  is_bot?: boolean;
+  created_at?: string | null;
 }
 
 export interface MiniApps {
@@ -36,12 +41,29 @@ export interface ForwardedFrom {
   sender_name: string;
 }
 
+export type AttachmentKind = "file" | "image" | "voice";
+export type MessageType = "text" | "file" | "image" | "voice" | "system";
+
+export interface Attachment {
+  kind: AttachmentKind;
+  url?: string | null;
+  object_name?: string | null;
+  is_public?: boolean;
+  mime_type?: string | null;
+  filename?: string | null;
+  size_bytes?: number | null;
+  duration_ms?: number | null;
+  waveform?: number[] | null;
+}
+
 export interface Message {
   id: string;
   chat_id: string;
   sender_id: string;
   sender?: User | null;
+  type?: MessageType;
   text: string | null;
+  attachments?: Attachment[];
   file_urls: string[];
   file_url?: string | null;
   reply_to: string | null;

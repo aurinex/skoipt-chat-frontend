@@ -20,6 +20,7 @@ import { useChatsQuery } from "../../queries/useChatsQuery";
 import { useUsersSearchQuery } from "../../queries/useUsersSearchQuery";
 import { useResponsive } from "../../hooks/useResponsive";
 import type { Chat } from "../../types";
+import { useBlinkingTitle } from "../../hooks/useBlinkingTitle";
 
 type ChatFilterMode = "direct" | "channel" | "group" | "custom";
 
@@ -64,6 +65,17 @@ const ChatList = () => {
 
   const { data: chats = [], isPending: isChatsLoading } =
     useChatsQuery(typeParam);
+
+  const totalUnreadCount = useMemo(() => {
+    return chats.reduce((sum, chat) => sum + (chat.unread_count ?? 0), 0);
+  }, [chats]);
+
+  useBlinkingTitle({
+    unreadCount: totalUnreadCount,
+    defaultTitle: "Мессенджер",
+    interval: 2000,
+  });
+
   const { data: userResults = [], isPending: usersLoading } =
     useUsersSearchQuery(searchQuery);
 

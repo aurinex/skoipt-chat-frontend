@@ -15,4 +15,7 @@ export const queryKeys = {
   users: {
     search: (query: string) => ["users", "search", query] as const,
   },
+  directories: {
+    specialties: ["directories", "specialties"] as const,
+  },
 };

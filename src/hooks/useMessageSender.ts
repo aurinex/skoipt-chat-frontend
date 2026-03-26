@@ -1,7 +1,8 @@
 import { useCallback } from "react";
 import api, { getMyId } from "../services/api";
 import { useSendMessageMutation } from "../queries/useChatMutations";
-import type { Message } from "../types";
+import type { Attachment, Message } from "../types";
+import { unwrapUploadedAttachment } from "../utils/messageAttachments";
 
 interface UseMessageSenderParams {
   chatId: string;
@@ -28,17 +29,13 @@ export const useMessageSender = ({
   const myId = getMyId() ?? "";
   const sendMessageMutation = useSendMessageMutation();
 
-  const editMessage = async (messageId: string, text: string) => {
-    return api.messages.edit(chatId, messageId, text);
-  };
-
   const handleSend = useCallback(
     async (text: string, replyToId?: string) => {
       if (!text.trim() || !chatId) return;
 
       if (editingMessage) {
         try {
-          await editMessage(editingMessage.id, text);
+          await api.messages.edit(chatId, editingMessage.id, text);
 
           setMessages((prev) =>
             prev.map((m) =>
@@ -68,11 +65,13 @@ export const useMessageSender = ({
         {
           id: tempId,
           chat_id: chatId,
+          type: "text",
           text,
           is_mine: true,
           sender_id: myId,
           created_at: new Date().toISOString(),
           read_by: [],
+          attachments: [],
           file_urls: [],
           is_edited: false,
           edited_at: null,
@@ -87,6 +86,7 @@ export const useMessageSender = ({
           chatId,
           data: {
             text,
+            type: "text",
             reply_to: replyToId || null,
           },
         });
@@ -126,7 +126,17 @@ export const useMessageSender = ({
 
       const imageFiles = files.filter((f) => f.type.startsWith("image/"));
       const nonImageFiles = files.filter((f) => !f.type.startsWith("image/"));
-      const blobUrls = imageFiles.map((f) => URL.createObjectURL(f));
+      const tempAttachments: Attachment[] = files.map((file) => {
+        const previewUrl = URL.createObjectURL(file);
+        return {
+          kind: file.type.startsWith("image/") ? "image" : "file",
+          url: previewUrl,
+          is_public: true,
+          mime_type: file.type,
+          filename: file.name,
+          size_bytes: file.size,
+        };
+      });
       const tempId = `temp_files_${Date.now()}`;
 
       setMessages((prev) => [
@@ -134,12 +144,14 @@ export const useMessageSender = ({
         {
           id: tempId,
           chat_id: chatId,
+          type: imageFiles.length === files.length ? "image" : "file",
           text: caption || null,
           is_mine: true,
           sender_id: myId,
           created_at: new Date().toISOString(),
           read_by: [],
-          file_urls: blobUrls,
+          attachments: tempAttachments,
+          file_urls: tempAttachments.map((attachment) => attachment.url ?? ""),
           is_edited: false,
           edited_at: null,
           _uploading: true,
@@ -156,20 +168,19 @@ export const useMessageSender = ({
           files.map((file) => api.files.uploadChatFile(chatId, file)),
         );
 
-        const fileUrls: string[] = [];
+        const attachments: Attachment[] = [];
 
         results.forEach((result) => {
           if (result.status === "fulfilled") {
-            const res = result.value;
-            fileUrls.push(res.is_public ? res.url : res.object_name);
+            attachments.push(unwrapUploadedAttachment(result.value));
           }
         });
 
-        if (fileUrls.length === 0) {
+        if (attachments.length === 0) {
           setMessages((prev) =>
             prev.map((m) =>
               m.id === tempId
-                ? { ...m, _uploading: false, _failed: true, file_urls: [] }
+                ? { ...m, _uploading: false, _failed: true, attachments: [] }
                 : m,
             ),
           );
@@ -179,7 +190,13 @@ export const useMessageSender = ({
         const msg = await sendMessageMutation.mutateAsync({
           chatId,
           data: {
-            file_urls: fileUrls,
+            type:
+              attachments.length === 1 && attachments[0].kind === "voice"
+                ? "voice"
+                : attachments.every((attachment) => attachment.kind === "image")
+                  ? "image"
+                  : "file",
+            attachments,
             text: caption || null,
             reply_to: replyTo?.id || null,
           },
@@ -197,12 +214,16 @@ export const useMessageSender = ({
         setMessages((prev) =>
           prev.map((m) =>
             m.id === tempId
-              ? { ...m, _uploading: false, _failed: true, file_urls: [] }
+              ? { ...m, _uploading: false, _failed: true, attachments: [] }
               : m,
           ),
         );
       } finally {
-        blobUrls.forEach(URL.revokeObjectURL);
+        tempAttachments.forEach((attachment) => {
+          if (attachment.url?.startsWith("blob:")) {
+            URL.revokeObjectURL(attachment.url);
+          }
+        });
       }
     },
     [
