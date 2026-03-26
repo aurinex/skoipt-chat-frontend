@@ -1,4 +1,10 @@
-import { useRef, useState, type ChangeEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ReactNode,
+} from "react";
 import {
   Box,
   Button,
@@ -6,12 +12,15 @@ import {
   InputBase,
   MenuItem,
   Select,
+  Tooltip,
   Typography,
   useTheme,
   type SelectChangeEvent,
 } from "@mui/material";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import UploadFileRoundedIcon from "@mui/icons-material/UploadFileRounded";
+import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
+import ErrorOutlineRoundedIcon from "@mui/icons-material/ErrorOutlineRounded";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import ProfileHero from "../components/Profile/ProfileHero";
@@ -35,6 +44,20 @@ interface ProfileFormValues {
   course: string;
   group: string;
 }
+
+interface UsernameAvailabilityState {
+  checking: boolean;
+  available: boolean | null;
+  reason: "invalid_format" | "already_taken" | null;
+  normalizedUsername: string | null;
+}
+
+const INITIAL_USERNAME_STATE: UsernameAvailabilityState = {
+  checking: false,
+  available: null,
+  reason: null,
+  normalizedUsername: null,
+};
 
 const getDisplayValue = (
   value: string | number | null | undefined,
@@ -75,7 +98,17 @@ const ProfilePage = () => {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState<ProfileFormValues | null>(null);
+  const [usernameAvailability, setUsernameAvailability] =
+    useState<UsernameAvailabilityState>(INITIAL_USERNAME_STATE);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const currentDraft = draft ?? (me ? buildInitialValues(me) : buildInitialValues({
+    id: "",
+    username: "",
+    first_name: "",
+    last_name: "",
+    avatar_url: null,
+    is_online: false,
+  } as User));
 
   const updateProfileCache = (nextUser: User) => {
     queryClient.setQueryData(queryKeys.auth.me, nextUser);
@@ -92,7 +125,7 @@ const ProfilePage = () => {
       const response = await api.files.uploadAvatar(file);
       updateProfileCache({
         ...me,
-        avatar_url: response.url,
+        avatar_url: response.avatar_url ?? me.avatar_url,
       });
     } catch (error) {
       console.error("Не удалось обновить аватар", error);
@@ -103,6 +136,68 @@ const ProfilePage = () => {
       }
     }
   };
+
+  const handleEditStart = () => {
+    if (!me) return;
+    setDraft(buildInitialValues(me));
+    setUsernameAvailability(INITIAL_USERNAME_STATE);
+    setIsEditing(true);
+  };
+
+  const handleEditCancel = () => {
+    if (!me) return;
+    setDraft(buildInitialValues(me));
+    setUsernameAvailability(INITIAL_USERNAME_STATE);
+    setIsEditing(false);
+  };
+
+  useEffect(() => {
+    if (!isEditing || !me) return;
+
+    const nextUsername = currentDraft.username.trim();
+    const currentUsername = (me.username ?? "").trim();
+
+    if (!nextUsername) {
+      setUsernameAvailability(INITIAL_USERNAME_STATE);
+      return;
+    }
+
+    if (nextUsername.toLowerCase() === currentUsername.toLowerCase()) {
+      setUsernameAvailability({
+        checking: false,
+        available: true,
+        reason: null,
+        normalizedUsername: currentUsername.toLowerCase(),
+      });
+      return;
+    }
+
+    setUsernameAvailability((prev) => ({
+      ...prev,
+      checking: true,
+      available: null,
+      reason: null,
+    }));
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const result = await api.users.checkUsernameAvailability(nextUsername);
+        setUsernameAvailability({
+          checking: false,
+          available: result.available,
+          reason: result.reason,
+          normalizedUsername: result.normalized_username,
+        });
+      } catch (error) {
+        console.error("Не удалось проверить username", error);
+        setUsernameAvailability(INITIAL_USERNAME_STATE);
+      }
+    }, 400);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [currentDraft.username, isEditing, me]);
 
   if (isPending || !me) {
     return (
@@ -122,7 +217,6 @@ const ProfilePage = () => {
 
   const roles = getUserRoles(me);
   const primaryRole = getPrimaryUserRole(me);
-  const currentDraft = draft ?? buildInitialValues(me);
   const derivedSpecialty = getSpecialtyByGroup(currentDraft.group, specialties);
   const currentSpecialty = derivedSpecialty?.specialty ?? "";
   const currentSpecialtyCode = derivedSpecialty?.code ?? "";
@@ -130,16 +224,6 @@ const ProfilePage = () => {
     getSpecialtyByGroup(me.group, specialties)?.specialty ?? me.specialty;
   const savedSpecialtyCode =
     getSpecialtyByGroup(me.group, specialties)?.code ?? me.specialty_code;
-
-  const handleEditStart = () => {
-    setDraft(buildInitialValues(me));
-    setIsEditing(true);
-  };
-
-  const handleEditCancel = () => {
-    setDraft(buildInitialValues(me));
-    setIsEditing(false);
-  };
 
   const handleDraftChange =
     (field: keyof ProfileFormValues) =>
@@ -179,6 +263,7 @@ const ProfilePage = () => {
 
       updateProfileCache(updatedUser);
       setDraft(buildInitialValues(updatedUser));
+      setUsernameAvailability(INITIAL_USERNAME_STATE);
       setIsEditing(false);
     } catch (error) {
       console.error("Не удалось сохранить профиль", error);
@@ -187,6 +272,46 @@ const ProfilePage = () => {
     }
   };
 
+  const usernameStatusIcon = (() => {
+    if (!isEditing || !currentDraft.username.trim()) return null;
+
+    if (usernameAvailability.checking) {
+      return <CircularProgress size={15} sx={{ color: colors.fiveth }} />;
+    }
+
+    if (usernameAvailability.available) {
+      const normalized = usernameAvailability.normalizedUsername;
+      const tooltip =
+        normalized && normalized !== currentDraft.username.trim().toLowerCase()
+          ? `Будет сохранено как @${normalized}`
+          : "Username свободен";
+
+      return (
+        <Tooltip title={tooltip}>
+          <CheckCircleRoundedIcon sx={{ fontSize: 17, color: "#2ea043" }} />
+        </Tooltip>
+      );
+    }
+
+    if (usernameAvailability.reason === "invalid_format") {
+      return (
+        <Tooltip title="Только латиница, цифры и _, длина 3-32">
+          <ErrorOutlineRoundedIcon sx={{ fontSize: 17, color: "#f59e0b" }} />
+        </Tooltip>
+      );
+    }
+
+    if (usernameAvailability.reason === "already_taken") {
+      return (
+        <Tooltip title="Username уже занят">
+          <ErrorOutlineRoundedIcon sx={{ fontSize: 17, color: "#ef4444" }} />
+        </Tooltip>
+      );
+    }
+
+    return null;
+  })();
+
   const renderInlineField = (
     field: keyof ProfileFormValues,
     label: string,
@@ -194,6 +319,7 @@ const ProfilePage = () => {
       type?: string;
       select?: boolean;
       menuItems?: Array<{ value: string; label: string }>;
+      endAdornment?: ReactNode;
     },
   ) => (
     <Box
@@ -262,12 +388,14 @@ const ProfilePage = () => {
           value={currentDraft[field]}
           onChange={handleDraftChange(field)}
           placeholder={label}
+          endAdornment={options?.endAdornment}
           sx={{
             minWidth: 0,
             color: colors.sixth,
             fontSize: 14,
             fontWeight: 600,
             lineHeight: 1.3,
+            gap: 0.8,
             "& input": {
               p: 0,
               textAlign: "right",
@@ -300,7 +428,9 @@ const ProfilePage = () => {
     {
       label: "Логин",
       value: isEditing
-        ? renderInlineField("username", "Логин")
+        ? renderInlineField("username", "Логин", {
+            endAdornment: usernameStatusIcon,
+          })
         : `@${me.username}`,
       isEditing,
     },
@@ -492,7 +622,11 @@ const ProfilePage = () => {
                   </Button>
                   <Button
                     onClick={() => void handleProfileSave(currentDraft)}
-                    disabled={isSavingProfile}
+                    disabled={
+                      isSavingProfile ||
+                      usernameAvailability.checking ||
+                      usernameAvailability.available === false
+                    }
                     sx={{
                       borderRadius: "16px",
                       textTransform: "none",

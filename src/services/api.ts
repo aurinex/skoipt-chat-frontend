@@ -2,6 +2,7 @@ import type {
   Attachment,
   Chat,
   ChatData,
+  ChatMediaPage,
   ChatPreview,
   Message,
   User,
@@ -19,6 +20,9 @@ let chatsTypeFilterSupported: boolean | null = null;
 
 export interface SocketEventMap {
   new_message: Message & { message?: Message };
+  user_updated: {
+    user: Partial<User> & Pick<User, "id">;
+  };
   typing: {
     chat_id: string;
     user_id: string;
@@ -57,6 +61,7 @@ export interface SocketEventMap {
   };
   chat_updated: {
     chat_id: string;
+    avatar_url?: string | null;
     member_count?: number;
     members?: string[];
     admins?: string[];
@@ -282,6 +287,17 @@ const users = {
     });
   },
 
+  async checkUsernameAvailability(username: string) {
+    return request<{
+      username: string;
+      normalized_username: string;
+      available: boolean;
+      reason: "invalid_format" | "already_taken" | null;
+    }>(
+      `/users/username-availability?username=${encodeURIComponent(username)}`,
+    );
+  },
+
   async chatPreview(userId: string) {
     return request<ChatPreview>(`/users/${userId}/chat-preview`);
   },
@@ -390,6 +406,30 @@ const chats = {
     }>(`/chats/${chatId}/members?limit=${limit}&offset=${offset}`);
   },
 
+  async getMedia(
+    chatId: string,
+    {
+      kind = "image",
+      limit = 50,
+      before,
+    }: {
+      kind?: "image";
+      limit?: number;
+      before?: string;
+    } = {},
+  ) {
+    const params = new URLSearchParams({
+      kind,
+      limit: String(limit),
+    });
+
+    if (before) {
+      params.set("before", before);
+    }
+
+    return request<ChatMediaPage>(`/chats/${chatId}/media?${params.toString()}`);
+  },
+
   async makeAdmin(chatId: string, targetUserId: string) {
     return request(`/chats/${chatId}/admin/${targetUserId}`, {
       method: "POST",
@@ -408,6 +448,25 @@ const chats = {
 const messages = {
   async list(chatId: string) {
     return request<Message[]>(`/chats/${chatId}/messages/`);
+  },
+  async get(chatId: string, messageId: string) {
+    return request<Message>(`/chats/${chatId}/messages/${messageId}`);
+  },
+  async getContext(
+    chatId: string,
+    messageId: string,
+    { before = 20, after = 20 }: { before?: number; after?: number } = {},
+  ) {
+    const params = new URLSearchParams({
+      before: String(before),
+      after: String(after),
+    });
+
+    return request<{
+      target: Message;
+      before: Message[];
+      after: Message[];
+    }>(`/chats/${chatId}/messages/${messageId}/context?${params.toString()}`);
   },
   async loadMore(chatId: string, beforeId: string) {
     return request<Message[]>(
@@ -464,11 +523,17 @@ const files = {
   async uploadAvatar(file: File) {
     const formData = new FormData();
     formData.append("file", file);
-    return requestFormData<{
-      url: string;
-      object_name: string;
-      is_public: boolean;
+    const response = await requestFormData<{
+      avatar_url?: string;
+      url?: string;
+      object_name?: string;
+      is_public?: boolean;
     }>("/files/avatar", formData);
+
+    return {
+      ...response,
+      avatar_url: response.avatar_url ?? response.url ?? null,
+    };
   },
 
   async uploadChatAvatar(chatId: string, file: File) {
@@ -529,8 +594,17 @@ class MessengerSocket {
   }
 
   connect() {
-    this.ws?.close();
     if (!tokens.access) return;
+    this.shouldReconnect = true;
+
+    if (
+      this.ws?.readyState === WebSocket.OPEN ||
+      this.ws?.readyState === WebSocket.CONNECTING
+    ) {
+      return;
+    }
+
+    this.ws?.close();
     this.ws = new WebSocket(`ws://${BASE_WS}/ws?token=${tokens.access}`);
 
     this.ws.onopen = () => {
@@ -606,16 +680,33 @@ class MessengerSocket {
     this.listeners[event]?.forEach((handler) => handler(data));
   }
   sendTyping(chatId: string, isTyping: boolean) {
-    this._send({ event: "typing", chat_id: chatId, is_typing: isTyping });
+    if (this.ws?.readyState !== WebSocket.OPEN) {
+      if (tokens.access) {
+        this.connect();
+      }
+      return;
+    }
+
+    this._send({ event: "typing", chat_id: chatId, is_typing: isTyping }, true);
   }
   sendRead(chatId: string, messageId: string | number) {
-    this._send({ event: "read", chat_id: chatId, last_message_id: messageId });
+    if (this.ws?.readyState !== WebSocket.OPEN) {
+      if (tokens.access) {
+        this.connect();
+      }
+      return;
+    }
+
+    this._send(
+      { event: "read", chat_id: chatId, last_message_id: messageId },
+      true,
+    );
   }
 
-  _send(data: unknown) {
+  _send(data: unknown, silent = false) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(typeof data === "string" ? data : JSON.stringify(data));
-    } else {
+    } else if (!silent) {
       console.warn("Попытка отправки сообщения в закрытый сокет", data);
     }
   }

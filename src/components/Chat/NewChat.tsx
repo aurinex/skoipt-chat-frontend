@@ -12,7 +12,7 @@ import {
   useOpenDirectMutation,
   useSendFirstMessageMutation,
 } from "../../queries/useChatMutations";
-import { unwrapUploadedAttachment } from "../../utils/messageAttachments";
+import { buildAttachmentFromUpload } from "../../utils/messageAttachments";
 
 const NewChat = () => {
   const [searchParams] = useSearchParams();
@@ -84,9 +84,9 @@ const NewChat = () => {
         const uploadResults = await Promise.allSettled(
           files.map((file) => api.files.uploadChatFile(chatId, file)),
         );
-        const attachments = uploadResults.flatMap((result) =>
+        const attachments = uploadResults.flatMap((result, index) =>
           result.status === "fulfilled"
-            ? [unwrapUploadedAttachment(result.value)]
+            ? [buildAttachmentFromUpload(files[index], result.value)]
             : [],
         );
         uploadResults.forEach((r) => {

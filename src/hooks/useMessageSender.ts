@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import api, { getMyId } from "../services/api";
 import { useSendMessageMutation } from "../queries/useChatMutations";
 import type { Attachment, Message } from "../types";
-import { unwrapUploadedAttachment } from "../utils/messageAttachments";
+import { buildAttachmentFromUpload } from "../utils/messageAttachments";
 
 interface UseMessageSenderParams {
   chatId: string;
@@ -170,9 +170,9 @@ export const useMessageSender = ({
 
         const attachments: Attachment[] = [];
 
-        results.forEach((result) => {
+        results.forEach((result, index) => {
           if (result.status === "fulfilled") {
-            attachments.push(unwrapUploadedAttachment(result.value));
+            attachments.push(buildAttachmentFromUpload(files[index], result.value));
           }
         });
 

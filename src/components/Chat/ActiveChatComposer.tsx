@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { useComposer } from "../../hooks/useComposer";
 import { useMessageSender } from "../../hooks/useMessageSender";
 import type { Message } from "../../types";
@@ -35,9 +35,16 @@ const ActiveChatComposer = ({
     setEditingMessage,
   } = useComposer(composerScopeId);
 
-  const lastMyMessage = [...messages]
-    .reverse()
-    .find((m) => m.is_mine && !m._failed);
+  const lastMyMessage = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (message.is_mine && !message._failed) {
+        return message;
+      }
+    }
+
+    return null;
+  }, [messages]);
 
   const { handleSend } = useMessageSender({
     chatId,

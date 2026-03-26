@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { queryClient } from "../lib/queryClient";
 import { queryKeys } from "../lib/queryKeys";
 import api, { socket } from "../services/api";
-import type { Message, TypingUser } from "../types";
+import type { Chat, ChatData, Message, TypingUser, User } from "../types";
 import { getMessagesFromPages } from "../queries/messageCache";
 import { collectUsersFromMessages, upsertUser, upsertUsers } from "./useUserStore";
 
@@ -97,6 +97,25 @@ const syncReadStateIfNeeded = (
   if (lastIncoming) {
     scheduleReadEvent(chatId, lastIncoming.id);
   }
+};
+
+const mergePartialUser = <T extends Partial<User> | null | undefined>(
+  current: T,
+  incoming: Partial<User> & Pick<User, "id">,
+) => {
+  if (!current) return current;
+
+  return {
+    ...current,
+    ...incoming,
+  } as T;
+};
+
+const updateChatLists = (updater: (current: Chat[]) => Chat[]) => {
+  queryClient.setQueriesData<Chat[]>(
+    { queryKey: queryKeys.chats.lists },
+    (current) => updater(current ?? []),
+  );
 };
 
 export const activeChatSelectors = {
@@ -223,6 +242,60 @@ export const useActiveChatStore = create<ActiveChatState>((set, get) => ({
       }
     });
 
+    socket.on("user_updated", ({ user }) => {
+      upsertUser(user);
+
+      queryClient.setQueryData(queryKeys.auth.me, (current: User | undefined) =>
+        current && String(current.id) === String(user.id)
+          ? { ...current, ...user }
+          : current,
+      );
+
+      queryClient.setQueriesData<ChatData | null | undefined>(
+        { queryKey: ["chats", "detail"] },
+        (current) =>
+          current?.interlocutor && String(current.interlocutor.id) === String(user.id)
+            ? {
+                ...current,
+                interlocutor: mergePartialUser(current.interlocutor, user),
+              }
+            : current,
+      );
+
+      queryClient.setQueriesData<{ members: User[]; total: number; limit: number; offset: number } | undefined>(
+        { queryKey: ["chat-members"] },
+        (current) =>
+          current
+            ? {
+                ...current,
+                members: current.members.map((member) =>
+                  String(member.id) === String(user.id)
+                    ? { ...member, ...user }
+                    : member,
+                ),
+              }
+            : current,
+      );
+
+      updateChatLists((current = []) =>
+        current.map((chat) => ({
+          ...chat,
+          interlocutor:
+            chat.interlocutor && String(chat.interlocutor.id) === String(user.id)
+              ? { ...chat.interlocutor, ...user }
+              : chat.interlocutor,
+          last_message:
+            chat.last_message?.sender_id &&
+            String(chat.last_message.sender_id) === String(user.id)
+              ? {
+                  ...chat.last_message,
+                  sender: mergePartialUser(chat.last_message.sender ?? undefined, user),
+                }
+              : chat.last_message,
+        })),
+      );
+    });
+
     socket.on("message_edited", (data) => {
       const chatId = String(data.chat_id);
 
@@ -273,15 +346,34 @@ export const useActiveChatStore = create<ActiveChatState>((set, get) => ({
     socket.on("chat_updated", (data) => {
       const chatId = String(data.chat_id);
 
+      updateChatLists((current = []) =>
+        current.map((chat) =>
+          String(chat.id) === chatId
+            ? {
+                ...chat,
+                avatar_url:
+                  data.avatar_url !== undefined
+                    ? (data.avatar_url ?? undefined)
+                    : chat.avatar_url,
+              }
+            : chat,
+        ),
+      );
+
       queryClient.setQueryData(
         queryKeys.chats.detail(chatId),
-        (prev: { member_count?: number; members?: string[]; admins?: string[] } | null | undefined) =>
+        (prev: ChatData | null | undefined) =>
           prev
             ? {
                 ...prev,
-                member_count: data.member_count,
-                members: data.members,
-                admins: data.admins,
+                avatar_url:
+                  data.avatar_url !== undefined
+                    ? (data.avatar_url ?? undefined)
+                    : prev.avatar_url,
+                member_count:
+                  data.member_count !== undefined ? data.member_count : prev.member_count,
+                members: data.members ?? prev.members,
+                admins: data.admins ?? prev.admins,
               }
             : prev,
       );

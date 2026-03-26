@@ -11,6 +11,8 @@ export const queryKeys = {
   },
   messages: {
     list: (chatId: string) => ["messages", "list", chatId] as const,
+    media: (chatId: string, kind = "image") =>
+      ["messages", "media", chatId, kind] as const,
   },
   users: {
     search: (query: string) => ["users", "search", query] as const,

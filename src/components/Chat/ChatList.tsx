@@ -9,7 +9,7 @@ import {
   Typography,
   useTheme,
 } from "@mui/material";
-import { type MouseEvent, useMemo, useState } from "react";
+import { type MouseEvent, useDeferredValue, useMemo, useState } from "react";
 import NewMessageCustomIcon from "../../assets/icons/new_message.svg?react";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import ChatSearch from "./ChatSearch";
@@ -43,7 +43,8 @@ const ChatList = () => {
   const theme = useTheme();
   const colors = theme.palette.background;
   const { isMobile } = useResponsive();
-  const isSearching = searchQuery.trim().length > 0;
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const isSearching = deferredSearchQuery.trim().length > 0;
 
   const typeParam = useMemo(() => {
     if (filterMode !== "custom") {
@@ -77,7 +78,7 @@ const ChatList = () => {
   });
 
   const { data: userResults = [], isPending: usersLoading } =
-    useUsersSearchQuery(searchQuery);
+    useUsersSearchQuery(deferredSearchQuery);
 
   const handleMenuOpen = (event: MouseEvent<HTMLElement>) => {
     setMenuAnchorEl(event.currentTarget);
@@ -214,7 +215,7 @@ const ChatList = () => {
             >
               Чаты
             </Typography>
-            <ChatListItems chats={chats} searchQuery={searchQuery} />
+            <ChatListItems chats={chats} searchQuery={deferredSearchQuery} />
 
             <Typography
               sx={{
@@ -233,7 +234,7 @@ const ChatList = () => {
             <UserSearchResults
               users={userResults}
               isLoading={usersLoading}
-              query={searchQuery}
+              query={deferredSearchQuery}
             />
           </>
         )}

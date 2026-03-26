@@ -44,6 +44,15 @@ export interface ForwardedFrom {
 export type AttachmentKind = "file" | "image" | "voice";
 export type MessageType = "text" | "file" | "image" | "voice" | "system";
 
+export interface AttachmentPreview {
+  url?: string | null;
+  object_name?: string | null;
+  is_public?: boolean;
+  mime_type?: string | null;
+  width?: number | null;
+  height?: number | null;
+}
+
 export interface Attachment {
   kind: AttachmentKind;
   url?: string | null;
@@ -54,6 +63,24 @@ export interface Attachment {
   size_bytes?: number | null;
   duration_ms?: number | null;
   waveform?: number[] | null;
+  width?: number | null;
+  height?: number | null;
+  preview?: AttachmentPreview | null;
+}
+
+export interface ChatMediaItem {
+  message_id: string;
+  chat_id: string;
+  created_at: string;
+  sender_id: string;
+  attachment: Attachment;
+}
+
+export interface ChatMediaPage {
+  items: ChatMediaItem[];
+  limit: number;
+  has_more: boolean;
+  next_before: string | null;
 }
 
 export interface Message {

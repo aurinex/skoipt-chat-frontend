@@ -1,21 +1,30 @@
-import { useEffect, useState } from "react";
-import api from "../../services/api";
+import { useEffect, useMemo, useState } from "react";
 import CircularProgress from "@mui/material/CircularProgress";
 import Box from "@mui/material/Box";
+import api from "../../services/api";
 import type { Attachment } from "../../types";
 import {
-  getAttachmentSource,
+  getAttachmentPreviewLike,
+  getAttachmentTargetSource,
   isImageAttachment,
 } from "../../utils/messageAttachments";
+
+export interface ImageOpenPayload {
+  attachment: Attachment;
+  chatId: string;
+}
 
 interface FilePreviewProps {
   fileUrl?: string;
   attachment?: Attachment;
   chatId: string;
-  onImageClick?: (url: string) => void;
+  onImageClick?: (payload: ImageOpenPayload) => void;
   grid?: boolean;
   variant?: "default" | "small";
 }
+
+const resolveDirectSource = (value: string) =>
+  value.startsWith("http") || value.startsWith("blob:") ? value : null;
 
 const FilePreview = ({
   fileUrl,
@@ -25,42 +34,79 @@ const FilePreview = ({
   onImageClick,
   variant = "default",
 }: FilePreviewProps) => {
-  const source = attachment ? getAttachmentSource(attachment) : (fileUrl ?? "");
-  const directUrl =
-    source.startsWith("http") || source.startsWith("blob:") ? source : null;
-  const [url, setUrl] = useState<string | null>(directUrl);
+  const displayRef = useMemo(() => {
+    if (!attachment) return fileUrl ?? "";
+
+    const previewLike = getAttachmentPreviewLike(attachment);
+    return previewLike.url ?? previewLike.object_name ?? "";
+  }, [attachment, fileUrl]);
+
+  const targetRef = attachment ? getAttachmentTargetSource(attachment) : (fileUrl ?? "");
+  const [displayUrl, setDisplayUrl] = useState<string | null>(
+    resolveDirectSource(displayRef),
+  );
+  const [targetUrl, setTargetUrl] = useState<string | null>(
+    resolveDirectSource(targetRef),
+  );
 
   useEffect(() => {
-    if (directUrl) return;
-    if (!source) return;
+    setDisplayUrl(resolveDirectSource(displayRef));
+  }, [displayRef]);
+
+  useEffect(() => {
+    setTargetUrl(resolveDirectSource(targetRef));
+  }, [targetRef]);
+
+  useEffect(() => {
+    if (!displayRef || displayUrl) return;
 
     let isActive = true;
 
-    api.files.getPrivateUrl(chatId, source).then((res) => {
+    api.files.getPrivateUrl(chatId, displayRef).then((res) => {
       if (isActive) {
-        setUrl(res.url);
+        setDisplayUrl(res.url);
       }
     });
 
     return () => {
       isActive = false;
     };
-  }, [chatId, directUrl, source]);
+  }, [chatId, displayRef, displayUrl]);
 
-  if (!url) return <CircularProgress size={16} sx={{ mt: 1 }} />;
+  useEffect(() => {
+    if (!targetRef || targetUrl) return;
+
+    let isActive = true;
+
+    api.files.getPrivateUrl(chatId, targetRef).then((res) => {
+      if (isActive) {
+        setTargetUrl(res.url);
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [chatId, targetRef, targetUrl]);
 
   const isImage = attachment
     ? isImageAttachment(attachment)
-    : /\.(jpg|jpeg|png|gif|webp)/i.test(url) ||
-      /\.(jpg|jpeg|png|gif|webp)/i.test(source);
+    : /\.(jpg|jpeg|png|gif|webp)/i.test(targetRef);
 
-  // Функция-обработчик клика
-  const handleClick = (e: React.MouseEvent) => {
-    if (isImage && onImageClick) {
-      e.preventDefault();
-      onImageClick(url); // Вместо открытия вкладки вызываем нашу модалку
-    } else {
-      window.open(url, "_blank");
+  const effectiveDisplayUrl = displayUrl ?? targetUrl;
+  if (!effectiveDisplayUrl) {
+    return <CircularProgress size={16} sx={{ mt: 1 }} />;
+  }
+
+  const handleClick = (event: React.MouseEvent) => {
+    if (isImage && attachment && onImageClick) {
+      event.preventDefault();
+      onImageClick({ attachment, chatId });
+      return;
+    }
+
+    if (targetUrl) {
+      window.open(targetUrl, "_blank", "noopener,noreferrer");
     }
   };
 
@@ -77,10 +123,9 @@ const FilePreview = ({
             overflow: "hidden",
           }}
         >
-          {/* 🔹 blur фон */}
           <Box
             component="img"
-            src={url}
+            src={effectiveDisplayUrl}
             sx={{
               position: "absolute",
               inset: 0,
@@ -92,10 +137,9 @@ const FilePreview = ({
             }}
           />
 
-          {/* 🔹 основная картинка */}
           <Box
             component="img"
-            src={url}
+            src={effectiveDisplayUrl}
             onClick={handleClick}
             sx={{
               position: "relative",
@@ -121,19 +165,17 @@ const FilePreview = ({
     return (
       <Box
         component="img"
-        src={url}
+        src={effectiveDisplayUrl}
         onClick={handleClick}
         sx={{
-          // Если grid=true, растягиваем на всю ячейку, иначе по старым размерам
           width: grid ? "100%" : "auto",
           height: grid ? "100%" : "auto",
           maxWidth: grid ? "100%" : 320,
           maxHeight: grid ? "100%" : 200,
           objectFit: grid ? "cover" : "initial",
           borderRadius: grid ? "0px" : "10px 10px 0px 0px",
-          // mt: grid ? 0 : 1,
           display: "block",
-          cursor: "pointer", // Иконка лупы для красоты
+          cursor: "pointer",
           transition:
             "opacity var(--motion-fast) var(--motion-soft), transform var(--motion-base) var(--motion-soft), filter var(--motion-fast) var(--motion-soft)",
           "&:hover": {
@@ -147,22 +189,23 @@ const FilePreview = ({
   }
 
   return (
-      <Box
-        component="a"
-        href={url}
-        target="_blank"
-        rel="noreferrer"
-        sx={{
-          display: "block",
-          mt: 1,
+    <Box
+      component="a"
+      href={targetUrl ?? undefined}
+      target="_blank"
+      rel="noreferrer"
+      sx={{
+        display: "block",
+        mt: 1,
         color: "inherit",
         textDecoration: "underline",
         fontSize: "0.85rem",
       }}
     >
-      📎 Открыть файл
+      Открыть файл
     </Box>
   );
 };
 
 export default FilePreview;
+export type { FilePreviewProps };

@@ -23,11 +23,13 @@ import {
   useMessageCacheActions,
 } from "../../queries/messageCache";
 import { canSendToChat } from "../../utils/permissions";
-import type { Message } from "../../types";
+import type { Attachment, Message } from "../../types";
 import { useResponsive } from "../../hooks/useResponsive";
+import { collectUsersFromMessages, upsertUsers } from "../../stores/useUserStore";
 
 const EMPTY_FILES: File[] = [];
 const EMPTY_MESSAGE_PAGES: never[] = [];
+const CONTEXT_PAGE_SIZE = 20;
 
 const ActiveChat = () => {
   const { chatId } = useParams<{ chatId: string }>();
@@ -40,9 +42,12 @@ const ActiveChat = () => {
   const composerScopeId = chatId ? `chat:${chatId}` : "chat:none";
   const setEditingMessage = useComposerStore((s) => s.setEditingMessage);
 
-  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+  const [fullScreenImage, setFullScreenImage] = useState<Attachment | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<Message | null>(null);
   const [isDeletingMessage, setIsDeletingMessage] = useState(false);
+  const [jumpToMessageId, setJumpToMessageId] = useState<string | null>(null);
+  const [canLoadNewer, setCanLoadNewer] = useState(false);
+  const [isLoadingNewer, setIsLoadingNewer] = useState(false);
 
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
@@ -83,6 +88,85 @@ const ActiveChat = () => {
   const handleLoadMore = useCallback(() => {
     void fetchNextPage();
   }, [fetchNextPage]);
+  const handleJumpToMessage = useCallback(
+    async (messageId: string) => {
+      if (!chatId) return;
+
+      try {
+        const context = await api.messages.getContext(chatId, messageId, {
+          before: CONTEXT_PAGE_SIZE,
+          after: CONTEXT_PAGE_SIZE,
+        });
+        const nextMessages = [
+          ...context.before,
+          context.target,
+          ...context.after,
+        ].filter(
+          (message, index, array) =>
+            array.findIndex((candidate) => candidate.id === message.id) === index,
+        );
+
+        upsertUsers(collectUsersFromMessages(nextMessages));
+        setMessages(nextMessages);
+        setJumpToMessageId(context.target.id);
+        setCanLoadNewer(context.after.length >= CONTEXT_PAGE_SIZE);
+      } catch (error) {
+        console.error("Не удалось перейти к сообщению", error);
+      }
+    },
+    [chatId, setMessages],
+  );
+  const handleLoadNewer = useCallback(async () => {
+    if (!chatId || isLoadingNewer || !canLoadNewer || messages.length === 0) {
+      return;
+    }
+
+    const newestLoadedMessage = messages[messages.length - 1];
+    if (!newestLoadedMessage) return;
+
+    setIsLoadingNewer(true);
+
+    try {
+      const context = await api.messages.getContext(chatId, newestLoadedMessage.id, {
+        before: 0,
+        after: CONTEXT_PAGE_SIZE,
+      });
+      const newerMessages = context.after ?? [];
+
+      if (newerMessages.length > 0) {
+        upsertUsers(collectUsersFromMessages(newerMessages));
+        setMessages((prev) =>
+          [...prev, ...newerMessages].filter(
+            (message, index, array) =>
+              array.findIndex((candidate) => candidate.id === message.id) === index,
+          ),
+        );
+      }
+
+      setCanLoadNewer(newerMessages.length >= CONTEXT_PAGE_SIZE);
+    } catch (error) {
+      console.error("РќРµ СѓРґР°Р»РѕСЃСЊ РґРѕРіСЂСѓР·РёС‚СЊ РЅРѕРІС‹Рµ СЃРѕРѕР±С‰РµРЅРёСЏ", error);
+    } finally {
+      setIsLoadingNewer(false);
+    }
+  }, [canLoadNewer, chatId, isLoadingNewer, messages, setMessages]);
+  const handleScrollToLatest = useCallback(async () => {
+    if (!chatId) return;
+
+    try {
+      const latestMessages = await api.messages.list(chatId);
+      upsertUsers(collectUsersFromMessages(latestMessages));
+      setMessages(latestMessages);
+      setCanLoadNewer(false);
+
+      const latestId = latestMessages[latestMessages.length - 1]?.id;
+      if (latestId) {
+        setJumpToMessageId(latestId);
+      }
+    } catch (error) {
+      console.error("РќРµ СѓРґР°Р»РѕСЃСЊ РїРµСЂРµР№С‚Рё РІ РєРѕРЅРµС† РґРёР°Р»РѕРіР°", error);
+    }
+  }, [chatId, setMessages]);
   const modalFiles = useComposerStore(
     (state) => state.composers[composerScopeId]?.modalFiles ?? EMPTY_FILES,
   );
@@ -157,6 +241,12 @@ const ActiveChat = () => {
     if (!chatId || messages.length === 0) return;
     syncReadState(chatId, messages);
   }, [chatId, messages, syncReadState]);
+
+  useEffect(() => {
+    setCanLoadNewer(false);
+    setIsLoadingNewer(false);
+    setJumpToMessageId(null);
+  }, [chatId]);
 
   const { handleModalSend } = useMessageSender({
     chatId: chatId!,
@@ -234,7 +324,8 @@ const ActiveChat = () => {
     <>
       <ImageViewer
         open={!!fullScreenImage}
-        src={fullScreenImage}
+        attachment={fullScreenImage}
+        chatId={chatId}
         onClose={() => setFullScreenImage(null)}
       />
       <AcceptModal
@@ -273,6 +364,7 @@ const ActiveChat = () => {
             typingUsers={typingUsers}
             isMsgsLoading={isMsgsLoading}
             colors={colors}
+            onJumpToMessage={handleJumpToMessage}
           />
           <MessageList
             messages={messages}
@@ -280,12 +372,19 @@ const ActiveChat = () => {
             chatData={chatData ?? null}
             chatId={chatId}
             colors={colors}
-            onImageClick={setFullScreenImage}
+            onImageClick={({ attachment }) => setFullScreenImage(attachment)}
             onReply={handleReplySelect}
             onLoadMore={handleLoadMore}
             canLoadMore={Boolean(hasNextPage)}
             isLoadingMore={isFetchingNextPage}
             onContextMenuOpen={handleContextMenuOpen}
+            onLoadNewer={handleLoadNewer}
+            canLoadNewer={canLoadNewer}
+            isLoadingNewer={isLoadingNewer}
+            jumpToMessageId={jumpToMessageId}
+            onJumpHandled={() => setJumpToMessageId(null)}
+            onJumpToMessage={handleJumpToMessage}
+            onScrollToLatest={handleScrollToLatest}
           />
           {canSendMessages && (
             <ActiveChatComposer

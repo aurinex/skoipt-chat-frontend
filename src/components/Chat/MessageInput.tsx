@@ -1,15 +1,17 @@
-import { useEffect, useRef } from "react";
+import { Suspense, lazy, useEffect, useRef } from "react";
 import { Box, TextField, IconButton, useTheme } from "@mui/material";
 import { socket } from "../../services/api";
 import { useState } from "react";
-import EmojiPicker, { Theme } from "emoji-picker-react";
 import EmojiEmotionsIcon from "@mui/icons-material/EmojiEmotionsRounded";
+import type { Theme } from "emoji-picker-react";
 
 import FileCustomIcon from "../../assets/icons/file.svg?react";
 import MicCustomIcon from "../../assets/icons/micro.svg?react";
 import SendCustomIcon from "../../assets/icons/send.svg?react";
 import type { Message } from "../../types";
 import type { AppColors } from "../../types/theme";
+
+const EmojiPicker = lazy(() => import("emoji-picker-react"));
 
 interface MessageInputProps {
   chatId: string | undefined;
@@ -42,8 +44,9 @@ const MessageInput = ({
   const pickerRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const muiTheme = useTheme();
-  const emojiTheme =
-    muiTheme.palette.mode === "dark" ? Theme.DARK : Theme.LIGHT;
+  const emojiTheme = (muiTheme.palette.mode === "dark"
+    ? "dark"
+    : "light") as Theme;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -94,6 +97,19 @@ const MessageInput = ({
       inputRef.current?.focus();
     }
   }, [editing]);
+
+  useEffect(() => {
+    return () => {
+      if (myTypingTimerRef.current) {
+        clearTimeout(myTypingTimerRef.current);
+        myTypingTimerRef.current = null;
+      }
+
+      if (chatId) {
+        socket.sendTyping(chatId, false);
+      }
+    };
+  }, [chatId]);
 
   const handleSend = () => {
     if (!value.trim()) return;
@@ -190,13 +206,15 @@ const MessageInput = ({
             animation: "softFadeUp var(--motion-base) var(--motion-spring)",
           }}
         >
-          <EmojiPicker
-            searchDisabled={true}
-            theme={emojiTheme}
-            onEmojiClick={(emojiData) => {
-              onChange(value + emojiData.emoji);
-            }}
-          />
+          <Suspense fallback={<Box sx={{ width: 320, height: 420 }} />}>
+            <EmojiPicker
+              searchDisabled={true}
+              theme={emojiTheme}
+              onEmojiClick={(emojiData) => {
+                onChange(value + emojiData.emoji);
+              }}
+            />
+          </Suspense>
         </Box>
       )}
       <IconButton

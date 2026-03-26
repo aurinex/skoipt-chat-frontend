@@ -1,4 +1,9 @@
-import type { Attachment, Message, MessageType } from "../types";
+import type {
+  Attachment,
+  AttachmentPreview,
+  Message,
+  MessageType,
+} from "../types";
 
 const inferKindFromUrl = (value: string): Attachment["kind"] => {
   const lower = value.toLowerCase();
@@ -40,6 +45,25 @@ export const getMessageAttachments = (message: Message): Attachment[] => {
 
 export const getAttachmentSource = (attachment: Attachment) =>
   attachment.url ?? attachment.object_name ?? "";
+
+export const getAttachmentPreviewSource = (attachment: Attachment) =>
+  attachment.preview?.url ?? attachment.preview?.object_name ?? "";
+
+export const hasAttachmentPreview = (attachment: Attachment) =>
+  Boolean(getAttachmentPreviewSource(attachment));
+
+export const getBestImageDisplaySource = (attachment: Attachment) =>
+  getAttachmentPreviewSource(attachment) || getAttachmentSource(attachment);
+
+export const getAttachmentPreviewLike = (
+  attachment: Attachment,
+): AttachmentPreview | Attachment =>
+  attachment.preview && hasAttachmentPreview(attachment)
+    ? attachment.preview
+    : attachment;
+
+export const getAttachmentTargetSource = (attachment: Attachment) =>
+  getAttachmentSource(attachment);
 
 export const isImageAttachment = (attachment: Attachment) =>
   attachment.kind === "image" ||
@@ -91,4 +115,26 @@ export const unwrapUploadedAttachment = <T extends Attachment | { attachment: At
   }
 
   return payload;
+};
+
+export const buildAttachmentFromUpload = <
+  T extends Attachment | { attachment: Attachment },
+>(
+  file: File,
+  payload: T,
+): Attachment => {
+  const raw = unwrapUploadedAttachment(payload);
+  const inferredKind: Attachment["kind"] = file.type.startsWith("image/")
+    ? "image"
+    : file.type.startsWith("audio/")
+      ? "voice"
+      : "file";
+
+  return {
+    ...raw,
+    kind: raw.kind ?? inferredKind,
+    mime_type: raw.mime_type ?? file.type,
+    filename: raw.filename ?? file.name,
+    size_bytes: raw.size_bytes ?? file.size,
+  };
 };

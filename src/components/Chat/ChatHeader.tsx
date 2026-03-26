@@ -21,10 +21,17 @@ interface ChatHeaderProps {
   typingUsers: TypingUser[];
   isMsgsLoading: boolean;
   colors: AppColors;
+  onJumpToMessage?: (messageId: string) => void | Promise<void>;
 }
 
 const ChatHeader = memo(
-  ({ chatData, typingUsers, isMsgsLoading, colors }: ChatHeaderProps) => {
+  ({
+    chatData,
+    typingUsers,
+    isMsgsLoading,
+    colors,
+    onJumpToMessage,
+  }: ChatHeaderProps) => {
     const [openInfo, setOpenInfo] = useState(false);
     const navigate = useNavigate();
     const { isMobile } = useResponsive();
@@ -253,6 +260,7 @@ const ChatHeader = memo(
           onClose={() => setOpenInfo(false)}
           chatData={chatData}
           colors={colors}
+          onJumpToMessage={onJumpToMessage}
         />
       </Box>
     );

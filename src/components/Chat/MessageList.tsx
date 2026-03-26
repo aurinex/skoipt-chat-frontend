@@ -3,6 +3,7 @@ import {
   useEffect,
   useLayoutEffect,
   memo,
+  useMemo,
   useState,
   useCallback,
   type RefObject,
@@ -13,11 +14,14 @@ import {
   Skeleton,
   Tooltip,
   LinearProgress,
+  IconButton,
 } from "@mui/material";
 import emojiRegex from "emoji-regex";
 import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
+import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
 import FilePreview from "../Ui/FilePreview";
+import type { ImageOpenPayload } from "../Ui/FilePreview";
 import { getChatDateKey } from "../../utils/chatFormatters";
 import api from "../../services/api";
 import type { Attachment, Message, ChatData } from "../../types";
@@ -41,7 +45,7 @@ interface MessageListProps {
   chatData: ChatData | null;
   chatId: string | undefined;
   colors: AppColors;
-  onImageClick?: (url: string) => void;
+  onImageClick?: (payload: ImageOpenPayload) => void;
   onReply?: (msg: Message) => void;
   onLoadMore?: () => void;
   canLoadMore?: boolean;
@@ -51,6 +55,13 @@ interface MessageListProps {
     mouseY: number;
     message: Message | null;
   }) => void;
+  onLoadNewer?: () => void;
+  canLoadNewer?: boolean;
+  isLoadingNewer?: boolean;
+  jumpToMessageId?: string | null;
+  onJumpHandled?: () => void;
+  onJumpToMessage?: (messageId: string) => void | Promise<void>;
+  onScrollToLatest?: () => void | Promise<void>;
 }
 
 interface MessageRowProps {
@@ -64,7 +75,7 @@ interface MessageRowProps {
   usersById: ReturnType<typeof useUserStore.getState>["usersById"];
   highlighted: boolean;
   scrollRef: RefObject<HTMLDivElement | null>;
-  onImageClick?: (url: string) => void;
+  onImageClick?: (payload: ImageOpenPayload) => void;
   onReply?: (msg: Message) => void;
   onContextMenuOpen?: (data: {
     mouseX: number;
@@ -72,6 +83,7 @@ interface MessageRowProps {
     message: Message | null;
   }) => void;
   onHighlightMessage: (id: string) => void;
+  onJumpToMessage?: (messageId: string) => void | Promise<void>;
 }
 
 const MAX_HEIGHT = 1000;
@@ -94,6 +106,66 @@ const SKELETON_ITEMS = (() => {
   }
   return items;
 })();
+
+const scrollMessageIntoView = (
+  container: HTMLDivElement,
+  messageId: string,
+  behavior: ScrollBehavior = "smooth",
+) => {
+  const el = document.getElementById(`msg-${messageId}`);
+  if (!el) return false;
+
+  const containerRect = container.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+  const offset = elRect.top - containerRect.top + container.scrollTop;
+
+  container.scrollTo({
+    top: offset - container.clientHeight / 2 + el.clientHeight / 2,
+    behavior,
+  });
+
+  return true;
+};
+
+const VIRTUAL_OVERSCAN_PX = 1200;
+
+const estimateMessageEntryHeight = (message: Message, showDateLabel: boolean) => {
+  const messageType = inferMessageType(message);
+  const { imageAttachments, voiceAttachments, fileAttachments } =
+    splitMessageAttachments(message);
+
+  let estimatedHeight = 92;
+
+  if (showDateLabel) {
+    estimatedHeight += 56;
+  }
+
+  if (messageType === "system") {
+    return estimatedHeight + 36;
+  }
+
+  if (imageAttachments.length > 0) {
+    estimatedHeight += imageAttachments.length === 1 ? 260 : 220;
+  }
+
+  if (voiceAttachments.length > 0) {
+    estimatedHeight += 92;
+  }
+
+  if (fileAttachments.length > 0) {
+    estimatedHeight += Math.min(fileAttachments.length, 3) * 44;
+  }
+
+  if (message.reply_to_message) {
+    estimatedHeight += 56;
+  }
+
+  if (message.text) {
+    estimatedHeight += Math.min(140, 28 + Math.ceil(message.text.length / 36) * 22);
+  }
+
+  return estimatedHeight;
+};
 
 const MessageSkeleton = memo(({ colors }: { colors: AppColors }) => (
   <Box
@@ -174,7 +246,7 @@ const ImageGrid = ({
   attachments: Attachment[];
   chatId: string | undefined;
   isUploading?: boolean;
-  onImageClick?: (url: string) => void;
+  onImageClick?: (payload: ImageOpenPayload) => void;
 }) => {
   const count = attachments.length;
 
@@ -411,6 +483,7 @@ const MessageRow = memo(
     onReply,
     onContextMenuOpen,
     onHighlightMessage,
+    onJumpToMessage,
   }: MessageRowProps) => {
     const isOnlyEmojis = (text: string) => {
       const regex = emojiRegex();
@@ -499,6 +572,8 @@ const MessageRow = memo(
             justifyContent: isMessageFromMe ? "flex-end" : "flex-start",
             gap: 1,
             mb: isLastInGroup ? 2 : 0.4,
+            contentVisibility: "auto",
+            containIntrinsicSize: "180px",
           }}
         >
           {!isMessageFromMe && (
@@ -641,23 +716,10 @@ const MessageRow = memo(
                     if (!targetId) return;
 
                     const container = scrollRef.current;
-                    const el = document.getElementById(`msg-${targetId}`);
-
-                    if (container && el) {
-                      const containerRect = container.getBoundingClientRect();
-                      const elRect = el.getBoundingClientRect();
-                      const offset =
-                        elRect.top - containerRect.top + container.scrollTop;
-
-                      container.scrollTo({
-                        top:
-                          offset -
-                          container.clientHeight / 2 +
-                          el.clientHeight / 2,
-                        behavior: "smooth",
-                      });
-
+                    if (container && scrollMessageIntoView(container, targetId)) {
                       onHighlightMessage(targetId);
+                    } else if (onJumpToMessage) {
+                      void onJumpToMessage(targetId);
                     }
                   }}
                   sx={{
@@ -829,6 +891,13 @@ const MessageList = memo(
     canLoadMore = false,
     isLoadingMore = false,
     onContextMenuOpen,
+    onLoadNewer,
+    canLoadNewer = false,
+    isLoadingNewer = false,
+    jumpToMessageId,
+    onJumpHandled,
+    onJumpToMessage,
+    onScrollToLatest,
   }: MessageListProps) => {
     const usersById = useUserStore((state) => state.usersById);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -848,6 +917,79 @@ const MessageList = memo(
     const editedMapRef = useRef<Record<string, boolean>>({});
 
     const [highlightedId, setHighlightedId] = useState<string | null>(null);
+    const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+    const [measuredHeights, setMeasuredHeights] = useState<Record<string, number>>(
+      {},
+    );
+    const [viewportState, setViewportState] = useState({
+      scrollTop: 0,
+      height: 0,
+    });
+
+    const messageEntries = useMemo(
+      () =>
+        messages.map((msg, index) => {
+          const prevMsg = messages[index - 1];
+          const nextMsg = messages[index + 1];
+          const currentDate = getChatDateKey(msg.created_at);
+          const prevDate = prevMsg ? getChatDateKey(prevMsg.created_at) : null;
+
+          return {
+            key: msg.id,
+            msg,
+            prevMsg,
+            nextMsg,
+            showDateLabel: currentDate !== prevDate,
+          };
+        }),
+      [messages],
+    );
+
+    const virtualLayout = useMemo(() => {
+      const offsets: number[] = [];
+      let totalHeight = 0;
+
+      for (const entry of messageEntries) {
+        offsets.push(totalHeight);
+        totalHeight +=
+          measuredHeights[entry.key] ??
+          estimateMessageEntryHeight(entry.msg, entry.showDateLabel);
+      }
+
+      const viewportStart = Math.max(0, viewportState.scrollTop - VIRTUAL_OVERSCAN_PX);
+      const viewportEnd =
+        viewportState.scrollTop + viewportState.height + VIRTUAL_OVERSCAN_PX;
+
+      let startIndex = 0;
+      while (
+        startIndex < messageEntries.length &&
+        offsets[startIndex] +
+          (measuredHeights[messageEntries[startIndex].key] ??
+            estimateMessageEntryHeight(
+              messageEntries[startIndex].msg,
+              messageEntries[startIndex].showDateLabel,
+            )) <
+          viewportStart
+      ) {
+        startIndex += 1;
+      }
+
+      let endIndex = startIndex;
+      while (endIndex < messageEntries.length && offsets[endIndex] < viewportEnd) {
+        endIndex += 1;
+      }
+
+      const safeStartIndex = Math.max(0, startIndex);
+      const safeEndIndex = Math.min(messageEntries.length, endIndex + 1);
+
+      return {
+        totalHeight,
+        topSpacer: offsets[safeStartIndex] ?? 0,
+        bottomSpacer:
+          totalHeight - (offsets[safeEndIndex] ?? totalHeight),
+        entries: messageEntries.slice(safeStartIndex, safeEndIndex),
+      };
+    }, [measuredHeights, messageEntries, viewportState]);
 
     useEffect(() => {
       if (prevChatIdRef.current !== chatId) {
@@ -855,6 +997,12 @@ const MessageList = memo(
         shouldScrollToBottomOnChatOpenRef.current = true;
         shouldRestoreScrollRef.current = false;
         stickToBottomRef.current = true;
+        const frameId = window.requestAnimationFrame(() => {
+          setMeasuredHeights({});
+          setViewportState({ scrollTop: 0, height: 0 });
+        });
+
+        return () => window.cancelAnimationFrame(frameId);
       }
     }, [chatId]);
 
@@ -934,7 +1082,7 @@ const MessageList = memo(
 
     useEffect(() => {
       const container = scrollRef.current;
-      if (!container || !onLoadMore || !canLoadMore || isLoadingMore) return;
+      if (!container) return;
 
       const handleScroll = () => {
         prevScrollHeightRef.current = container.scrollHeight;
@@ -942,16 +1090,38 @@ const MessageList = memo(
         const distanceFromBottom =
           container.scrollHeight - container.scrollTop - container.clientHeight;
         stickToBottomRef.current = distanceFromBottom <= 120;
+        setShowScrollToBottom(distanceFromBottom > 220);
+        setViewportState({
+          scrollTop: container.scrollTop,
+          height: container.clientHeight,
+        });
 
-        if (container.scrollTop <= 80) {
+        if (onLoadMore && canLoadMore && !isLoadingMore && container.scrollTop <= 80) {
           shouldRestoreScrollRef.current = true;
           onLoadMore();
         }
+
+        if (
+          onLoadNewer &&
+          canLoadNewer &&
+          !isLoadingNewer &&
+          distanceFromBottom <= 80
+        ) {
+          onLoadNewer();
+        }
       };
 
+      handleScroll();
       container.addEventListener("scroll", handleScroll);
       return () => container.removeEventListener("scroll", handleScroll);
-    }, [canLoadMore, isLoadingMore, onLoadMore]);
+    }, [
+      canLoadMore,
+      canLoadNewer,
+      isLoadingMore,
+      isLoadingNewer,
+      onLoadMore,
+      onLoadNewer,
+    ]);
 
     const highlightMessage = useCallback((id: string) => {
       setHighlightedId(id);
@@ -962,6 +1132,35 @@ const MessageList = memo(
 
       return () => window.clearTimeout(timer);
     }, []);
+
+    useEffect(() => {
+      if (!jumpToMessageId) return;
+
+      const container = scrollRef.current;
+      if (!container) return;
+
+      const clearTimers: number[] = [];
+
+      const runScroll = (behavior: ScrollBehavior = "smooth") =>
+        scrollMessageIntoView(container, jumpToMessageId, behavior);
+
+      const didScroll = runScroll();
+      if (!didScroll) return;
+
+      const frameId = window.requestAnimationFrame(() => {
+        highlightMessage(jumpToMessageId);
+        onJumpHandled?.();
+      });
+      clearTimers.push(
+        window.setTimeout(() => runScroll("auto"), 180),
+        window.setTimeout(() => runScroll("auto"), 520),
+      );
+
+      return () => {
+        window.cancelAnimationFrame(frameId);
+        clearTimers.forEach((timerId) => window.clearTimeout(timerId));
+      };
+    }, [highlightMessage, jumpToMessageId, messages, onJumpHandled]);
 
     useEffect(() => {
       const editedSystemMessage = messages.find(
@@ -985,6 +1184,7 @@ const MessageList = memo(
         ref={scrollRef}
         data-chat-scroll
         sx={{
+          position: "relative",
           flexGrow: 1,
           overflowY: "auto",
           px: 2,
@@ -1004,47 +1204,113 @@ const MessageList = memo(
                 </Box>
               )}
 
-              {messages.map((msg, index) => {
-                if (msg.is_system) {
-                  return (
-                    <SystemMessageRow
-                      key={msg.id}
-                      message={msg}
+              {virtualLayout.topSpacer > 0 && (
+                <Box sx={{ height: virtualLayout.topSpacer }} />
+              )}
+
+              {virtualLayout.entries.map((entry) => (
+                <Box
+                  key={entry.key}
+                  ref={(node: HTMLDivElement | null) => {
+                    if (!node) return;
+
+                    const nextHeight = node.offsetHeight;
+                    setMeasuredHeights((current) =>
+                      current[entry.key] === nextHeight
+                        ? current
+                        : {
+                            ...current,
+                            [entry.key]: nextHeight,
+                          },
+                    );
+                  }}
+                >
+                  {entry.msg.is_system ? (
+                    <SystemMessageRow message={entry.msg} colors={colors} />
+                  ) : (
+                    <MessageRow
+                      msg={entry.msg}
+                      prevMsg={entry.prevMsg}
+                      nextMsg={entry.nextMsg}
+                      showDateLabel={entry.showDateLabel}
+                      isGroupChat={isGroupChat}
+                      chatId={chatId}
                       colors={colors}
+                      usersById={usersById}
+                      highlighted={highlightedId === entry.msg.id}
+                      scrollRef={scrollRef}
+                      onImageClick={onImageClick}
+                      onReply={onReply}
+                      onContextMenuOpen={onContextMenuOpen}
+                      onHighlightMessage={highlightMessage}
+                      onJumpToMessage={onJumpToMessage}
                     />
-                  );
-                }
+                  )}
+                </Box>
+              ))}
 
-                const prevMsg = messages[index - 1];
-                const nextMsg = messages[index + 1];
-                const currentDate = getChatDateKey(msg.created_at);
-                const prevDate = prevMsg
-                  ? getChatDateKey(prevMsg.created_at)
-                  : null;
-
-                return (
-                  <MessageRow
-                    key={msg.id}
-                    msg={msg}
-                    prevMsg={prevMsg}
-                    nextMsg={nextMsg}
-                    showDateLabel={currentDate !== prevDate}
-                    isGroupChat={isGroupChat}
-                    chatId={chatId}
-                    colors={colors}
-                    usersById={usersById}
-                    highlighted={highlightedId === msg.id}
-                    scrollRef={scrollRef}
-                    onImageClick={onImageClick}
-                    onReply={onReply}
-                    onContextMenuOpen={onContextMenuOpen}
-                    onHighlightMessage={highlightMessage}
-                  />
-                );
-              })}
+              {virtualLayout.bottomSpacer > 0 && (
+                <Box sx={{ height: virtualLayout.bottomSpacer }} />
+              )}
             </>
           )}
         </Box>
+
+        <IconButton
+          onClick={() => {
+            if (onScrollToLatest) {
+              void onScrollToLatest();
+              return;
+            }
+
+            scrollRef.current?.scrollTo({
+              top: scrollRef.current.scrollHeight,
+              behavior: "smooth",
+            });
+          }}
+          sx={{
+            position: "sticky",
+            alignSelf: "flex-end",
+            bottom: { xs: 12, sm: 16 },
+            mr: { xs: 0, sm: 0.5 },
+            mt: -7,
+            zIndex: 5,
+            width: { xs: 40, sm: 46 },
+            height: { xs: 40, sm: 46 },
+            bgcolor: colors.second,
+            color: colors.sixth,
+            border: `1px solid ${colors.fourth}`,
+            boxShadow: showScrollToBottom
+              ? "0 10px 24px rgba(0,0,0,0.22)"
+              : "0 4px 12px rgba(0,0,0,0.08)",
+            opacity: showScrollToBottom ? 1 : 0,
+            transform: showScrollToBottom
+              ? "translateY(0) scale(1)"
+              : "translateY(12px) scale(0.92)",
+            pointerEvents: showScrollToBottom ? "auto" : "none",
+            transition:
+              "opacity var(--motion-fast) var(--motion-soft), transform var(--motion-base) var(--motion-soft), box-shadow var(--motion-base) var(--motion-soft), background-color var(--motion-fast) var(--motion-soft)",
+            "&:hover": {
+              bgcolor: colors.fourth,
+              boxShadow: "0 14px 28px rgba(0,0,0,0.26)",
+            },
+            "&::after": canLoadNewer
+              ? {
+                  content: '""',
+                  position: "absolute",
+                  top: 7,
+                  right: 7,
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  bgcolor: colors.eighth,
+                  boxShadow: `0 0 0 4px ${colors.second}`,
+                }
+              : undefined,
+          }}
+        >
+          <KeyboardArrowDownRoundedIcon sx={{ fontSize: { xs: 24, sm: 28 } }} />
+        </IconButton>
       </Box>
     );
   },

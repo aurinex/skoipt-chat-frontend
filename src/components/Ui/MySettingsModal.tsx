@@ -187,7 +187,7 @@ const MySettingsModal = ({ open, onClose }: Props) => {
             left: "50%",
             transform: "translate(-50%, -50%)",
             width: { xs: "calc(100vw - 32px)", sm: 480 },
-            maxWidth: 480,
+            maxWidth: 420,
             bgcolor: colors.second,
             borderRadius: "28px",
             p: 3,
