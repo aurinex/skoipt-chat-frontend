@@ -1,73 +1,68 @@
-# React + TypeScript + Vite
+# Skoipt Chat Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend для мессенджера на `React 19`, `TypeScript`, `Vite`, `MUI`, `Zustand` и `TanStack Query`.
 
-Currently, two official plugins are available:
+## Стек
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- `React` + `TypeScript`
+- `Vite`
+- `MUI`
+- `TanStack Query`
+- `Zustand`
+- `React Router`
 
-## React Compiler
+## Запуск
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. Установить зависимости:
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+2. Создать `.env` на основе примера:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cp .env.example .env
 ```
+
+3. При необходимости поменять адреса API и WebSocket в `.env`.
+
+4. Запустить dev-сервер:
+
+```bash
+npm run dev
+```
+
+## Переменные окружения
+
+- `VITE_API_URL` — базовый HTTP URL backend API, например `http://localhost:8000`
+- `VITE_WS_URL` — базовый WebSocket URL, например `ws://localhost:8000`
+
+Если переменные не заданы, используются текущие встроенные адреса проекта.
+
+## Скрипты
+
+```bash
+npm run dev
+npm run build
+npm run preview
+npm run lint
+```
+
+## Структура
+
+- `src/components` — UI и составные компоненты
+- `src/pages` — страницы роутера
+- `src/services` — API и WebSocket-клиент
+- `src/queries` — запросы и кэш серверных данных
+- `src/stores` — локальные Zustand-store
+- `src/lib` — инфраструктурные утилиты
+
+## Что уже есть
+
+- авторизация и работа с токенами
+- список чатов и активный чат
+- realtime через WebSocket
+- загрузка файлов
+- мини-приложения
+- темы оформления

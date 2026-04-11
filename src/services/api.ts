@@ -9,12 +9,31 @@ import type {
   MiniApps,
 } from "../types";
 
-// const BASE_URL = "http://localhost:8000";
-// const BASE_WS = "localhost:8000";
-const BASE_URL = "http://185.189.15.29:8010";
-const BASE_WS = "185.189.15.29:8010";
-// const BASE_URL = "http://192.168.51.143:8000";
-// const BASE_WS = "192.168.51.143:8000";
+const DEFAULT_API_URL = "http://185.189.15.29:8010";
+const DEFAULT_WS_URL = "ws://185.189.15.29:8010";
+
+const trimTrailingSlash = (value: string) => value.replace(/\/+$/, "");
+
+const normalizeApiUrl = (value: string) => trimTrailingSlash(value);
+
+const normalizeWsUrl = (value: string) => {
+  const normalized = trimTrailingSlash(value);
+
+  if (normalized.startsWith("ws://") || normalized.startsWith("wss://")) {
+    return normalized;
+  }
+
+  if (normalized.startsWith("http://") || normalized.startsWith("https://")) {
+    return normalized.replace(/^http/, "ws");
+  }
+
+  return `ws://${normalized}`;
+};
+
+const BASE_URL = normalizeApiUrl(import.meta.env.VITE_API_URL ?? DEFAULT_API_URL);
+const BASE_WS_URL = normalizeWsUrl(
+  import.meta.env.VITE_WS_URL ?? import.meta.env.VITE_API_URL ?? DEFAULT_WS_URL,
+);
 
 let chatsTypeFilterSupported: boolean | null = null;
 
@@ -605,7 +624,7 @@ class MessengerSocket {
     }
 
     this.ws?.close();
-    this.ws = new WebSocket(`ws://${BASE_WS}/ws?token=${tokens.access}`);
+    this.ws = new WebSocket(`${BASE_WS_URL}/ws?token=${tokens.access}`);
 
     this.ws.onopen = () => {
       console.log("WS подключён");
