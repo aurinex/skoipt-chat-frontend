@@ -1,6 +1,6 @@
 import { Box, Typography, useTheme } from "@mui/material";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { socket, getMyId } from "../../services/api";
 import Navbar from "./Navbar";
 import ChatList from "../Chat/ChatList";
@@ -14,10 +14,12 @@ const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isMobile } = useResponsive();
-  const [activeTab, setActiveTab] = useState<TabKey>("messages");
 
   const theme = useTheme();
   const colors = theme.palette.background;
+  const activeTab: TabKey = location.pathname.startsWith("/miniapps")
+    ? "apps"
+    : "messages";
 
   const {
     updateChatFromMessage,
@@ -98,18 +100,7 @@ const Layout = () => {
     updateChatFromMessage,
   ]);
 
-  useEffect(() => {
-    if (location.pathname.startsWith("/miniapps")) {
-      setActiveTab("apps");
-      return;
-    }
-
-    setActiveTab("messages");
-  }, [location.pathname]);
-
   const handleTabChange = (value: TabKey) => {
-    setActiveTab(value);
-
     if (value === "apps") {
       navigate("/miniapps");
       return;

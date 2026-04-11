@@ -2,7 +2,8 @@ import { Box, IconButton, Tooltip, useTheme } from "@mui/material";
 import SunIcon from "@mui/icons-material/LightModeRounded";
 import MoonIcon from "@mui/icons-material/DarkModeRounded";
 import ComputerIcon from "@mui/icons-material/SettingsBrightnessRounded";
-import { useThemeContext } from "../../theme/ThemeContext";
+import type { ReactNode } from "react";
+import { useThemeContext, type Mode } from "../../theme/themeContext";
 
 interface ThemeSwitcherProps {
   orientation?: "vertical" | "horizontal";
@@ -13,7 +14,7 @@ const ThemeSwitcher = ({ orientation = "horizontal" }: ThemeSwitcherProps) => {
   const theme = useTheme();
   const colors = theme.palette.background;
 
-  const modes = [
+  const modes: Array<{ value: Mode; icon: ReactNode; label: string }> = [
     { value: "light", icon: <SunIcon fontSize="small" />, label: "Светлая" },
     {
       value: "system",
@@ -50,7 +51,7 @@ const ThemeSwitcher = ({ orientation = "horizontal" }: ThemeSwitcherProps) => {
             arrow
           >
             <IconButton
-              onClick={() => setMode(m.value as any)}
+              onClick={() => setMode(m.value)}
               sx={{
                 width: 36,
                 height: 36,

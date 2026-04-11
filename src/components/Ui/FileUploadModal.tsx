@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -75,25 +75,24 @@ const validateFiles = (
 };
 
 const useBlobUrl = (file: File | null): string | null => {
-  const [url, setUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!file) {
-      setUrl(null);
-      return;
-    }
+  const objectUrl = useMemo(() => {
+    if (!file) return null;
     if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
-      setUrl(null);
-      return;
+      return null;
     }
-    const objectUrl = URL.createObjectURL(file);
-    setUrl(objectUrl);
-    return () => {
-      URL.revokeObjectURL(objectUrl);
-    };
+
+    return URL.createObjectURL(file);
   }, [file]);
 
-  return url;
+  useEffect(() => {
+    return () => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [objectUrl]);
+
+  return objectUrl;
 };
 
 const FileThumb = ({
@@ -332,8 +331,7 @@ const SelectedFilePreview = ({
   );
 };
 
-const FileUploadModal = ({
-  open,
+const FileUploadModalContent = ({
   files,
   onClose,
   onSend,
@@ -341,18 +339,22 @@ const FileUploadModal = ({
   onRemove,
   colors,
   initialCaption = "",
-}: FileUploadModalProps) => {
+}: Omit<FileUploadModalProps, "open">) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isSending, setIsSending] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<ValidationError[]>(
-    [],
-  );
-  const [caption, setCaption] = useState(initialCaption || "");
+  const [caption, setCaption] = useState(initialCaption);
   const addMoreRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
-  const safeIndex =
+  const focusTimeoutRef = useRef<number | null>(null);
+
+  const validationErrors = useMemo(
+    () => validateFiles(files).errors,
+    [files],
+  );
+  const effectiveSelectedIndex =
     files.length > 0 ? Math.min(selectedIndex, files.length - 1) : 0;
-  const selectedFile = files[safeIndex] ?? null;
+  const selectedFile = files[effectiveSelectedIndex] ?? null;
 
   // Индексы файлов с ошибками валидации (для подсветки миниатюр)
   const errorFileNames = new Set(validationErrors.map((e) => e.file));
@@ -367,40 +369,17 @@ const FileUploadModal = ({
   const hasInvalidFiles = invalidFileIndices.size > 0;
   const canSend = validFiles.length > 0 && !isSending;
 
-  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
-
   useEffect(() => {
-    if (open) {
-      // даём модалке отрендериться
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
-    }
-  }, [open]);
+    focusTimeoutRef.current = window.setTimeout(() => {
+      inputRef.current?.focus();
+    }, 100);
 
-  useEffect(() => {
-    if (open) {
-      setCaption(initialCaption || "");
-    }
-  }, [open, initialCaption]);
-
-  useEffect(() => {
-    if (safeIndex !== selectedIndex) setSelectedIndex(safeIndex);
-  }, [safeIndex]);
-
-  useEffect(() => {
-    if (!open) {
-      setCaption("");
-      setIsSending(false);
-      setValidationErrors([]);
-    }
-  }, [open]);
-
-  // Валидируем при каждом изменении списка файлов
-  useEffect(() => {
-    const { errors } = validateFiles(files);
-    setValidationErrors(errors);
-  }, [files]);
+    return () => {
+      if (focusTimeoutRef.current !== null) {
+        window.clearTimeout(focusTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleAddMore = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newFiles = Array.from(e.target.files || []);
@@ -427,9 +406,237 @@ const FileUploadModal = ({
   };
 
   return (
+    <Box
+      sx={{
+        position: "absolute",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        width: { xs: "95vw", sm: 480 },
+        maxHeight: "90vh",
+        bgcolor: colors.second,
+        borderRadius: "20px",
+        boxShadow: "0 24px 60px rgba(0,0,0,0.4)",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }}
+    >
+      {/* Шапка */}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          p: "16px 20px 12px",
+        }}
+      >
+        <Typography
+          sx={{ fontWeight: 600, color: colors.sixth, fontSize: "1rem" }}
+        >
+          {isSending ? "Отправка..." : "Отправить файлы"}
+        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Typography sx={{ fontSize: "0.8rem", color: colors.fiveth }}>
+            {files.length} / {MAX_FILES}
+          </Typography>
+          <IconButton
+            size="small"
+            onClick={onClose}
+            disabled={isSending}
+            sx={{ color: colors.fiveth }}
+          >
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      </Box>
+
+      {/* Блок ошибок валидации */}
+      {validationErrors.length > 0 && !isSending && (
+        <Box
+          sx={{
+            mx: 2,
+            mb: 1,
+            p: "10px 14px",
+            bgcolor: "rgba(255,77,79,0.1)",
+            borderRadius: "10px",
+            border: "1px solid rgba(255,77,79,0.3)",
+          }}
+        >
+          <Typography
+            sx={{
+              fontSize: "0.75rem",
+              color: "#ff4d4f",
+              fontWeight: 600,
+              mb: 0.5,
+            }}
+          >
+            {validationErrors.length === 1
+              ? "Файл не будет отправлен:"
+              : "Файлы не будут отправлены:"}
+          </Typography>
+          {validationErrors.map((err, i) => (
+            <Typography
+              key={i}
+              sx={{ fontSize: "0.72rem", color: "#ff7875" }}
+              noWrap
+            >
+              • {err.file} — {err.reason}
+            </Typography>
+          ))}
+        </Box>
+      )}
+
+      {/* Превью */}
+      <SelectedFilePreview file={selectedFile} colors={colors} />
+
+      {/* Полоска миниатюр */}
+      {files.length > 0 && (
+        <Box
+          sx={{
+            display: "flex",
+            gap: 1,
+            px: 2,
+            pt: 1.5,
+            pb: 0.5,
+            overflowX: "auto",
+            alignItems: "center",
+            "&::-webkit-scrollbar": { height: 4 },
+            "&::-webkit-scrollbar-thumb": {
+              bgcolor: colors.fourth,
+              borderRadius: 2,
+            },
+          }}
+        >
+          {files.map((file, i) => (
+            <FileThumb
+              key={`${file.name}-${file.size}-${i}`}
+              file={file}
+              isSelected={i === effectiveSelectedIndex}
+              hasError={invalidFileIndices.has(i)}
+              onSelect={() => setSelectedIndex(i)}
+              onRemove={() => onRemove(i)}
+              disabled={isSending}
+              colors={colors}
+            />
+          ))}
+
+          {files.length < MAX_FILES && !isSending && (
+            <Box
+              onClick={() => addMoreRef.current?.click()}
+              sx={{
+                width: 64,
+                height: 64,
+                borderRadius: "10px",
+                border: `2px dashed ${colors.fiveth}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                flexShrink: 0,
+                "&:hover": { borderColor: colors.eighth },
+              }}
+            >
+              <AddIcon sx={{ color: colors.fiveth }} />
+            </Box>
+          )}
+          <input
+            ref={addMoreRef}
+            type="file"
+            hidden
+            multiple
+            accept="image/*,video/mp4,audio/*,application/pdf"
+            onChange={handleAddMore}
+          />
+        </Box>
+      )}
+
+      {/* Caption + кнопка */}
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          p: "12px 16px 16px",
+        }}
+      >
+        <TextField
+          inputRef={inputRef}
+          onPaste={() => {
+            inputRef.current?.focus();
+          }}
+          fullWidth
+          placeholder={
+            hasInvalidFiles && validFiles.length > 0
+              ? `Отправить ${validFiles.length} из ${files.length} файлов...`
+              : "Добавить подпись..."
+          }
+          variant="standard"
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          onKeyDown={handleKeyDown}
+          multiline
+          maxRows={3}
+          disabled={isSending}
+          InputProps={{
+            disableUnderline: true,
+            sx: {
+              color: colors.sixth,
+              bgcolor: colors.fourth,
+              borderRadius: "20px",
+              px: 2,
+              py: 1,
+              fontSize: "0.95rem",
+              opacity: isSending ? 0.5 : 1,
+            },
+          }}
+        />
+        <IconButton
+          onClick={handleSend}
+          disabled={!canSend}
+          sx={{
+            bgcolor: colors.eighth,
+            color: "#fff",
+            width: 44,
+            height: 44,
+            flexShrink: 0,
+            "&:hover": { bgcolor: colors.eighth, opacity: 0.85 },
+            "&.Mui-disabled": {
+              bgcolor: colors.eighth,
+              opacity: 0.5,
+              color: "#fff",
+            },
+          }}
+        >
+          {isSending ? (
+            <CircularProgress size={20} sx={{ color: "#fff" }} />
+          ) : (
+            <SendIcon sx={{ fontSize: 20 }} />
+          )}
+        </IconButton>
+      </Box>
+    </Box>
+  );
+};
+
+const FileUploadModal = ({
+  open,
+  files,
+  onClose,
+  onSend,
+  onAddMore,
+  onRemove,
+  colors,
+  initialCaption = "",
+}: FileUploadModalProps) => {
+  const modalKey = `${initialCaption}:${files
+    .map((file) => `${file.name}-${file.size}-${file.lastModified}`)
+    .join("|")}`;
+
+  return (
     <Modal
       open={open}
-      onClose={isSending ? undefined : onClose}
+      onClose={onClose}
       closeAfterTransition
       slots={{ backdrop: Backdrop }}
       slotProps={{ backdrop: { timeout: 200 } }}
@@ -437,215 +644,19 @@ const FileUploadModal = ({
       disableEnforceFocus
     >
       <Fade in={open}>
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: { xs: "95vw", sm: 480 },
-            maxHeight: "90vh",
-            bgcolor: colors.second,
-            borderRadius: "20px",
-            boxShadow: "0 24px 60px rgba(0,0,0,0.4)",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
-        >
-          {/* Шапка */}
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              p: "16px 20px 12px",
-            }}
-          >
-            <Typography
-              sx={{ fontWeight: 600, color: colors.sixth, fontSize: "1rem" }}
-            >
-              {isSending ? "Отправка..." : "Отправить файлы"}
-            </Typography>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Typography sx={{ fontSize: "0.8rem", color: colors.fiveth }}>
-                {files.length} / {MAX_FILES}
-              </Typography>
-              <IconButton
-                size="small"
-                onClick={onClose}
-                disabled={isSending}
-                sx={{ color: colors.fiveth }}
-              >
-                <CloseIcon fontSize="small" />
-              </IconButton>
-            </Box>
-          </Box>
-
-          {/* Блок ошибок валидации */}
-          {validationErrors.length > 0 && !isSending && (
-            <Box
-              sx={{
-                mx: 2,
-                mb: 1,
-                p: "10px 14px",
-                bgcolor: "rgba(255,77,79,0.1)",
-                borderRadius: "10px",
-                border: "1px solid rgba(255,77,79,0.3)",
-              }}
-            >
-              <Typography
-                sx={{
-                  fontSize: "0.75rem",
-                  color: "#ff4d4f",
-                  fontWeight: 600,
-                  mb: 0.5,
-                }}
-              >
-                {validationErrors.length === 1
-                  ? "Файл не будет отправлен:"
-                  : "Файлы не будут отправлены:"}
-              </Typography>
-              {validationErrors.map((err, i) => (
-                <Typography
-                  key={i}
-                  sx={{ fontSize: "0.72rem", color: "#ff7875" }}
-                  noWrap
-                >
-                  • {err.file} — {err.reason}
-                </Typography>
-              ))}
-            </Box>
-          )}
-
-          {/* Превью */}
-          <SelectedFilePreview file={selectedFile} colors={colors} />
-
-          {/* Полоска миниатюр */}
-          {files.length > 0 && (
-            <Box
-              sx={{
-                display: "flex",
-                gap: 1,
-                px: 2,
-                pt: 1.5,
-                pb: 0.5,
-                overflowX: "auto",
-                alignItems: "center",
-                "&::-webkit-scrollbar": { height: 4 },
-                "&::-webkit-scrollbar-thumb": {
-                  bgcolor: colors.fourth,
-                  borderRadius: 2,
-                },
-              }}
-            >
-              {files.map((file, i) => (
-                <FileThumb
-                  key={`${file.name}-${file.size}-${i}`}
-                  file={file}
-                  isSelected={i === safeIndex}
-                  hasError={invalidFileIndices.has(i)}
-                  onSelect={() => setSelectedIndex(i)}
-                  onRemove={() => onRemove(i)}
-                  disabled={isSending}
-                  colors={colors}
-                />
-              ))}
-
-              {files.length < MAX_FILES && !isSending && (
-                <Box
-                  onClick={() => addMoreRef.current?.click()}
-                  sx={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: "10px",
-                    border: `2px dashed ${colors.fiveth}`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    flexShrink: 0,
-                    "&:hover": { borderColor: colors.eighth },
-                  }}
-                >
-                  <AddIcon sx={{ color: colors.fiveth }} />
-                </Box>
-              )}
-              <input
-                ref={addMoreRef}
-                type="file"
-                hidden
-                multiple
-                accept="image/*,video/mp4,audio/*,application/pdf"
-                onChange={handleAddMore}
-              />
-            </Box>
-          )}
-
-          {/* Caption + кнопка */}
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1,
-              p: "12px 16px 16px",
-            }}
-          >
-            <TextField
-              inputRef={inputRef}
-              onPaste={() => {
-                inputRef.current?.focus();
-              }}
-              fullWidth
-              placeholder={
-                hasInvalidFiles && validFiles.length > 0
-                  ? `Отправить ${validFiles.length} из ${files.length} файлов...`
-                  : "Добавить подпись..."
-              }
-              variant="standard"
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              onKeyDown={handleKeyDown}
-              multiline
-              maxRows={3}
-              disabled={isSending}
-              InputProps={{
-                disableUnderline: true,
-                sx: {
-                  color: colors.sixth,
-                  bgcolor: colors.fourth,
-                  borderRadius: "20px",
-                  px: 2,
-                  py: 1,
-                  fontSize: "0.95rem",
-                  opacity: isSending ? 0.5 : 1,
-                },
-              }}
+        <Box>
+          {open ? (
+            <FileUploadModalContent
+              key={modalKey}
+              files={files}
+              onClose={onClose}
+              onSend={onSend}
+              onAddMore={onAddMore}
+              onRemove={onRemove}
+              colors={colors}
+              initialCaption={initialCaption}
             />
-            <IconButton
-              onClick={handleSend}
-              disabled={!canSend}
-              sx={{
-                bgcolor: colors.eighth,
-                color: "#fff",
-                width: 44,
-                height: 44,
-                flexShrink: 0,
-                "&:hover": { bgcolor: colors.eighth, opacity: 0.85 },
-                "&.Mui-disabled": {
-                  bgcolor: colors.eighth,
-                  opacity: 0.5,
-                  color: "#fff",
-                },
-              }}
-            >
-              {isSending ? (
-                <CircularProgress size={20} sx={{ color: "#fff" }} />
-              ) : (
-                <SendIcon sx={{ fontSize: 20 }} />
-              )}
-            </IconButton>
-          </Box>
+          ) : null}
         </Box>
       </Fade>
     </Modal>

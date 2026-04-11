@@ -1,17 +1,17 @@
-import { createContext, useContext, useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   ThemeProvider as MuiThemeProvider,
   createTheme,
 } from "@mui/material/styles";
 import type { PaletteMode } from "@mui/material";
-
 import CssBaseline from "@mui/material/CssBaseline";
+import {
+  ThemeContext,
+  type Mode,
+  type ThemeProviderProps,
+} from "./themeContext";
 
-type Mode = "light" | "dark" | "system";
-
-const ThemeContext = createContext<any>(null);
-
-export const ThemeProvider = ({ children }: any) => {
+export const ThemeProvider = ({ children }: ThemeProviderProps) => {
   const [mode, setModeState] = useState<Mode>(
     (localStorage.getItem("theme") as Mode) || "system",
   );
@@ -109,5 +109,3 @@ export const ThemeProvider = ({ children }: any) => {
     </ThemeContext.Provider>
   );
 };
-
-export const useThemeContext = () => useContext(ThemeContext);
