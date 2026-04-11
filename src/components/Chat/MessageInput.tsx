@@ -3,7 +3,6 @@ import { Box, TextField, IconButton, useTheme } from "@mui/material";
 import { socket } from "../../services/api";
 import { useState } from "react";
 import EmojiEmotionsIcon from "@mui/icons-material/EmojiEmotionsRounded";
-import type { Theme } from "emoji-picker-react";
 
 import FileCustomIcon from "../../assets/icons/file.svg?react";
 import MicCustomIcon from "../../assets/icons/micro.svg?react";
@@ -11,7 +10,7 @@ import SendCustomIcon from "../../assets/icons/send.svg?react";
 import type { Message } from "../../types";
 import type { AppColors } from "../../types/theme";
 
-const EmojiPicker = lazy(() => import("emoji-picker-react"));
+const EmojiPickerPanel = lazy(() => import("./EmojiPickerPanel"));
 
 interface MessageInputProps {
   chatId: string | undefined;
@@ -44,9 +43,7 @@ const MessageInput = ({
   const pickerRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const muiTheme = useTheme();
-  const emojiTheme = (muiTheme.palette.mode === "dark"
-    ? "dark"
-    : "light") as Theme;
+  const emojiTheme = muiTheme.palette.mode === "dark" ? "dark" : "light";
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -207,11 +204,10 @@ const MessageInput = ({
           }}
         >
           <Suspense fallback={<Box sx={{ width: 320, height: 420 }} />}>
-            <EmojiPicker
-              searchDisabled={true}
+            <EmojiPickerPanel
               theme={emojiTheme}
-              onEmojiClick={(emojiData) => {
-                onChange(value + emojiData.emoji);
+              onEmojiSelect={(emoji) => {
+                onChange(value + emoji);
               }}
             />
           </Suspense>
