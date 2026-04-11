@@ -11,8 +11,8 @@ import type {
 
 // const BASE_URL = "http://localhost:8000";
 // const BASE_WS = "localhost:8000";
-const BASE_URL = "http://10.10.10.5:8000";
-const BASE_WS = "10.10.10.5:8000";
+const BASE_URL = "http://185.189.15.29:8010";
+const BASE_WS = "185.189.15.29:8010";
 // const BASE_URL = "http://192.168.51.143:8000";
 // const BASE_WS = "192.168.51.143:8000";
 
